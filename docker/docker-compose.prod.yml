@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  api:
+    image: security-robot-rl/api:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - '8000:8000'
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./security_robot.db
+      - REDIS_URL=redis://redis:6379/0
+      - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
