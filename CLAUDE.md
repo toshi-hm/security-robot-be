@@ -96,3 +96,44 @@ Settings managed via `app.core.config.Settings` (Pydantic BaseSettings):
 ## Project Context
 
 This backend is designed to be moved into its own repository. The codebase includes placeholder modules intended for incremental implementation. The RL system supports multiple algorithms (PPO, A3C) with custom environments and callbacks for training security-related agents.
+
+## Progress Tracking
+
+**IMPORTANT**: Before starting any implementation work, ALWAYS read the following files:
+
+1. **`report/PROGRESS.md`** - Current implementation status
+   - Shows what's completed and what's TODO
+   - Contains known issues and next action items
+   - Updated frequently during implementation
+
+2. **`report/DIARY.md`** - Development session log
+   - Records what was done in each session
+   - Contains learnings and insights
+   - Helps understand the project history
+
+### Workflow for Each Session
+
+1. **Start of Session:**
+   - Read `report/PROGRESS.md` to understand current status
+   - Read `report/DIARY.md` to see recent work and context
+   - Check "Next Action Items" in PROGRESS.md
+
+2. **During Implementation:**
+   - Update `report/PROGRESS.md` as you complete tasks
+   - Mark items as completed (✅) or in-progress (🔄)
+   - Add new TODOs or issues as discovered
+
+3. **End of Session:**
+   - Add a new entry to `report/DIARY.md` documenting:
+     - Session goals
+     - What was implemented
+     - Deliverables
+     - Learnings and insights
+     - Next session plans
+   - Update `report/PROGRESS.md` final status
+
+### Progress File Guidelines
+
+- **PROGRESS.md**: Edit freely to reflect current state
+- **DIARY.md**: Append only (don't edit past entries)
+- Both files are critical for maintaining context across sessions
