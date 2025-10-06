@@ -145,9 +145,10 @@ components/         # プレゼンテーション層(表示のみ)
 - Uvicorn: ASGI サーバー
 - SQLAlchemy 2.0: ORM(非同期対応)
 - Alembic: データベースマイグレーション
-- Pydantic 2.5: データバリデーション・シリアライゼーション
-- PyTorch: 深層学習フレームワーク
-- Stable-Baselines3: PPO実装ライブラリ
+- Pydantic 2.10: データバリデーション・シリアライゼーション
+- PyTorch 2.5: 深層学習フレームワーク
+- Stable-Baselines3 2.4: PPO実装ライブラリ
+- Gymnasium 1.0: 強化学習環境インターフェース
 - Celery: 分散タスクキュー
 - Redis: メッセージブローカー・キャッシュ
 - PostgreSQL: リレーショナルデータベース

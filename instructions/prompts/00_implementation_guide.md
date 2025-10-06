@@ -48,18 +48,18 @@ pydantic-settings==2.1.0
 sqlalchemy==2.0.23
 alembic==1.12.1
 psycopg2-binary==2.9.9
-redis==5.0.1
-celery==5.3.4
-python-multipart==0.0.6
-websockets==12.0
-torch==2.1.1
-stable-baselines3==2.2.1
-gymnasium==0.29.1
-numpy==1.24.3
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-httpx==0.25.2
+redis==5.2.1
+celery==5.5.0
+python-multipart==0.0.20
+websockets==15.0.1
+torch==2.5.1
+stable-baselines3==2.4.0
+gymnasium==1.0.0
+numpy==1.26.4
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
 EOF
 
 pip install -r requirements.txt

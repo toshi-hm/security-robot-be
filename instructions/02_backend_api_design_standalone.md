@@ -20,9 +20,9 @@
 - **Redis 7**: メッセージブローカー、キャッシュ、Pub/Sub
 
 **強化学習:**
-- **PyTorch 2.1**: 深層学習フレームワーク
-- **Stable-Baselines3 2.2**: PPO実装
-- **Gymnasium 0.29**: 強化学習環境インターフェース
+- **PyTorch 2.5**: 深層学習フレームワーク
+- **Stable-Baselines3 2.4**: PPO実装
+- **Gymnasium 1.0**: 強化学習環境インターフェース
 
 **選定理由:**
 - FastAPIは非同期処理とOpenAPI自動生成により開発効率向上

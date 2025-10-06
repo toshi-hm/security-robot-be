@@ -209,12 +209,12 @@ class SecurityEnvironment(gym.Env):
 
 ### バックエンド
 - **言語:** Python 3.12
-- **Webフレームワーク:** FastAPI 0.104+
+- **Webフレームワーク:** FastAPI 0.115+
 - **データベース:** PostgreSQL 15
 - **ORM:** SQLAlchemy 2.0
-- **タスクキュー:** Celery 5.3
+- **タスクキュー:** Celery 5.5
 - **メッセージブローカー:** Redis 7
-- **強化学習:** PyTorch 2.1, Stable-Baselines3 2.2
+- **強化学習:** PyTorch 2.5, Stable-Baselines3 2.4, Gymnasium 1.0
 
 ### フロントエンド
 - **言語:** TypeScript 5.9
