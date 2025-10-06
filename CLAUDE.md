@@ -172,5 +172,38 @@ When tracking progress, distinguish between:
 ### Progress File Guidelines
 
 - **PROGRESS.md**: Edit freely to reflect current state
-- **DIARY.md**: Append only (don't edit past entries)
+  - Include table of contents with anchor links at the top
+  - Use anchor links for easy navigation between sections
+  
+- **DIARY.md**: Latest entries at the TOP (reverse chronological order)
+  - Include table of contents with anchor links at the top
+  - DO NOT edit past entries, only prepend new sessions above older ones
+  - When adding a new session, insert it AFTER the TOC and BEFORE the previous session
+  - Update the TOC to add the new session link at the top of the list
+
 - Both files are critical for maintaining context across sessions
+
+**DIARY.md Structure Example:**
+```markdown
+# Development Diary
+
+## 📑 Table of Contents
+- [2025-10-07 - Session 3: Latest Work](#session-3-anchor)
+- [2025-10-06 - Session 2: Previous Work](#session-2-anchor)
+- [2025-10-06 - Session 1: Initial Work](#session-1-anchor)
+
+---
+
+## 2025-10-07 - Session 3: Latest Work
+[Latest session content here]
+
+---
+
+## 2025-10-06 - Session 2: Previous Work
+[Previous session content here]
+
+---
+
+## 2025-10-06 - Session 1: Initial Work
+[First session content here]
+```
