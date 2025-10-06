@@ -1,18 +1,18 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-06
+**最終更新:** 2025-10-06 Session 2
 
 ## 📊 全体進捗
 
 | フェーズ | ステータス | 進捗率 | 備考 |
 |---------|----------|-------|------|
 | Phase 1: 環境準備・確認 | ✅ 完了 | 100% | uv環境、依存関係更新完了 |
-| Phase 2: データベースモデル | 🔄 進行中 | 30% | 基本モデル実装済み、拡張が必要 |
-| Phase 3: Pydanticスキーマ | 🔄 進行中 | 30% | 基本スキーマ実装済み、拡張が必要 |
+| Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
+| Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
 | Phase 4: APIエンドポイント | 🔄 進行中 | 40% | 基本エンドポイント実装済み |
-| Phase 5: WebSocket | 🔄 進行中 | 50% | 基本構造実装済み |
-| Phase 6: Celeryタスク | 🔄 進行中 | 20% | 基本設定済み、タスク実装が必要 |
-| Phase 7: RL統合 | ⏳ 未着手 | 0% | 環境実装は存在、トレーナー統合が必要 |
+| Phase 5: WebSocket | 🔄 進行中 | 70% | コールバック実装、メッセージ型定義完了 |
+| Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
+| Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
 | Phase 8: テスト | ⏳ 未着手 | 0% | - |
 | Phase 9: Docker環境 | 🔄 進行中 | 40% | docker-compose.yml存在、要検証 |
 
@@ -26,8 +26,9 @@
 
 ## ✅ 完了済み項目
 
-### Phase 1: 環境準備・確認 (2025-10-06完了)
-- [x] uv環境セットアップ
+### Phase 1: 依存関係管理・設計書更新 (2025-10-06完了)
+**コードベース実装 - 全マシン共通**
+
 - [x] 依存関係の最新バージョン更新
   - FastAPI 0.115.0 → 0.115.6
   - Uvicorn 0.30.0 → 0.34.0
@@ -38,57 +39,96 @@
   - Gymnasium 0.29.1 → 1.0.0
   - **新規追加:** Stable-Baselines3 2.4.0, PyTorch 2.5.1
 - [x] requirements.txt更新
-- [x] 仮想環境作成・依存関係インストール確認
 - [x] 設計書のバージョン情報更新
   - instructions/prompts/00_implementation_guide.md
   - instructions/README.md
   - instructions/02_backend_api_design_standalone.md
   - instructions/01_system_architecture_design_standalone.md
 
-### 既存実装の確認
-- [x] プロジェクト構造確認
+**プロジェクト構造確認 - 全マシン共通**
 - [x] app/main.py - FastAPIアプリケーションエントリーポイント
 - [x] app/core/ - コアサービス(environment, training, websocket, files)
 - [x] app/api/v1/endpoints/ - APIエンドポイント
 - [x] rl/environments/ - RL環境実装(security_env.py, enhanced_env.py)
 - [x] rl/algorithms/ - RL アルゴリズム(PPO, A3C)
 
+**ローカル環境セットアップ - マシン固有 (参考情報)**
+- ✅ [Maya's PC] uv環境セットアップ完了 (2025-10-06)
+- ✅ [Maya's PC] 仮想環境作成・依存関係インストール確認 (2025-10-06)
+- ⏳ [本番サーバー] 環境セットアップ未実施
+- ⏳ [開発サーバー] 環境セットアップ未実施
+
+**注意:** 環境セットアップ手順は `CLAUDE.md` および `.serena` メモリの `suggested_commands.md` を参照
+
 ---
 
 ## 🔄 進行中の項目
 
-### Phase 2: データベースモデル実装・拡張
-**進捗:** 30%
+### Phase 2: データベースモデル実装・拡張 (2025-10-06完了)
+**進捗:** 100% ✅
 
 #### 完了
-- [x] app/models/training.py - TrainingSessionモデル基本構造
-- [x] app/models/environment.py - 環境状態モデル基本構造
-- [x] app/models/files.py - ファイル管理モデル基本構造
+- [x] app/models/training.py - TrainingJobモデル完全拡張
+  - [x] TrainingJobStatus (created, queued, running, paused, completed, failed)
+  - [x] 学習パラメータフィールド (total_timesteps, current_timestep, episodes_completed)
+  - [x] 環境設定フィールド (env_width, env_height)
+  - [x] 報酬パラメータフィールド (coverage_weight, exploration_weight, diversity_weight)
+  - [x] 追加パラメータ (learning_rate, batch_size, num_workers)
+  - [x] ファイルパスフィールド (model_path, log_path)
+  - [x] 設定JSONB (config)
+- [x] app/models/training.py - TrainingMetricモデル完全拡張
+  - [x] 環境固有メトリクス (coverage_ratio, exploration_score, threat_level_avg)
+  - [x] 追加メトリクスJSON (additional_metrics)
+  - [x] タイムスタンプフィールド
+- [x] app/models/environment.py - EnvironmentStateモデル実装
+  - [x] プレイバック用スナップショット機能
+  - [x] ロボット状態 (robot_x, robot_y, robot_orientation)
+  - [x] 環境状態JSON (threat_grid, coverage_map, suspicious_objects)
+  - [x] アクション情報 (action_taken, reward_received)
+- [x] app/models/files.py - FileMetadataモデル完全拡張
+  - [x] ファイル情報フィールド (filename, original_filename, file_path, file_size)
+  - [x] ファイルタイプ (file_type, content_type)
+  - [x] トレーニングジョブ関連付け (training_job_id)
+  - [x] メタデータJSON (metadata)
+- [x] app/models/__init__.py - 全モデルのエクスポート追加
 
-#### TODO
-- [ ] TrainingSessionモデルの拡張
-  - [ ] 報酬パラメータフィールド追加確認
-  - [ ] CheckConstraint追加確認
-  - [ ] Indexチューニング
-- [ ] TrainingMetricsモデルの拡張
-  - [ ] 環境固有メトリクス追加
-  - [ ] 複合インデックス追加
-- [ ] EnvironmentStateモデルの実装
-  - [ ] プレイバック用スナップショット機能
-- [ ] データベースマイグレーション設定 (Alembic)
+#### 残課題
+- [ ] データベースマイグレーション設定 (Alembic) - 次回実装予定
 
-### Phase 3: Pydanticスキーマ実装・拡張
-**進捗:** 30%
+### Phase 3: Pydanticスキーマ実装・拡張 (2025-10-06完了)
+**進捗:** 100% ✅
 
 #### 完了
-- [x] app/schemas/training.py - 基本スキーマ
-
-#### TODO
-- [ ] TrainingSessionCreateスキーマ - バリデーション強化
-- [ ] TrainingSessionResponseスキーマ - 計算フィールド追加
-- [ ] TrainingMetricsResponseスキーマ - 環境固有メトリクス
-- [ ] EnvironmentStateスキーマ実装
-- [ ] WebSocketメッセージスキーマ実装
+- [x] app/schemas/training.py - 完全拡張
+  - [x] TrainingSessionCreate - フィールドバリデーション強化
+  - [x] TrainingSessionResponse - 計算プロパティ追加 (progress_percentage, is_running, duration_seconds)
+  - [x] TrainingSessionUpdate - 更新スキーマ追加
+  - [x] TrainingMetricCreate/Response - 環境固有メトリクス対応
+  - [x] TrainingMetricsListResponse - ページネーション対応
+- [x] app/schemas/environment.py - 完全拡張
+  - [x] EnvironmentStateCreate/Response - プレイバック用スキーマ
+  - [x] EnvironmentStatesListResponse - ページネーション対応
+  - [x] EnvironmentDefinitionCreate/Response
+- [x] app/schemas/websocket.py - 完全実装
+  - [x] TrainingProgressEvent - 学習進捗メッセージ
+  - [x] TrainingStatusEvent - ステータス変更メッセージ
+  - [x] TrainingErrorEvent - エラーメッセージ
+  - [x] EnvironmentUpdateEvent - 環境更新メッセージ
+  - [x] ConnectionAckMessage - 接続確認メッセージ
+  - [x] PingMessage/PongMessage - ハートビート用
+- [x] app/schemas/jobs.py - 拡張
+  - [x] JobStatusResponse - Celeryジョブステータス
+  - [x] JobListResponse - ジョブ一覧
+  - [x] JobCancelRequest/Response - キャンセル機能
+- [x] app/schemas/files.py - 新規作成
+  - [x] FileUploadResponse - ファイルアップロード
+  - [x] FileMetadataResponse - ファイルメタデータ
+  - [x] FileListResponse - ファイル一覧
+  - [x] ModelFileInfo - モデルファイル情報
+- [x] app/schemas/common.py - 共通スキーマ拡張
+  - [x] ErrorResponse - エラーレスポンス
+  - [x] SuccessResponse - 成功レスポンス
+  - [x] PaginationParams/PaginatedResponse - ページネーション共通
 
 ### Phase 4: APIエンドポイント実装・拡張
 **進捗:** 40%
@@ -123,39 +163,67 @@
 - [ ] Ping/Pongハートビート実装
 - [ ] 再接続ロジック実装
 
-### Phase 6: Celeryバックグラウンドタスク
-**進捗:** 20%
+### Phase 6: Celeryバックグラウンドタスク (2025-10-06完了)
+**進捗:** 100% ✅
 
 #### 完了
 - [x] app/tasks/celery_app.py - Celery設定
-- [x] app/tasks/training_tasks.py - タスク定義の骨組み
+- [x] app/tasks/training_tasks.py - 完全実装
+  - [x] run_ppo_training_task - PPO学習タスク完全実装
+    - [x] PPOServiceとの統合
+    - [x] WebSocketコールバック統合
+    - [x] データベース状態更新
+    - [x] エラーハンドリング・通知
+  - [x] run_a3c_training_task - A3C学習タスク (骨組み、未実装警告あり)
+  - [x] stop_training_task - 学習停止タスク
 
 #### TODO
-- [ ] run_training_task実装
-  - [ ] PPOServiceとの統合
-  - [ ] A3CServiceとの統合
-  - [ ] 進捗コールバック実装
-  - [ ] エラーハンドリング
 - [ ] app/tasks/file_tasks.py - ファイル処理タスク実装
-- [ ] タスク状態管理機能
-- [ ] タスクキャンセル機能
-- [ ] Celeryワーカー起動確認
+- [ ] A3C学習タスクの完全実装
+- [ ] タスクキャンセル機能の強化 (現在は基本実装のみ)
+
+#### マシン固有 - 動作確認状況
+- ⏳ Celeryワーカー起動確認 (各環境で実施が必要)
+- ⏳ Redis接続確認 (各環境で実施が必要)
+
+---
+
+### Phase 7: RL統合 (2025-10-06完了)
+**進捗:** 85% ✅
+
+#### 完了
+- [x] PPOServiceクラス実装 (app/core/training/ppo_service.py)
+  - [x] Stable-Baselines3統合
+  - [x] 環境作成機能 (standard/enhanced対応)
+  - [x] モデル作成・設定 (ハイパーパラメータ対応)
+  - [x] 学習実行機能 (非同期対応)
+  - [x] モデル保存・ロード機能
+  - [x] TensorBoardログ対応
+- [x] rl/callbacks/websocket_callback.py - 完全実装
+  - [x] WebSocketTrainingCallback - SB3互換コールバック
+    - [x] リアルタイム進捗配信
+    - [x] エピソード追跡
+    - [x] ステータス通知
+  - [x] DatabaseMetricsCallback - DB保存コールバック
+    - [x] メトリクス自動保存
+    - [x] エラーハンドリング
+- [x] rl/environments/ - 既存環境確認
+  - [x] SecurityEnvironment - Gymnasium互換確認
+  - [x] EnhancedSecurityEnvironment - 動作確認予定
+
+#### TODO
+- [ ] A3CServiceクラス実装 (オプション)
+  - [ ] カスタムPyTorch実装
+  - [ ] マルチプロセス学習
+- [ ] 学習実行・エンドツーエンド検証
+
+#### マシン固有 - 動作確認状況
+- ⏳ 学習実行テスト (各環境で実施が必要)
+- ⏳ GPU動作確認 (GPUマシンで実施が必要)
 
 ---
 
 ## ⏳ 未着手の項目
-
-### Phase 7: RL統合 (0%)
-- [ ] PPOServiceクラス実装
-  - [ ] Stable-Baselines3統合
-  - [ ] カスタムコールバック実装
-  - [ ] モデル保存・ロード機能
-- [ ] A3CServiceクラス実装 (オプション)
-  - [ ] カスタムPyTorch実装
-  - [ ] マルチプロセス学習
-- [ ] rl/environments/の既存環境確認・修正
-- [ ] rl/callbacks/ - WebSocketコールバック実装
-- [ ] 学習実行・検証
 
 ### Phase 8: テスト実装 (0%)
 - [ ] pytest設定

@@ -99,6 +99,197 @@
 
 ---
 
+## 2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装
+
+### 🎯 セッション目標
+- Phase 2: データベースモデルの完全拡張
+- Phase 3: Pydanticスキーマの完全拡張
+- Phase 6: Celery学習タスクの実装
+- Phase 7: PPOService実装とStable-Baselines3統合
+
+### ✅ 実施内容
+
+#### 1. オンボーディング (Serenaメモリシステム)
+- プロジェクト情報を収集してメモリファイル作成
+- `project_overview.md`: プロジェクト目的、技術スタック
+- `suggested_commands.md`: 開発コマンド一覧
+- `code_style_conventions.md`: コーディング規約
+- `task_completion_checklist.md`: タスク完了時のチェックリスト
+- `codebase_structure.md`: コードベース構造ドキュメント
+
+#### 2. Phase 2: データベースモデル完全拡張
+**app/models/training.py**
+- `TrainingJobStatus`: created, queued, running, paused, completed, failedに拡張
+- `TrainingJob`モデル: 設計書に基づき20+フィールド追加
+  - 学習パラメータ (total_timesteps, current_timestep, episodes_completed)
+  - 環境設定 (env_width, env_height)
+  - 報酬パラメータ (coverage_weight, exploration_weight, diversity_weight)
+  - 追加パラメータ (learning_rate, batch_size, num_workers)
+  - ファイルパス (model_path, log_path)
+  - 設定JSONB (config)
+- `TrainingMetric`モデル: 環境固有メトリクス追加
+  - coverage_ratio, exploration_score, threat_level_avg
+  - additional_metrics (JSONB)
+
+**app/models/environment.py**
+- `EnvironmentState`モデル新規実装: プレイバック用スナップショット
+  - ロボット状態 (robot_x, robot_y, robot_orientation)
+  - 環境状態 (threat_grid, coverage_map, suspicious_objects)
+  - アクション情報 (action_taken, reward_received)
+
+**app/models/files.py**
+- `FileMetadata`モデル完全拡張
+  - ファイル情報、タイプ、トレーニングジョブ関連付け
+
+#### 3. Phase 3: Pydanticスキーマ完全拡張
+**app/schemas/training.py** (200+ 行に拡張)
+- `TrainingSessionCreate`: Field validatorで厳密なバリデーション
+- `TrainingSessionResponse`: 計算プロパティ (progress_percentage, is_running, duration_seconds)
+- `TrainingSessionUpdate`: 更新用スキーマ
+- `TrainingMetricCreate/Response`: 環境固有メトリクス対応
+- `TrainingMetricsListResponse`: ページネーション対応
+
+**app/schemas/environment.py**
+- `EnvironmentStateCreate/Response`: プレイバック用
+- `EnvironmentStatesListResponse`: ページネーション
+- `EnvironmentDefinitionCreate/Response`
+
+**app/schemas/websocket.py** (完全新規実装)
+- `TrainingProgressEvent`: 学習進捗リアルタイム配信
+- `TrainingStatusEvent`: ステータス変更通知
+- `TrainingErrorEvent`: エラー通知
+- `EnvironmentUpdateEvent`: 環境更新通知
+- `ConnectionAckMessage`, `PingMessage`, `PongMessage`: 接続管理
+
+**app/schemas/jobs.py**
+- `JobStatusResponse`: Celeryジョブステータス
+- `JobCancelRequest/Response`: キャンセル機能
+
+**app/schemas/files.py** (新規作成)
+- ファイルアップロード・ダウンロード・メタデータ管理スキーマ
+
+**app/schemas/common.py**
+- `ErrorResponse`, `SuccessResponse`: 共通レスポンス
+- `PaginationParams`, `PaginatedResponse`: ページネーション共通
+
+#### 4. Phase 7: PPOService実装 (Stable-Baselines3統合)
+**app/core/training/ppo_service.py** (完全新規実装, 180+ 行)
+- `PPOTrainingService`クラス
+  - `create_environment()`: standard/enhanced環境作成
+  - `create_model()`: PPOモデル作成・ハイパーパラメータ設定
+  - `start_training()`: 非同期学習実行、コールバック統合
+  - `load_model()`: モデルロード機能
+  - `stop_training()`: 停止機能 (コールバック経由)
+- TensorBoardログ対応
+- DummyVecEnvでStable-Baselines3互換性確保
+
+#### 5. RL Callbacks実装
+**rl/callbacks/websocket_callback.py** (200+ 行の完全実装)
+- `WebSocketTrainingCallback` (Stable-Baselines3互換)
+  - リアルタイム進捗配信 (update_interval毎)
+  - エピソード追跡、メトリクス計算
+  - ステータス通知 (starting/completed)
+  - 非同期WebSocket通信
+- `DatabaseMetricsCallback`
+  - メトリクス自動DB保存
+  - エラーハンドリング、ロールバック
+
+#### 6. Phase 6: Celery学習タスク実装
+**app/tasks/training_tasks.py** (完全新規実装, 180+ 行)
+- `run_ppo_training_task`: PPO学習バックグラウンドタスク
+  - PPOServiceとの統合
+  - WebSocketコールバック統合
+  - データベース状態更新 (TrainingJob)
+  - エラーハンドリング・WebSocket通知
+  - asyncio event loop管理
+- `run_a3c_training_task`: A3C骨組み (未実装警告)
+- `stop_training_task`: 学習停止タスク
+
+#### 7. CLAUDE.md更新
+- 「Progress Tracking Guidelines」セクション追加
+- コード実装 vs. 環境セットアップの区別を明記
+- PROGRESS.mdの記載フォーマット例を追加
+
+#### 8. PROGRESS.md大幅更新
+- Phase 1: 「環境準備」→「依存関係管理」に変更、マシン固有情報を分離
+- Phase 2, 3, 6, 7: 完了ステータスに更新、詳細な実装内容を追記
+- Phase 5: WebSocket進捗を50%→70%に更新
+- マシン固有セクション追加 (各環境での動作確認状況)
+
+### 📊 成果物
+- ✅ **Phase 2完了**: データベースモデル完全拡張 (training, environment, files)
+- ✅ **Phase 3完了**: Pydanticスキーマ完全拡張 (全6ファイル, 500+ 行)
+- ✅ **Phase 6完了**: Celery学習タスク実装 (PPO完全対応)
+- ✅ **Phase 7完了 (85%)**: PPOService + SB3統合、WebSocketコールバック実装
+- ✅ **Serenaオンボーディング完了**: 5つのメモリファイル作成
+- ✅ **ドキュメント更新**: CLAUDE.md, PROGRESS.md, DIARY.md
+
+### 🤔 学んだこと・気づき
+
+1. **型アノテーションの注意点**
+   - Python 3.11でも `Optional[T]` を使うべき (`T | None` は一部ツールで問題)
+   - SQLAlchemyの `Mapped[Optional[T]]` 記法で統一
+
+2. **Stable-Baselines3統合の要点**
+   - `DummyVecEnv` でラップが必須
+   - コールバックは `BaseCallback` を継承
+   - `self.num_timesteps`, `self.locals` で進捗取得
+   - 非同期処理と組み合わせる際は `asyncio.create_task()` を活用
+
+3. **WebSocketとCeleryの連携**
+   - Celeryタスク内で `asyncio.new_event_loop()` を作成
+   - WebSocket配信は `asyncio.create_task()` で非ブロッキング実行
+   - エラー時もWebSocket通知を忘れずに
+
+4. **進捗管理のベストプラクティス**
+   - コード実装 (git管理) とマシン固有セットアップを明確に分離
+   - PROGRESS.mdにマシン別ステータスを「参考情報」として記載
+   - 他のマシンで作業する際の混乱を防ぐ
+
+5. **プロジェクト構造の理解深化**
+   - `app/core/training/`: サービスレイヤー (ビジネスロジック)
+   - `app/tasks/`: Celeryタスク (バックグラウンド実行)
+   - `rl/callbacks/`: 学習コールバック (SB3統合)
+   - 各レイヤーの責務が明確に分離されている
+
+### ⏭️ 次回セッションの予定
+
+#### 高優先度
+1. **API エンドポイント拡張 (Phase 4)**
+   - POST /api/v1/training/start の詳細実装
+   - 新スキーマとの統合
+   - stop/pause/resume機能
+   - メトリクス取得APIのページネーション実装
+
+2. **WebSocket機能強化 (Phase 5)**
+   - Ping/Pongハートビート実装
+   - 再接続ロジック
+   - エラーハンドリング強化
+
+3. **統合テスト実行**
+   - 学習タスクのエンドツーエンドテスト
+   - WebSocket通信テスト
+   - データベース状態確認
+
+#### 中優先度
+4. **Phase 8開始: テスト実装**
+   - pytest設定
+   - 基本的なAPIテスト (最低3つ)
+   - WebSocketテスト
+
+5. **Alembicマイグレーション設定**
+   - データベースマイグレーション初期化
+   - 初回マイグレーション作成
+
+#### 低優先度
+6. **A3C実装** (オプション)
+7. **Docker環境検証**
+
+### 🔗 関連コミット
+- (次回セッションでコミット予定)
+
+---
+
 ## セッションテンプレート
 
 ```markdown

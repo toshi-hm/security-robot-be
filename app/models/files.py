@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,6 +7,21 @@ from app.models.base import Base
 
 
 class FileMetadata(Base):
-  path: Mapped[str] = mapped_column(String(255))
-  kind: Mapped[str] = mapped_column(String(50))
-  content_type: Mapped[str] = mapped_column(String(100))
+  """Metadata for uploaded files (models, logs, etc.)."""
+  
+  # File information
+  filename: Mapped[str] = mapped_column(String(255))
+  original_filename: Mapped[str] = mapped_column(String(255))
+  file_path: Mapped[str] = mapped_column(String(512))
+  file_size: Mapped[int] = mapped_column()  # Size in bytes
+  
+  # File type
+  file_type: Mapped[str] = mapped_column(String(50))  # 'model', 'log', 'config', etc.
+  content_type: Mapped[str] = mapped_column(String(100))  # MIME type
+  
+  # Optional association with training job
+  training_job_id: Mapped[Optional[int]] = mapped_column(default=None)
+  
+  # Metadata
+  description: Mapped[Optional[str]] = mapped_column(String(500), default=None)
+  metadata: Mapped[Optional[dict]] = mapped_column(default=None)  # Additional JSON metadata

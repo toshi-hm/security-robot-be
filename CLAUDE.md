@@ -97,6 +97,43 @@ Settings managed via `app.core.config.Settings` (Pydantic BaseSettings):
 
 This backend is designed to be moved into its own repository. The codebase includes placeholder modules intended for incremental implementation. The RL system supports multiple algorithms (PPO, A3C) with custom environments and callbacks for training security-related agents.
 
+## Progress Tracking Guidelines
+
+**IMPORTANT DISTINCTION: Code Implementation vs. Environment Setup**
+
+When tracking progress, distinguish between:
+
+1. **Code Implementation (Repository-level)** - Tracked in PROGRESS.md without machine-specific details
+   - Database models, schemas, services, APIs
+   - Business logic, algorithms, configurations
+   - Documentation updates
+   - These are shared across all environments via git
+
+2. **Environment Setup (Machine-specific)** - Tracked separately in PROGRESS.md
+   - Virtual environment creation
+   - Dependency installation
+   - Database initialization
+   - Service startup verification (Redis, Celery workers)
+   - GPU/hardware-specific configurations
+   - These must be performed on each machine independently
+
+**Format in PROGRESS.md:**
+```markdown
+### Phase X: Feature Name
+**Progress:** 80% ✅
+
+#### Completed (Code Implementation - All Machines)
+- [x] Implemented feature X in module Y
+- [x] Added tests for feature Z
+
+#### Machine-Specific Status (Reference Only)
+- ✅ [Maya's PC] Environment setup complete (2025-10-06)
+- ⏳ [Production Server] Not yet set up
+- ⏳ [Dev Server] Not yet set up
+```
+
+---
+
 ## Progress Tracking
 
 **IMPORTANT**: Before starting any implementation work, ALWAYS read the following files:
