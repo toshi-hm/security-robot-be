@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-06 Session 2
+**最終更新:** 2025-10-07 Session 3
 
 ## 📑 目次
 
@@ -15,7 +15,7 @@
   - [Phase 6: Celeryバックグラウンドタスク](#phase-6-celeryバックグラウンドタスク-2025-10-06完了)
   - [Phase 7: RL統合](#phase-7-rl統合-2025-10-06完了)
 - [未着手の項目](#-未着手の項目)
-  - [Phase 8: テスト実装](#phase-8-テスト実装-0)
+  - [Phase 8: テスト実装](#phase-8-テスト実装-10)
   - [Phase 9: Docker環境構築](#phase-9-docker環境構築-40---検証必要)
 - [既知の問題・課題](#️-既知の問題課題)
 - [次のアクションアイテム](#-次のアクションアイテム-優先度順)
@@ -30,11 +30,11 @@
 | Phase 1: 環境準備・確認 | ✅ 完了 | 100% | uv環境、依存関係更新完了 |
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
-| Phase 4: APIエンドポイント | 🔄 進行中 | 40% | 基本エンドポイント実装済み |
+| Phase 4: APIエンドポイント | 🔄 進行中 | 45% | メトリクスAPIをTDDで実装 |
 | Phase 5: WebSocket | 🔄 進行中 | 70% | コールバック実装、メッセージ型定義完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
-| Phase 8: テスト | ⏳ 未着手 | 0% | - |
+| Phase 8: テスト | 🔄 進行中 | 10% | 学習メトリクスAPIの単体テスト着手 |
 | Phase 9: Docker環境 | 🔄 進行中 | 40% | docker-compose.yml存在、要検証 |
 
 **凡例:**
@@ -152,10 +152,11 @@
   - [x] PaginationParams/PaginatedResponse - ページネーション共通
 
 ### Phase 4: APIエンドポイント実装・拡張
-**進捗:** 40%
+**進捗:** 45%
 
 #### 完了
 - [x] app/api/v1/endpoints/training.py - 基本エンドポイント
+- [x] app/api/v1/endpoints/training.py - GET /sessions/{id}/metrics (ページネーション対応)
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
 - [x] app/api/v1/endpoints/health.py - ヘルスチェック
 
@@ -164,7 +165,6 @@
 - [ ] POST /api/v1/training/{id}/stop - 実装確認
 - [ ] POST /api/v1/training/{id}/pause - 一時停止機能追加
 - [ ] POST /api/v1/training/{id}/resume - 再開機能追加
-- [ ] GET /api/v1/training/{id}/metrics - ページネーション実装
 - [ ] GET /api/v1/training/list - セッション一覧取得
 - [ ] DELETE /api/v1/training/{id} - セッション削除
 - [ ] app/api/v1/endpoints/jobs.py - ジョブ管理API実装
@@ -246,10 +246,11 @@
 
 ## ⏳ 未着手の項目
 
-### Phase 8: テスト実装 (0%)
+### Phase 8: テスト実装 (10%)
 - [ ] pytest設定
 - [ ] APIテスト実装
-  - [ ] 学習制御APIテスト (最低3つ)
+  - [x] 学習制御APIテスト - メトリクス取得 (3ケース)
+  - [ ] 学習制御APIテスト - その他エンドポイント
   - [ ] 環境制御APIテスト
   - [ ] WebSocketテスト
 - [ ] 統合テスト実装 (最低1つ)

@@ -4,9 +4,47 @@
 
 ## 📑 目次
 
+- [2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装](#2025-10-07---session-3-学習メトリクスapiのtdd実装)
 - [2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装](#2025-10-06---session-2-コアモデルスキーマrl統合実装)
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
+
+## 2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装
+
+### 🎯 セッション目標
+- Phase 4: 学習セッションメトリクスAPIの実装
+- Phase 8: 学習制御API向け単体テストの着手 (TDD)
+
+### ✅ 実施内容
+
+1. **設計ドキュメント・プロンプト再確認**
+   - `instructions/02_backend_api_design_standalone.md` からメトリクス取得仕様を精読し、レスポンスフォーマットとページネーション要件を確認。
+
+2. **テスト駆動開発 (先にテスト作成)**
+   - `tests/unit/api/test_training_endpoints.py` を新規作成。
+   - SQLite(AIOSQLite) を用いたインメモリDBフィクスチャを構築し、`TrainingJob` / `TrainingMetric` モデルのセットアップとデータ投入を実装。
+   - 3ケースを作成:
+     - 正常系: ページネーションが適用されたメトリクス取得。
+     - 例外系: 存在しないセッションIDでの404応答確認。
+     - ページ遷移: 2ページ目の内容が正しいオフセットになるか検証。
+   - 既存コードではJSON型未指定などでエラーとなることを確認 (テスト失敗を観測)。
+
+3. **モデル層の不具合修正**
+   - `app/models/training.py` にて `config` / `additional_metrics` に JSON 型を設定し、Declarative Mapping エラーを解消。
+   - `app/models/files.py` の `metadata` カラムが予約語衝突していたため `metadata_` フィールドを追加してJSON型を設定。
+   - `app/schemas/files.py` で `metadata_` を `metadata` として公開するためのエイリアス設定を追加。
+
+4. **API実装**
+   - `app/api/v1/endpoints/training.py` で `/sessions/{session_id}/metrics` を実装。
+   - セッション存在チェック、件数取得、タイムスタンプ降順・ページネーション付きクエリ、`TrainingMetricsListResponse` でのレスポンス整形を実装。
+
+5. **テスト実行**
+   - 追加した単体テスト3件が成功することを確認 (`pytest tests/unit/api/test_training_endpoints.py`)。
+
+### 📎 メモ
+- JSONB前提のフィールドはSQLite互換の `JSON` 型で代替しテスト環境でも動作させた。
+- pytest-asyncioのstrictモード対応として `pytest_asyncio.fixture` を採用。
+- datetime.utcnow() の警告は今後の課題として要検討。
 
 ---
 
