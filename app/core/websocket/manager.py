@@ -5,10 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
+from app.core.config import settings
 from app.schemas.websocket import PingMessage
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,8 @@ class WebSocketManager:
 
   def __init__(self, heartbeat_interval: float = 30.0) -> None:
     self.active_connections: list[WebSocket] = []
-    self.session_connections: Dict[int, list[WebSocket]] = defaultdict(list)
-    self._connection_meta: Dict[WebSocket, Dict[str, Any]] = {}
+    self.session_connections: dict[int, list[WebSocket]] = defaultdict(list)
+    self._connection_meta: dict[WebSocket, dict[str, Any]] = {}
     self._lock = asyncio.Lock()
     self._heartbeat_interval = heartbeat_interval
     self._heartbeat_task: Optional[asyncio.Task[None]] = None
@@ -125,13 +126,16 @@ class WebSocketManager:
     except Exception:  # pragma: no cover - defensive cleanup
       logger.debug("WebSocket close raised; ignoring.")
 
-  async def send_personal_message(self, message: Dict[str, Any], websocket: WebSocket) -> None:
+  async def send_personal_message(self, message: dict[str, Any], websocket: WebSocket) -> None:
     """Send a message to a single WebSocket connection."""
 
     try:
       await websocket.send_json(message)
-    except Exception as exc:  # pragma: no cover - transport errors
+    except (RuntimeError, WebSocketDisconnect) as exc:
       logger.error("Failed to send personal message", exc_info=exc)
+      await self.disconnect(websocket, self._connection_meta.get(websocket, {}).get("session_id"))
+    except Exception as exc:  # pragma: no cover - unexpected transport errors
+      logger.critical("Unexpected error while sending personal message", exc_info=exc)
       await self.disconnect(websocket, self._connection_meta.get(websocket, {}).get("session_id"))
 
   async def mark_seen(self, websocket: WebSocket) -> None:
@@ -146,7 +150,7 @@ class WebSocketManager:
       if websocket in self._connection_meta:
         self._connection_meta[websocket]["last_seen"] = last_seen
 
-  async def broadcast_to_session(self, session_id: int, message: Dict[str, Any]) -> None:
+  async def broadcast_to_session(self, session_id: int, message: dict[str, Any]) -> None:
     """Broadcast a message to all connections subscribed to a session."""
 
     async with self._lock:
@@ -160,14 +164,17 @@ class WebSocketManager:
     for connection in connections:
       try:
         await connection.send_json(message)
-      except Exception as exc:
+      except (RuntimeError, WebSocketDisconnect) as exc:
         logger.error("Failed to broadcast to session %s", session_id, exc_info=exc)
+        stale_connections.append(connection)
+      except Exception as exc:  # pragma: no cover - unexpected transport errors
+        logger.critical("Unexpected error broadcasting to session %s", session_id, exc_info=exc)
         stale_connections.append(connection)
 
     for connection in stale_connections:
       await self.disconnect(connection, session_id)
 
-  async def broadcast_all(self, message: Dict[str, Any]) -> None:
+  async def broadcast_all(self, message: dict[str, Any]) -> None:
     """Broadcast a message to every active connection."""
 
     async with self._lock:
@@ -178,8 +185,11 @@ class WebSocketManager:
     for connection in connections:
       try:
         await connection.send_json(message)
-      except Exception as exc:
+      except (RuntimeError, WebSocketDisconnect) as exc:
         logger.error("Failed to broadcast to all connections", exc_info=exc)
+        stale_connections.append(connection)
+      except Exception as exc:  # pragma: no cover - unexpected transport errors
+        logger.critical("Unexpected error broadcasting to all connections", exc_info=exc)
         stale_connections.append(connection)
 
     for connection in stale_connections:
@@ -209,8 +219,11 @@ class WebSocketManager:
     for connection in connections:
       try:
         await connection.send_json(payload)
-      except Exception as exc:
+      except (RuntimeError, WebSocketDisconnect) as exc:
         logger.error("Failed to send heartbeat ping", exc_info=exc)
+        stale_connections.append(connection)
+      except Exception as exc:  # pragma: no cover - unexpected transport errors
+        logger.critical("Unexpected error while sending heartbeat ping", exc_info=exc)
         stale_connections.append(connection)
 
     for connection in stale_connections:
@@ -223,10 +236,10 @@ class WebSocketManager:
     for connection in connections:
       await self.disconnect(connection, self._connection_meta.get(connection, {}).get("session_id"))
 
-  def get_connection_metadata(self, websocket: WebSocket) -> Dict[str, Any]:
+  def get_connection_metadata(self, websocket: WebSocket) -> dict[str, Any]:
     """Return metadata tracked for a WebSocket connection."""
 
     return self._connection_meta.get(websocket, {}).copy()
 
 
-websocket_manager = WebSocketManager()
+websocket_manager = WebSocketManager(settings.websocket_heartbeat_interval)

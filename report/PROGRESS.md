@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-13 Session 15
+**最終更新:** 2025-10-14 Session 16
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -30,7 +30,7 @@
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
 | Phase 4: APIエンドポイント | 🔄 進行中 | 90% | トレーニング制御・ファイル管理APIを実装 |
-| Phase 5: WebSocket | 🔄 進行中 | 70% | コールバック実装、メッセージ型定義完了 |
+| Phase 5: WebSocket | 🔄 進行中 | 90% | コールバック実装、メッセージ型定義完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
 | Phase 8: テスト | 🔄 進行中 | 70% | 学習メトリクスAPIとファイル管理APIの単体テストを整備、制御APIテストを拡充 (依存不足を解消済み) |
@@ -180,7 +180,7 @@
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
 
 ### Phase 5: WebSocket・リアルタイム通信
-**進捗:** 85%
+**進捗:** 90%
 
 #### 完了
 - [x] app/core/websocket/manager.py - WebSocketManager基本実装
@@ -189,6 +189,9 @@
 - [x] セッション別ブロードキャスト機能テスト (ユニットテスト追加)
 - [x] 接続・切断エラーハンドリング強化 (送信失敗時の自動切断・メタデータ追跡)
 - [x] Ping/Pongハートビート実装 (接続ごとの keep-alive)
+- [x] ハートビート間隔の設定化 (`Settings.websocket_heartbeat_interval` で制御)
+- [x] WebSocket接続拒否時のクローズ理由改善 (4404コード + JSON理由)
+- [x] WebSocketManager のユニットテスト拡充 (mark_seen/heartbeat/broadcast_all/metadata)
 
 #### TODO
 - [ ] 再接続ロジック実装

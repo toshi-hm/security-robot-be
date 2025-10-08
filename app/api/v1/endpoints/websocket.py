@@ -51,14 +51,13 @@ async def training_updates(
   result = await db.execute(select(TrainingJob.id).where(TrainingJob.id == session_id))
   if not result.scalar_one_or_none():
     logger.warning('WebSocket connection attempted for unknown session_id=%s', session_id)
-    await websocket.accept()
     error = TrainingErrorEvent(
       session_id=session_id,
       error_message='Training session not found',
       error_type='session_not_found',
     )
-    await websocket.send_json(error.model_dump())
-    await websocket.close()
+    # Close with policy violation code to surface an explanatory reason without accepting.
+    await websocket.close(code=4404, reason=error.model_dump_json())
     return
 
   client_id = str(uuid.uuid4())

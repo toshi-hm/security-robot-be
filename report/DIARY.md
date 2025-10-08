@@ -4,6 +4,7 @@
 
 ## 📑 目次
 
+- [2025-10-14 - Session 16: WebSocket接続管理の改善とテスト拡充](#2025-10-14---session-16-websocket接続管理の改善とテスト拡充)
 - [2025-10-13 - Session 15: WebSocket接続管理とハートビート実装](#2025-10-13---session-15-websocket接続管理とハートビート実装)
 - [2025-10-12 - Session 14: バイナリ/一時ファイルの.gitignore整備](#2025-10-12---session-14-バイナリ一時ファイルのgitignore整備)
 
@@ -23,6 +24,50 @@
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
 
+
+## 2025-10-14 - Session 16: WebSocket接続管理の改善とテスト拡充
+
+### 🎯 セッション目標
+- WebSocketManager の型注釈と例外処理を見直し、メンテナンス性と堅牢性を高める
+- ハートビート間隔の設定を `Settings` から注入できるようにし、環境ごとの調整を容易にする
+- 接続拒否時の挙動改善とユニットテスト拡充でレビュー指摘へ対応する
+
+### ✅ 実施内容
+
+1. **型注釈と例外ハンドリングの統一**
+   - `app/core/websocket/manager.py` で `dict`/`list` ベースの型ヒントへ統一し、例外を `WebSocketDisconnect` と `RuntimeError` に絞ってロギングを改善。
+   - 想定外の例外は `critical` ログを出して切断するようにし、送信系関数の診断性を向上。
+
+2. **設定駆動のハートビート間隔**
+   - `app/core/config.py` に `websocket_heartbeat_interval` を追加し、グローバルな `websocket_manager` インスタンスが設定値を利用するよう修正。
+
+3. **WebSocketエンドポイントの接続拒否改善**
+   - セッション未存在時に `accept()` せずクローズコード 4404 で理由付き終了するように変更。
+   - エラー理由は JSON 文字列で返すことでクライアント側に詳細を通知。
+
+4. **ユニットテスト拡充**
+   - `tests/unit/core/test_websocket_manager.py` に `mark_seen`, `broadcast_all`, `_send_server_ping`, `get_connection_metadata` などのケースを追加し、フィクスチャも `AsyncIterator` ベースへ整理。
+
+5. **WebSocketスキーマの補完**
+   - `app/schemas/websocket.py` に `datetime` インポートを追加し、タイムスタンプ型の未定義エラーを防止。
+
+### 📊 成果物
+- 例外分類と設定注入が改善された WebSocketManager 実装
+- セッション存在チェック時に明確なクローズ理由を返す WebSocket エンドポイント
+- ハートビートやメタデータ更新を含む WebSocketManager の追加ユニットテスト
+
+### 🤔 学んだこと・気づき
+1. WebSocket の送信失敗は `WebSocketDisconnect` だけでなく `RuntimeError` として表出するケースが多いため、ログレベルと切断制御を分けておくと分析しやすい。
+2. ハートビート間隔のような運用パラメータは設定クラスから注入しておくことで、本番/検証環境の切り替えが容易になる。
+3. 接続拒否時に `accept()` しない実装へ変更しても `close()` の `reason` に情報を含めればクライアント通知が可能である。
+
+### ⏭️ 次回セッションの予定
+1. Redis Pub/Sub 連携に備えたブロードキャストAPIの抽象化とエラーハンドリング整理。
+2. WebSocket エンドツーエンドテストでエラー時クローズ理由の検証を追加。
+3. 再接続ロジックの仕様整理とテスト戦略の草案化。
+
+### 🔗 関連コミット
+- (このセッションのコミットで対応)
 
 ## 2025-10-13 - Session 15: WebSocket接続管理とハートビート実装
 

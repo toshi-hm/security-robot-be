@@ -88,3 +88,63 @@ async def test_broadcast_to_session_removes_failed_connections(manager: WebSocke
     assert flaky_websocket not in manager.active_connections
     assert healthy_websocket in manager.active_connections
     assert healthy_websocket.sent_messages == [{"type": "progress"}]
+
+
+@pytest.mark.asyncio
+async def test_mark_seen_updates_last_seen(manager: WebSocketManager) -> None:
+    websocket = FakeWebSocket()
+
+    await manager.connect(websocket, session_id=42)
+
+    before = manager.get_connection_metadata(websocket)["last_seen"]
+
+    await asyncio.sleep(0)
+    await manager.mark_seen(websocket)
+
+    after = manager.get_connection_metadata(websocket)["last_seen"]
+
+    assert after is not None
+    assert after != before
+
+
+@pytest.mark.asyncio
+async def test_broadcast_all_reaches_everyone(manager: WebSocketManager) -> None:
+    first = FakeWebSocket()
+    second = FakeWebSocket()
+
+    await manager.connect(first, session_id=1)
+    await manager.connect(second, session_id=2)
+
+    payload = {"type": "announcement"}
+    await manager.broadcast_all(payload)
+
+    assert payload in first.sent_messages
+    assert payload in second.sent_messages
+
+
+@pytest.mark.asyncio
+async def test_send_server_ping_uses_ping_schema(manager: WebSocketManager) -> None:
+    websocket = FakeWebSocket()
+
+    await manager.connect(websocket, session_id=100)
+
+    await manager._send_server_ping()
+
+    assert websocket.sent_messages
+    assert websocket.sent_messages[-1]["type"] == "ping"
+
+
+@pytest.mark.asyncio
+async def test_get_connection_metadata_returns_copy(manager: WebSocketManager) -> None:
+    websocket = FakeWebSocket()
+
+    await manager.connect(websocket, session_id=7, client_id="client-7")
+
+    metadata = manager.get_connection_metadata(websocket)
+
+    assert metadata["session_id"] == 7
+    assert metadata["client_id"] == "client-7"
+
+    metadata["client_id"] = "mutated"
+
+    assert manager.get_connection_metadata(websocket)["client_id"] == "client-7"
