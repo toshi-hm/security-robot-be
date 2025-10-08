@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-08 Session 4
+**最終更新:** 2025-10-09 Session 5
 
 ## 📑 目次
 
@@ -34,7 +34,7 @@
 | Phase 5: WebSocket | 🔄 進行中 | 70% | コールバック実装、メッセージ型定義完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
-| Phase 8: テスト | 🔄 進行中 | 20% | 学習メトリクスAPIの単体テスト着手 + CIでの自動実行 |
+| Phase 8: テスト | 🔄 進行中 | 35% | 学習メトリクスAPIの単体テスト着手 + CI失敗調査と共通設定整備 |
 | Phase 9: Docker環境 | 🔄 進行中 | 40% | docker-compose.yml存在、要検証 |
 
 **凡例:**
@@ -247,7 +247,7 @@
 ## ⏳ 未着手の項目
 
 ### Phase 8: テスト実装 (20%)
-- [ ] pytest設定
+- [x] pytest設定 (tests/conftest.py で共通パスを整備)
 - [ ] APIテスト実装
   - [x] 学習制御APIテスト - メトリクス取得 (3ケース)
   - [ ] 学習制御APIテスト - その他エンドポイント
@@ -256,6 +256,7 @@
 - [ ] 統合テスト実装 (最低1つ)
 - [ ] カバレッジ70%以上達成
 - [x] GitHub Actionsで単体テストを自動実行
+- [x] CIでの `ModuleNotFoundError` 調査と解消 (tests/unit 全体を対象に実行可能に)
 
 ### Phase 9: Docker環境構築 (40% - 検証必要)
 - [x] docker-compose.yml存在確認
@@ -283,6 +284,9 @@
    - Stable-Baselines3とカスタムA3C実装の共存方法
    - 学習中の中断・再開処理
 
+4. **日付時刻処理の更新**
+   - `datetime.utcnow()` の使用による DeprecationWarning がテストに出力されており、UTC aware datetime への置き換えが必要
+
 ### 設計上の検討事項
 1. **認証・認可**
    - 現状は実装なし、将来的に追加が必要か？
@@ -304,7 +308,7 @@
 2. **Phase 3完了**: Pydanticスキーマの拡張
 3. **Phase 7開始**: PPOService実装 (Stable-Baselines3統合)
 4. **Phase 6完了**: Celery学習タスク実装
-5. **CI継続改善**: GitHub Actionsのテストジョブ監視と改善ポイントの洗い出し
+5. **CI継続改善**: GitHub Actionsのテストジョブ監視と警告解消(UTC対応)の優先順位付け
 
 ### 🌟 中優先度
 6. **Phase 4完了**: APIエンドポイント全機能実装

@@ -4,11 +4,47 @@
 
 ## 📑 目次
 
+- [2025-10-09 - Session 5: CIテスト失敗調査と修正](#2025-10-09---session-5-ciテスト失敗調査と修正)
 - [2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行](#2025-10-08---session-4-github-actionsで単体テスト自動実行)
 - [2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装](#2025-10-07---session-3-学習メトリクスapiのtdd実装)
 - [2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装](#2025-10-06---session-2-コアモデルスキーマrl統合実装)
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
+
+## 2025-10-09 - Session 5: CIテスト失敗調査と修正
+
+### 🎯 セッション目標
+- GitHub Actions 上で発生した単体テスト失敗の原因を特定し、再発防止策を講じる
+- すべてのユニットテストをローカル環境でも再現・成功させる
+
+### ✅ 実施内容
+
+1. **CIログの分析と環境再現**
+   - 提供された GitHub Actions の失敗ログを精査し、`ModuleNotFoundError: No module named 'app'` が発生していることを確認。
+   - ローカル環境で `pytest tests/unit` を実行して同じエラーを再現し、テスト収集時にパス解決が行われていないことを確認。
+
+2. **Pythonパス解決の修正**
+   - ルートディレクトリを `sys.path` に追加する `tests/conftest.py` を新規作成し、すべてのテストで `app` や `rl` パッケージを解決できるように修正。
+   - 既存のスタブモジュール (`fastapi/`, `pydantic/`) が実ライブラリをシャドーしていたため削除し、公式パッケージを使用するように統一。
+
+3. **依存関係のインストールとテスト実行**
+   - `pip install -r requirements.txt` で FastAPI や SQLAlchemy などの依存関係をインストール。
+   - `pytest tests/unit -q` を実行し、14件のユニットテストがすべて成功することを確認 (DeprecationWarning は既知のまま)。
+
+### 📊 成果物
+- `tests/conftest.py`
+- 不要になったスタブモジュール (`fastapi/`, `pydantic/`) の削除
+
+### 🤔 学んだこと・気づき
+1. ルート配下にライブラリ名と同名のスタブを置くと、本物のパッケージより優先されてしまい CI での挙動が変わるため注意が必要。
+2. テストディレクトリに共通の `conftest.py` を置くことで、個別テストのパス調整コードを排除しつつ一元的に制御できる。
+
+### ⏭️ 次回セッションの予定
+1. テストスイートの DeprecationWarning（`datetime.utcnow()`）解消に向けた改善案の検討。
+2. Phase 8 の残タスク（APIテスト拡充・統合テスト着手）の優先度と工数整理。
+
+### 🔗 関連コミット
+- 2525e66 Fix CI unit test imports by using real dependencies
 
 ## 2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行
 
