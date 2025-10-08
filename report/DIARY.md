@@ -4,12 +4,49 @@
 
 ## 📑 目次
 
+- [2025-10-10 - Session 6: UTC対応とテスト強化](#2025-10-10---session-6-utc対応とテスト強化)
 - [2025-10-09 - Session 5: CIテスト失敗調査と修正](#2025-10-09---session-5-ciテスト失敗調査と修正)
 - [2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行](#2025-10-08---session-4-github-actionsで単体テスト自動実行)
 - [2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装](#2025-10-07---session-3-学習メトリクスapiのtdd実装)
 - [2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装](#2025-10-06---session-2-コアモデルスキーマrl統合実装)
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
+
+## 2025-10-10 - Session 6: UTC対応とテスト強化
+
+### 🎯 セッション目標
+- `datetime.utcnow()` の非推奨化に対応し、すべてのタイムスタンプをタイムゾーン情報付きで扱えるようにする
+- TDDでデグレを防ぎつつ、既存テストスイートがCIとローカルで問題なく動作することを確認する
+
+### ✅ 実施内容
+
+1. **TDDでの要件明確化**
+   - 既存のテストに `TrainingMetric` と `TrainingJob` のタイムスタンプが `timezone.utc` を保持していることを検証する新ケースを追加。
+   - 生成済みメトリクスの基準時刻を `datetime.now(timezone.utc)` に変更し、タイムゾーン情報が正しく伝播するように準備。
+
+2. **UTCユーティリティの導入と適用**
+   - `app/utils/datetime.py` を新規作成し、`utcnow()` で常にタイムゾーン付きの現在時刻を取得できるように統一。
+   - モデル(`app/models/base.py`, `app/models/training.py`)、スキーマ(`app/schemas/training.py`, `app/schemas/websocket.py`)、タスク(`app/tasks/training_tasks.py`)、RLコールバック(`rl/callbacks/websocket_callback.py`)で `utcnow()` を使用するようにリファクタリング。
+
+3. **テストの実行と警告解消確認**
+   - 追加したテストを含む `pytest tests/unit/api/test_training_endpoints.py -q` を実行し、新規テストが失敗することを確認した上で実装を進めた。
+   - 実装後に `pytest tests/unit -q` を実行し、16件すべてのテストが成功すること、および `datetime.utcnow()` の DeprecationWarning が解消されたことを確認。
+
+### 📊 成果物
+- `app/utils/datetime.py`
+- 既存タイムスタンプ関連コードの UTC 対応リファクタリング一式
+- タイムゾーン整合性を保証するユニットテスト 2件の追加
+
+### 🤔 学んだこと・気づき
+1. SQLAlchemy の `default`/`onupdate` にはCallableを渡す必要があるため、共通のユーティリティ関数を定義しておくと再利用性が高い。
+2. テストでタイムゾーン情報を明示的に検証することで、CI上のPythonバージョン差異による警告を未然に防げる。
+
+### ⏭️ 次回セッションの予定
+1. WebSocketイベントでのタイムゾーン表現をAPIレスポンス仕様と照合し、必要ならISO8601フォーマット化を検討。
+2. TDDで環境関連エンドポイントのユニットテストを拡充し、CIカバレッジを向上させる。
+
+### 🔗 関連コミット
+- HEAD Use timezone-aware UTC helpers
 
 ## 2025-10-09 - Session 5: CIテスト失敗調査と修正
 

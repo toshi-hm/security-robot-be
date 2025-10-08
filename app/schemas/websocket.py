@@ -3,13 +3,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.utils.datetime import utcnow
 
 # WebSocket Message Types
 
 class WebSocketMessage(BaseModel):
   """Base WebSocket message schema."""
   type: str = Field(..., description="Message type")
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class TrainingProgressEvent(BaseModel):
@@ -28,7 +29,7 @@ class TrainingProgressEvent(BaseModel):
   
   # Additional data
   additional_metrics: Optional[dict] = None
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class TrainingStatusEvent(BaseModel):
@@ -37,7 +38,7 @@ class TrainingStatusEvent(BaseModel):
   session_id: int
   status: str  # 'created', 'queued', 'running', 'paused', 'completed', 'failed'
   message: Optional[str] = None
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class TrainingErrorEvent(BaseModel):
@@ -46,7 +47,7 @@ class TrainingErrorEvent(BaseModel):
   session_id: int
   error_message: str
   error_type: Optional[str] = None
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class EnvironmentUpdateEvent(BaseModel):
@@ -58,7 +59,7 @@ class EnvironmentUpdateEvent(BaseModel):
   robot_position: dict  # {"x": int, "y": int, "orientation": int}
   action_taken: Optional[int] = None
   reward_received: Optional[float] = None
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class ConnectionAckMessage(BaseModel):
@@ -66,16 +67,16 @@ class ConnectionAckMessage(BaseModel):
   type: Literal["connection_ack"] = "connection_ack"
   client_id: str
   message: str = "Connected successfully"
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class PingMessage(BaseModel):
   """Ping message for keep-alive."""
   type: Literal["ping"] = "ping"
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)
 
 
 class PongMessage(BaseModel):
   """Pong response message."""
   type: Literal["pong"] = "pong"
-  timestamp: datetime = Field(default_factory=datetime.utcnow)
+  timestamp: datetime = Field(default_factory=utcnow)

@@ -6,6 +6,7 @@ from sqlalchemy import Enum as SqlEnum, ForeignKey, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.utils.datetime import utcnow
 
 
 class TrainingJobStatus(str, Enum):
@@ -80,7 +81,7 @@ class TrainingMetric(Base):
   additional_metrics: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
   
   # Timestamp
-  timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+  timestamp: Mapped[datetime] = mapped_column(default=utcnow)
   
   # Relationship
   job: Mapped[TrainingJob] = relationship(back_populates='metrics')

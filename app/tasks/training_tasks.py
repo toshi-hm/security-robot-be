@@ -2,9 +2,9 @@
 
 import logging
 from typing import Dict, Any
-from datetime import datetime
 
 from app.tasks.celery_app import celery_app
+from app.utils.datetime import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def run_ppo_training_task(self, session_id: int, config: Dict[str, Any]) -> Dict
       job = db.query(TrainingJob).filter(TrainingJob.id == session_id).first()
       if job:
         job.status = TrainingJobStatus.running
-        job.started_at = datetime.utcnow()
+        job.started_at = utcnow()
         db.commit()
       
       # Create WebSocket callback for progress updates
@@ -75,12 +75,12 @@ def run_ppo_training_task(self, session_id: int, config: Dict[str, Any]) -> Dict
       if job:
         if result.get('status') == 'completed':
           job.status = TrainingJobStatus.completed
-          job.completed_at = datetime.utcnow()
+          job.completed_at = utcnow()
           job.current_timestep = result.get('total_timesteps', 0)
           job.model_path = result.get('model_path')
         else:
           job.status = TrainingJobStatus.failed
-          job.completed_at = datetime.utcnow()
+          job.completed_at = utcnow()
         db.commit()
       
       logger.info(f"PPO training task completed for session {session_id}")
@@ -101,7 +101,7 @@ def run_ppo_training_task(self, session_id: int, config: Dict[str, Any]) -> Dict
       job = db.query(TrainingJob).filter(TrainingJob.id == session_id).first()
       if job:
         job.status = TrainingJobStatus.failed
-        job.completed_at = datetime.utcnow()
+        job.completed_at = utcnow()
         db.commit()
       db.close()
     except Exception as db_error:

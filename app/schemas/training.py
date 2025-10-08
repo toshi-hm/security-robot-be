@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.utils.datetime import utcnow
 
 # Training Session Schemas
 
@@ -93,7 +94,7 @@ class TrainingSessionResponse(BaseModel):
     """Calculate training duration in seconds."""
     if not self.started_at:
       return None
-    end_time = self.completed_at or datetime.utcnow()
+    end_time = self.completed_at or utcnow()
     return (end_time - self.started_at).total_seconds()
 
 
