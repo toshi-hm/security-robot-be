@@ -1,12 +1,195 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.models.training import TrainingJob, TrainingMetric
-from app.schemas.training import TrainingMetricResponse, TrainingMetricsListResponse
+from app.core.training.job_manager import job_manager
+from app.models.training import TrainingJob, TrainingJobStatus, TrainingMetric
+from app.schemas.training import (
+  TrainingActionResponse,
+  TrainingMetricResponse,
+  TrainingMetricsListResponse,
+  TrainingSessionCreate,
+  TrainingSessionListResponse,
+  TrainingSessionResponse,
+)
+from app.services import TrainingService
 
 router = APIRouter()
+
+
+@router.post('/start', response_model=TrainingSessionResponse, status_code=status.HTTP_202_ACCEPTED)
+async def start_training(
+  config: TrainingSessionCreate,
+  db: AsyncSession = Depends(get_db),
+) -> TrainingSessionResponse:
+  """Create a new training job and queue it for execution."""
+
+  service = TrainingService(db)
+
+  try:
+    job = await service.create_session(config)
+  except ValueError as exc:
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+  queue_payload: dict[str, Any] = {
+    'session_id': job.id,
+    'algorithm': job.algorithm,
+    'environment_type': job.environment_type,
+    'config': config.model_dump(),
+  }
+
+  try:
+    await job_manager.enqueue(queue_payload)
+  except ValueError as exc:
+    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+  queued_job = await service.mark_queued(job.id)
+  return TrainingSessionResponse.model_validate(queued_job, from_attributes=True)
+
+
+@router.post('/{session_id}/stop', response_model=TrainingActionResponse)
+async def stop_training(
+  session_id: int,
+  db: AsyncSession = Depends(get_db),
+) -> TrainingActionResponse:
+  """Stop an active training session and mark it as failed."""
+
+  service = TrainingService(db)
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
+
+  await job_manager.stop(session_id)
+  updated_job = await service.update_status(job, TrainingJobStatus.failed, mark_completed=True)
+  return TrainingActionResponse(
+    session_id=updated_job.id,
+    status=updated_job.status,
+    message=f'Training session {session_id} stopped successfully',
+  )
+
+
+@router.post('/{session_id}/pause', response_model=TrainingActionResponse)
+async def pause_training(
+  session_id: int,
+  db: AsyncSession = Depends(get_db),
+) -> TrainingActionResponse:
+  """Temporarily pause an active training session."""
+
+  service = TrainingService(db)
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
+
+  if job.status not in {TrainingJobStatus.running, TrainingJobStatus.queued}:
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Training session is not running')
+
+  await job_manager.stop(session_id)
+  paused_job = await service.update_status(job, TrainingJobStatus.paused)
+  return TrainingActionResponse(
+    session_id=paused_job.id,
+    status=paused_job.status,
+    message=f'Training session {session_id} paused successfully',
+  )
+
+
+@router.post('/{session_id}/resume', response_model=TrainingSessionResponse)
+async def resume_training(
+  session_id: int,
+  db: AsyncSession = Depends(get_db),
+) -> TrainingSessionResponse:
+  """Resume a paused training session by re-queuing it."""
+
+  service = TrainingService(db)
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
+
+  if job.status != TrainingJobStatus.paused:
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Only paused sessions can be resumed')
+
+  queue_payload: dict[str, Any] = {
+    'session_id': job.id,
+    'algorithm': job.algorithm,
+    'environment_type': job.environment_type,
+    'config': {
+      'total_timesteps': job.total_timesteps,
+      'env_width': job.env_width,
+      'env_height': job.env_height,
+      'coverage_weight': job.coverage_weight,
+      'exploration_weight': job.exploration_weight,
+      'diversity_weight': job.diversity_weight,
+      'learning_rate': job.learning_rate,
+      'batch_size': job.batch_size,
+      'num_workers': job.num_workers,
+      'config': job.config,
+    },
+  }
+
+  resume_entry = await job_manager.resume(session_id)
+  if resume_entry is None:
+    await job_manager.enqueue(queue_payload)
+  else:
+    resume_entry['payload'] = queue_payload
+
+  resumed_job = await service.update_status(job, TrainingJobStatus.queued, reset_completion=True)
+  return TrainingSessionResponse.model_validate(resumed_job, from_attributes=True)
+
+
+@router.get('/{session_id}/status', response_model=TrainingSessionResponse)
+async def get_training_status(
+  session_id: int,
+  db: AsyncSession = Depends(get_db),
+) -> TrainingSessionResponse:
+  """Return the persisted status of a training session."""
+
+  service = TrainingService(db)
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
+
+  return TrainingSessionResponse.model_validate(job, from_attributes=True)
+
+
+@router.get('/list', response_model=TrainingSessionListResponse)
+async def list_training_sessions(
+  page: int = Query(1, ge=1, description='Page number (1-indexed)'),
+  page_size: int = Query(20, ge=1, le=100, description='Number of sessions per page'),
+  db: AsyncSession = Depends(get_db),
+) -> TrainingSessionListResponse:
+  """Return paginated training sessions."""
+
+  service = TrainingService(db)
+  sessions, total = await service.list_sessions(page, page_size)
+  session_responses = [
+    TrainingSessionResponse.model_validate(session, from_attributes=True)
+    for session in sessions
+  ]
+  return TrainingSessionListResponse(
+    total=total,
+    page=page,
+    page_size=page_size,
+    sessions=session_responses,
+  )
+
+
+@router.delete('/{session_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_training_session(
+  session_id: int,
+  db: AsyncSession = Depends(get_db),
+) -> Response:
+  """Delete a training session and remove it from the job queue."""
+
+  service = TrainingService(db)
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
+
+  await job_manager.discard(session_id)
+  await service.delete_session(job)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get('/sessions/{session_id}/metrics', response_model=TrainingMetricsListResponse)

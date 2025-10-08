@@ -159,6 +159,23 @@ class TrainingMetricsListResponse(BaseModel):
   metrics: list[TrainingMetricResponse]
 
 
+class TrainingSessionListResponse(BaseModel):
+  """Paginated response for training sessions."""
+
+  total: int
+  page: int
+  page_size: int
+  sessions: list[TrainingSessionResponse]
+
+
+class TrainingActionResponse(BaseModel):
+  """Standard response payload for training control actions."""
+
+  session_id: int
+  status: str
+  message: str
+
+
 # Legacy schemas for backward compatibility
 
 class TrainingRequest(BaseModel):
