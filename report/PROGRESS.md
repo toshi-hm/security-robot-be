@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-10 Session 12
+**最終更新:** 2025-10-11 Session 13
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -48,6 +48,11 @@
 
 ### CI運用改善 (2025-10-12更新)
 - [x] GitHub ActionsのClaude Codeレビュー出力言語を日本語に固定するプロンプトを追加
+
+### ローカル環境起動エラー解消 (2025-10-11更新)
+- [x] `pyproject.toml` に `tool.setuptools.packages.find` を追加し、`app`/`rl` 配下のみをパッケージ対象に限定
+- [x] `aiosqlite` を `project.dependencies` へ追加し、SQLite 非同期接続での `ModuleNotFoundError` を解消
+- [x] `uv run uvicorn app.main:app --reload` を実行してサーバー起動を再検証 (手動停止)
 
 ### Phase 1: 依存関係管理・設計書更新 (2025-10-06完了)
 **コードベース実装 - 全マシン共通**

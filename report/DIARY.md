@@ -5,6 +5,7 @@
 ## 📑 目次
 
 
+- [2025-10-11 - Session 13: uv runパッケージ検出調整と依存追加](#2025-10-11---session-13-uv-runパッケージ検出調整と依存追加)
 - [2025-10-10 - Session 12: README日本語化と環境構築ドキュメント整備](#2025-10-10---session-12-readme日本語化と環境構築ドキュメント整備)
 - [2025-10-09 - Session 11: python-multipart依存追加でテスト収集エラー解消](#2025-10-09---session-11-python-multipart依存追加でテスト収集エラー解消)
 - [2025-10-09 - Session 10: トレーニング制御APIのテスト強化](#2025-10-09---session-10-トレーニング制御apiのテスト強化)
@@ -20,6 +21,42 @@
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
 
+
+## 2025-10-11 - Session 13: uv runパッケージ検出調整と依存追加
+
+### 🎯 セッション目標
+- uv run での起動失敗 (setuptools のパッケージ自動検出エラー) の原因を特定して解消する
+- SQLite 非同期ドライバ不足による `ModuleNotFoundError` を再発防止できるよう依存関係を整備する
+
+### ✅ 実施内容
+
+1. **原因分析と再現**
+   - `uv run uvicorn app.main:app --reload` を実行し、`setuptools` が複数のトップレベルディレクトリを検出してビルドを中断する状況を再現。
+   - `pyproject.toml` のパッケージ探索設定が未定義であったため、ビルド対象が広範になっていることを確認。
+
+2. **パッケージ探索範囲の限定**
+   - `[tool.setuptools.packages.find]` セクションを追加し、`app` と `rl` 系ディレクトリのみをインストール対象に指定。
+   - `docker/` や `instructions/` などビルド不要なディレクトリを除外し、editable install が失敗しない構成に調整。
+
+3. **不足依存の追加と起動検証**
+   - FastAPI の SQLite 非同期接続で利用している `aiosqlite` が `pyproject.toml` から漏れていたため、`project.dependencies` に `aiosqlite>=0.20.0` を追記。
+   - 変更後に `uv run uvicorn app.main:app --reload` を再実行し、サーバが正常起動することを確認 (Ctrl+C で停止)。
+
+### 📊 成果物
+- `pyproject.toml` に `tool.setuptools.packages.find` 設定を追加し、ビルド対象パッケージを限定
+- `pyproject.toml` の依存関係へ `aiosqlite>=0.20.0` を追加し、開発サーバー起動時のモジュール不足を解消
+- uv を用いたローカルサーバー起動手順の再検証ログ
+
+### 🤔 学んだこと・気づき
+1. uv の `run` サブコマンドは editable install を都度実行するため、`setuptools` のパッケージ検出設定が不完全だとローカル開発でも致命的な失敗に直結する。
+2. `requirements.txt` と `pyproject.toml` を併用している場合、両方の依存定義を同期しないと環境ごとに起動可否が変わってしまう。
+
+### ⏭️ 次回セッションの予定
+1. Phase 5/8 のテスト強化タスクに戻り、WebSocket メッセージ処理の網羅テスト方針を整理する。
+2. uv 起動手順の再検証結果を README へ反映する必要があるかを検討し、必要なら追記案をまとめる。
+
+### 🔗 関連コミット
+- (このセッションのコミットで対応)
 
 ## 2025-10-10 - Session 12: README日本語化と環境構築ドキュメント整備
 
