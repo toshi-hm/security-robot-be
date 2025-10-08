@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-12 Session 14
+**最終更新:** 2025-10-13 Session 15
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -180,18 +180,19 @@
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
 
 ### Phase 5: WebSocket・リアルタイム通信
-**進捗:** 50%
+**進捗:** 85%
 
 #### 完了
 - [x] app/core/websocket/manager.py - WebSocketManager基本実装
 - [x] app/api/v1/endpoints/websocket.py - WebSocketエンドポイント
+- [x] WebSocketメッセージ型定義 (Pydantic モデル共通化)
+- [x] セッション別ブロードキャスト機能テスト (ユニットテスト追加)
+- [x] 接続・切断エラーハンドリング強化 (送信失敗時の自動切断・メタデータ追跡)
+- [x] Ping/Pongハートビート実装 (接続ごとの keep-alive)
 
 #### TODO
-- [ ] WebSocketメッセージ型定義
-- [ ] セッション別ブロードキャスト機能テスト
-- [ ] 接続・切断エラーハンドリング強化
-- [ ] Ping/Pongハートビート実装
 - [ ] 再接続ロジック実装
+- [ ] Redis Pub/Sub 統合と再接続時の再購読処理
 
 ### Phase 6: Celeryバックグラウンドタスク (2025-10-06完了)
 **進捗:** 100% ✅
@@ -264,7 +265,8 @@
     - [x] start/pause/resume/stop/status/list/delete のユニットテスト追加 (JobManagerスタブ利用)
   - [x] FastAPIファイルアップロード依存 (`python-multipart`) と asyncioテスト依存 (`pytest-asyncio`) の不足を解消
   - [ ] 環境制御APIテスト
-  - [ ] WebSocketテスト
+- [ ] WebSocketテスト (エンドポイントレベル)
+- [x] WebSocket接続管理ユニットテスト (manager)
 - [ ] 統合テスト実装 (最低1つ)
 - [ ] カバレッジ70%以上達成
 - [x] GitHub Actionsで単体テストを自動実行
@@ -317,9 +319,9 @@
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度
-1. **Phase 8継続**: トレーニング制御・ファイル管理APIのエラーパスとダウンロード統合テストを追加
-2. **Phase 5完了**: WebSocket機能強化 (メッセージ型定義と再接続処理)
-3. **Phase 8継続**: 環境制御APIテストの着手
+1. **Phase 5仕上げ**: 再接続ロジックと Redis Pub/Sub 連携を実装し、WebSocket 配信をエンドツーエンド化
+2. **Phase 8継続**: トレーニング制御・ファイル管理APIのエラーパスおよびダウンロード統合テストを追加
+3. **Phase 8継続**: WebSocket エンドポイントの統合テストと環境制御APIテストに着手
 
 ### 🌟 中優先度
 4. **Phase 9完了**: Docker環境の完全検証
