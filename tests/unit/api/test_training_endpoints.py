@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -46,7 +46,7 @@ async def _create_job(session: AsyncSession) -> TrainingJob:
 
 
 async def _create_metrics(session: AsyncSession, job_id: int, count: int = 3) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     metrics = [
         TrainingMetric(
             job_id=job_id,
@@ -136,12 +136,12 @@ async def test_training_metric_timestamp_is_timezone_aware(db_session: AsyncSess
     db_session.add(metric)
     await db_session.flush()
 
-    assert metric.timestamp.tzinfo is timezone.utc
+    assert metric.timestamp.tzinfo is UTC
 
 
 @pytest.mark.asyncio
 async def test_training_job_audit_timestamps_are_timezone_aware(db_session: AsyncSession) -> None:
     job = await _create_job(db_session)
 
-    assert job.created_at.tzinfo is timezone.utc
-    assert job.updated_at.tzinfo is timezone.utc
+    assert job.created_at.tzinfo is UTC
+    assert job.updated_at.tzinfo is UTC
