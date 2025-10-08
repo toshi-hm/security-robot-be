@@ -1,6 +1,67 @@
+from __future__ import annotations
+
+from typing import Any
+
+from uuid import uuid4
+
+from app.utils.datetime import utcnow
+
+
 class JobManager:
-  async def enqueue(self, payload: dict) -> dict:
-    return {'job_id': 'job-1', 'payload': payload}
+  """Lightweight in-memory queue manager used for API integration tests."""
+
+  def __init__(self) -> None:
+    self._jobs: dict[int, dict[str, Any]] = {}
+
+  async def enqueue(self, payload: dict[str, Any]) -> dict[str, Any]:
+    """Register a training job request and return queue metadata."""
+
+    session_id = payload.get('session_id')
+    if session_id is None:
+      raise ValueError('payload must include a session_id')
+
+    task_id = payload.get('task_id') or str(uuid4())
+    metadata = {
+      'session_id': session_id,
+      'task_id': task_id,
+      'status': 'queued',
+      'payload': payload,
+      'enqueued_at': utcnow(),
+    }
+    self._jobs[session_id] = metadata
+    return metadata
+
+  async def stop(self, session_id: int) -> bool:
+    """Mark the given session as stopped if it is known."""
+
+    if session_id not in self._jobs:
+      return False
+
+    entry = self._jobs[session_id]
+    entry['status'] = 'stopped'
+    entry['stopped_at'] = utcnow()
+    return True
+
+  async def resume(self, session_id: int) -> dict[str, Any] | None:
+    """Resume a paused session by marking it as queued again."""
+
+    entry = self._jobs.get(session_id)
+    if entry is None:
+      return None
+
+    entry['status'] = 'queued'
+    entry['resumed_at'] = utcnow()
+    return entry
+
+  async def discard(self, session_id: int) -> None:
+    """Remove a session from the queue manager."""
+
+    self._jobs.pop(session_id, None)
+
+  def snapshot(self) -> list[dict[str, Any]]:
+    """Return a snapshot of the known job queue state."""
+
+    return list(self._jobs.values())
 
 
 job_manager = JobManager()

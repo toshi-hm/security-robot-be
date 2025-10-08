@@ -1,7 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-11 Session 7
-
+**最終更新:** 2025-10-09 Session 11
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -15,7 +14,7 @@
   - [Phase 6: Celeryバックグラウンドタスク](#phase-6-celeryバックグラウンドタスク-2025-10-06完了)
   - [Phase 7: RL統合](#phase-7-rl統合-2025-10-06完了)
 - [未着手の項目](#-未着手の項目)
-  - [Phase 8: テスト実装](#phase-8-テスト実装-20)
+- [Phase 8: テスト実装](#phase-8-テスト実装-70)
   - [Phase 9: Docker環境構築](#phase-9-docker環境構築-40---検証必要)
 - [既知の問題・課題](#️-既知の問題課題)
 - [次のアクションアイテム](#-次のアクションアイテム-優先度順)
@@ -30,11 +29,11 @@
 | Phase 1: 環境準備・確認 | ✅ 完了 | 100% | uv環境、依存関係更新完了 |
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
-| Phase 4: APIエンドポイント | 🔄 進行中 | 45% | メトリクスAPIをTDDで実装 |
+| Phase 4: APIエンドポイント | 🔄 進行中 | 90% | トレーニング制御・ファイル管理APIを実装 |
 | Phase 5: WebSocket | 🔄 進行中 | 70% | コールバック実装、メッセージ型定義完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
-| Phase 8: テスト | 🔄 進行中 | 50% | 学習メトリクスAPIの単体テスト拡充 + UTCヘルパーの定数化を検証 |
+| Phase 8: テスト | 🔄 進行中 | 70% | 学習メトリクスAPIとファイル管理APIの単体テストを整備、制御APIテストを拡充 (依存不足を解消済み) |
 | Phase 9: Docker環境 | 🔄 進行中 | 40% | docker-compose.yml存在、要検証 |
 
 **凡例:**
@@ -155,23 +154,21 @@
   - [x] PaginationParams/PaginatedResponse - ページネーション共通
 
 ### Phase 4: APIエンドポイント実装・拡張
-**進捗:** 45%
+**進捗:** 90%
 
 #### 完了
 - [x] app/api/v1/endpoints/training.py - 基本エンドポイント
 - [x] app/api/v1/endpoints/training.py - GET /sessions/{id}/metrics (ページネーション対応)
+- [x] app/api/v1/endpoints/training.py - POST /start, /{id}/pause, /{id}/resume, /{id}/stop を実装
+- [x] app/api/v1/endpoints/training.py - GET /list と GET /{id}/status を実装
+- [x] app/api/v1/endpoints/training.py - DELETE /{id} エンドポイントを実装
+- [x] app/api/v1/endpoints/jobs.py - ジョブキュー状態一覧 API を実装
+- [x] app/services/training_service.py - サービス層の新規実装
+- [x] app/core/training/job_manager.py - ジョブ管理スタブの拡張
+- [x] app/schemas/training.py - 制御レスポンス・リストレスポンスの追加
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
 - [x] app/api/v1/endpoints/health.py - ヘルスチェック
-
-#### TODO
-- [ ] POST /api/v1/training/start - 詳細実装・テスト
-- [ ] POST /api/v1/training/{id}/stop - 実装確認
-- [ ] POST /api/v1/training/{id}/pause - 一時停止機能追加
-- [ ] POST /api/v1/training/{id}/resume - 再開機能追加
-- [ ] GET /api/v1/training/list - セッション一覧取得
-- [ ] DELETE /api/v1/training/{id} - セッション削除
-- [ ] app/api/v1/endpoints/jobs.py - ジョブ管理API実装
-- [ ] app/api/v1/endpoints/files.py - ファイル管理API実装
+- [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
 
 ### Phase 5: WebSocket・リアルタイム通信
 **進捗:** 50%
@@ -249,11 +246,14 @@
 
 ## ⏳ 未着手の項目
 
-### Phase 8: テスト実装 (20%)
+### Phase 8: テスト実装 (70%)
 - [x] pytest設定 (tests/conftest.py で共通パスを整備)
 - [ ] APIテスト実装
   - [x] 学習制御APIテスト - メトリクス取得 (5ケース)
-  - [ ] 学習制御APIテスト - その他エンドポイント
+- [x] ファイル管理APIテスト - アップロード/一覧/削除/バリデーション (5ケース)
+- [x] 学習制御APIテスト - その他エンドポイント
+    - [x] start/pause/resume/stop/status/list/delete のユニットテスト追加 (JobManagerスタブ利用)
+  - [x] FastAPIファイルアップロード依存 (`python-multipart`) と asyncioテスト依存 (`pytest-asyncio`) の不足を解消
   - [ ] 環境制御APIテスト
   - [ ] WebSocketテスト
 - [ ] 統合テスト実装 (最低1つ)
@@ -307,21 +307,17 @@
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度
-1. **Phase 2完了**: データベースモデルの拡張と検証
-2. **Phase 3完了**: Pydanticスキーマの拡張
-3. **Phase 7開始**: PPOService実装 (Stable-Baselines3統合)
-4. **Phase 6完了**: Celery学習タスク実装
-5. **CI継続改善**: GitHub Actionsのテストジョブ監視と警告解消(UTC対応)の優先順位付け
+1. **Phase 8継続**: トレーニング制御・ファイル管理APIのエラーパスとダウンロード統合テストを追加
+2. **Phase 5完了**: WebSocket機能強化 (メッセージ型定義と再接続処理)
+3. **Phase 8継続**: 環境制御APIテストの着手
 
 ### 🌟 中優先度
-6. **Phase 4完了**: APIエンドポイント全機能実装
-7. **Phase 5完了**: WebSocket機能強化
-8. **Phase 8継続**: テストケース拡充とカバレッジ向上
+4. **Phase 9完了**: Docker環境の完全検証
+5. **ドキュメント整備**: APIドキュメント充実
+6. **パフォーマンステスト**: 負荷テスト実施
 
 ### 📌 低優先度 (後回し可)
-9. **Phase 9完了**: Docker環境の完全検証
-10. **ドキュメント整備**: APIドキュメント充実
-11. **パフォーマンステスト**: 負荷テスト実施
+7. **運用監視**: ログ収集・分析基盤の具体化
 
 ---
 
