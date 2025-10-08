@@ -4,10 +4,50 @@
 
 ## 📑 目次
 
+- [2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行](#2025-10-08---session-4-github-actionsで単体テスト自動実行)
 - [2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装](#2025-10-07---session-3-学習メトリクスapiのtdd実装)
 - [2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装](#2025-10-06---session-2-コアモデルスキーマrl統合実装)
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
+
+## 2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行
+
+### 🎯 セッション目標
+- GitHub Actions 上で単体テストを自動実行するCIパイプラインを構築する
+- テスト実行に必要な開発用依存関係を整理する
+
+### ✅ 実施内容
+
+1. **作業前の情報収集**
+   - `.github/workflows/` 配下の既存ワークフロー (`claude.yml` など) を確認し、既存の自動化との整合性を把握。
+   - `pyproject.toml` のオプション依存関係を見直し、ローカル/CI で不足しているパッケージを洗い出し。
+
+2. **テスト環境の確認**
+   - `pytest tests/unit/api/test_training_endpoints.py` を実行し、`pytest_asyncio` が不足していることを確認。
+   - `pip install pytest-asyncio` で不足分を補い、テストがローカルで成功することを再確認 (3ケース成功)。
+
+3. **CIワークフローの実装**
+   - `backend-tests.yml` を新規作成し、`push`/`pull_request` (mainブランチ対象) トリガーで動く Pytest ジョブを定義。
+   - `actions/setup-python@v5` を利用して Python 3.11 環境をセットアップし、`pip` キャッシュを有効化。
+   - `requirements.txt` と必要なテストツール (`pytest`, `pytest-asyncio`, `httpx`) をインストールしてから `pytest tests/unit` を実行する手順を構築。
+
+4. **依存関係の整理**
+   - `pyproject.toml` の `development` オプション依存関係に `pytest-asyncio` を追加し、開発者が `pip install .[development]` でテスト実行に必要なパッケージを揃えられるように改善。
+
+### 📊 成果物
+- `.github/workflows/backend-tests.yml`
+- `pyproject.toml` (development 依存関係の更新)
+
+### 🤔 学んだこと・気づき
+1. `pytest_asyncio` が不足しているとテスト収集段階で失敗するため、CI前に依存関係の棚卸しをしておく重要性を再認識。
+2. requirements.txt には本番依存がまとまっているが、開発用依存は `pyproject.toml` の extras で管理した方が運用がシンプルになる。
+
+### ⏭️ 次回セッションの予定
+1. CI ワークフローでの実行結果を確認し、必要に応じてキャッシュや並列化を検討。
+2. Phase 4 API の残りエンドポイントに対するテストケース拡充を検討。
+
+### 🔗 関連コミット
+- (作業完了後に記録)
 
 ## 2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装
 
