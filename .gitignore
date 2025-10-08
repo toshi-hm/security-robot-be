@@ -1,0 +1,52 @@
+# Python bytecode and cache directories
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+.env/
+venv/
+ENV/
+
+# IDE / editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and runtime files
+*.log
+*.pid
+*.sqlite3
+*.db
+*.sqlite
+
+# Compiled artifacts and binaries
+*.so
+*.dylib
+*.dll
+*.exe
+*.bin
+*.dat
+*.lib
+*.a
+*.o
+*.obj
+
+# Coverage and testing artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Local environment files
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
