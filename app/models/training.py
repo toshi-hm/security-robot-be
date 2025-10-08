@@ -2,10 +2,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Enum as SqlEnum, ForeignKey, String
+from sqlalchemy import Enum as SqlEnum, ForeignKey, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.utils.datetime import utcnow
 
 
 class TrainingJobStatus(str, Enum):
@@ -51,7 +52,7 @@ class TrainingJob(Base):
   log_path: Mapped[Optional[str]] = mapped_column(String(512), default=None)
   
   # Configuration (JSON)
-  config: Mapped[Optional[dict]] = mapped_column(default=None)
+  config: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
   
   # Timestamps
   started_at: Mapped[Optional[datetime]] = mapped_column(default=None)
@@ -77,10 +78,10 @@ class TrainingMetric(Base):
   threat_level_avg: Mapped[Optional[float]] = mapped_column(default=None)
   
   # Additional metrics (JSON)
-  additional_metrics: Mapped[Optional[dict]] = mapped_column(default=None)
+  additional_metrics: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
   
   # Timestamp
-  timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+  timestamp: Mapped[datetime] = mapped_column(default=utcnow)
   
   # Relationship
   job: Mapped[TrainingJob] = relationship(back_populates='metrics')

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import String
+from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -24,4 +24,4 @@ class FileMetadata(Base):
   
   # Metadata
   description: Mapped[Optional[str]] = mapped_column(String(500), default=None)
-  metadata: Mapped[Optional[dict]] = mapped_column(default=None)  # Additional JSON metadata
+  metadata_: Mapped[Optional[dict]] = mapped_column('metadata', JSON, default=None)  # Additional JSON metadata

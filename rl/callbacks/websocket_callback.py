@@ -7,6 +7,8 @@ from typing import Optional, Dict, Any
 from stable_baselines3.common.callbacks import BaseCallback
 import numpy as np
 
+from app.utils.datetime import utcnow
+
 logger = logging.getLogger(__name__)
 
 
@@ -189,8 +191,7 @@ class DatabaseMetricsCallback(BaseCallback):
     """Save current metrics to database."""
     try:
       from app.models.training import TrainingMetric
-      from datetime import datetime
-      
+
       mean_reward = float(np.mean(self.episode_rewards[-10:])) if self.episode_rewards else 0.0
       
       # Get loss if available
@@ -206,7 +207,7 @@ class DatabaseMetricsCallback(BaseCallback):
         episode=len(self.episode_rewards),
         reward=mean_reward,
         loss=loss,
-        timestamp=datetime.utcnow()
+        timestamp=utcnow()
       )
       
       self.db_session.add(metric)

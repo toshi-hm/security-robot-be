@@ -21,7 +21,7 @@ class FileUploadResponse(BaseModel):
 
 class FileMetadataResponse(BaseModel):
   """Response schema for file metadata."""
-  model_config = ConfigDict(from_attributes=True)
+  model_config = ConfigDict(from_attributes=True, populate_by_name=True)
   
   id: int
   filename: str
@@ -32,7 +32,7 @@ class FileMetadataResponse(BaseModel):
   content_type: str
   training_job_id: Optional[int]
   description: Optional[str]
-  metadata: Optional[dict]
+  metadata: Optional[dict] = Field(default=None, alias='metadata_', serialization_alias='metadata')
   created_at: datetime
   updated_at: datetime
 

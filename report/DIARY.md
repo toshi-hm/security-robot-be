@@ -4,9 +4,192 @@
 
 ## 📑 目次
 
+- [2025-10-11 - Session 7: UTCヘルパーの定数化と検証](#2025-10-11---session-7-utcヘルパーの定数化と検証)
+- [2025-10-10 - Session 6: UTC対応とテスト強化](#2025-10-10---session-6-utc対応とテスト強化)
+- [2025-10-09 - Session 5: CIテスト失敗調査と修正](#2025-10-09---session-5-ciテスト失敗調査と修正)
+- [2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行](#2025-10-08---session-4-github-actionsで単体テスト自動実行)
+- [2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装](#2025-10-07---session-3-学習メトリクスapiのtdd実装)
 - [2025-10-06 - Session 2: コアモデル・スキーマ・RL統合実装](#2025-10-06---session-2-コアモデルスキーマrl統合実装)
 - [2025-10-06 - Session 1: プロジェクト初期化・依存関係更新](#2025-10-06---session-1-プロジェクト初期化依存関係更新)
 - [セッションテンプレート](#セッションテンプレート)
+
+## 2025-10-11 - Session 7: UTCヘルパーの定数化と検証
+
+### 🎯 セッション目標
+- Python 3.11で追加された `datetime.UTC` 定数を活用し、UTCヘルパー実装を最新仕様に合わせる
+- 既存テストを `datetime.UTC` ベースに更新し、CIでの退行が起きないことを確認する
+
+### ✅ 実施内容
+
+1. **テストの強化から着手 (Red)**
+   - `tests/unit/api/test_training_endpoints.py` のタイムゾーン検証を `datetime.UTC` 比較に変更し、期待仕様を明確化。
+
+2. **UTCユーティリティの更新 (Green)**
+   - `app/utils/datetime.py` の `utcnow()` が `datetime.UTC` 定数を利用するよう修正。
+   - テストデータ生成やアサーションが `datetime.UTC` を直接参照するように変更し、API・モデルでのタイムゾーン一貫性を維持。
+
+3. **リファクタリング & 検証 (Refactor)**
+   - `pytest tests/unit -q` を実行し、全ユニットテストが成功することを確認。
+
+### 📊 成果物
+- `datetime.UTC` を用いる UTC ユーティリティと関連ユニットテストの更新
+
+### 🤔 学んだこと・気づき
+1. Python 3.11 では `datetime.UTC` が公式に導入されており、`timezone.utc` と同一オブジェクトであるため既存実装との互換性を保ったまま最新表記へ移行できる。
+
+### ⏭️ 次回セッションの予定
+1. `UTC` 定数の導入を他のタイムゾーン関連処理にも波及できるか洗い出し。
+2. Phase 8 テストカバレッジ拡大のため、APIエンドポイントのエラーパス検証を追加。
+
+### 🔗 関連コミット
+- (このセッションのコミットで対応)
+
+## 2025-10-10 - Session 6: UTC対応とテスト強化
+
+### 🎯 セッション目標
+- `datetime.utcnow()` の非推奨化に対応し、すべてのタイムスタンプをタイムゾーン情報付きで扱えるようにする
+- TDDでデグレを防ぎつつ、既存テストスイートがCIとローカルで問題なく動作することを確認する
+
+### ✅ 実施内容
+
+1. **TDDでの要件明確化**
+   - 既存のテストに `TrainingMetric` と `TrainingJob` のタイムスタンプが `timezone.utc` を保持していることを検証する新ケースを追加。
+   - 生成済みメトリクスの基準時刻を `datetime.now(timezone.utc)` に変更し、タイムゾーン情報が正しく伝播するように準備。
+
+2. **UTCユーティリティの導入と適用**
+   - `app/utils/datetime.py` を新規作成し、`utcnow()` で常にタイムゾーン付きの現在時刻を取得できるように統一。
+   - モデル(`app/models/base.py`, `app/models/training.py`)、スキーマ(`app/schemas/training.py`, `app/schemas/websocket.py`)、タスク(`app/tasks/training_tasks.py`)、RLコールバック(`rl/callbacks/websocket_callback.py`)で `utcnow()` を使用するようにリファクタリング。
+
+3. **テストの実行と警告解消確認**
+   - 追加したテストを含む `pytest tests/unit/api/test_training_endpoints.py -q` を実行し、新規テストが失敗することを確認した上で実装を進めた。
+   - 実装後に `pytest tests/unit -q` を実行し、16件すべてのテストが成功すること、および `datetime.utcnow()` の DeprecationWarning が解消されたことを確認。
+
+### 📊 成果物
+- `app/utils/datetime.py`
+- 既存タイムスタンプ関連コードの UTC 対応リファクタリング一式
+- タイムゾーン整合性を保証するユニットテスト 2件の追加
+
+### 🤔 学んだこと・気づき
+1. SQLAlchemy の `default`/`onupdate` にはCallableを渡す必要があるため、共通のユーティリティ関数を定義しておくと再利用性が高い。
+2. テストでタイムゾーン情報を明示的に検証することで、CI上のPythonバージョン差異による警告を未然に防げる。
+
+### ⏭️ 次回セッションの予定
+1. WebSocketイベントでのタイムゾーン表現をAPIレスポンス仕様と照合し、必要ならISO8601フォーマット化を検討。
+2. TDDで環境関連エンドポイントのユニットテストを拡充し、CIカバレッジを向上させる。
+
+### 🔗 関連コミット
+- HEAD Use timezone-aware UTC helpers
+
+## 2025-10-09 - Session 5: CIテスト失敗調査と修正
+
+### 🎯 セッション目標
+- GitHub Actions 上で発生した単体テスト失敗の原因を特定し、再発防止策を講じる
+- すべてのユニットテストをローカル環境でも再現・成功させる
+
+### ✅ 実施内容
+
+1. **CIログの分析と環境再現**
+   - 提供された GitHub Actions の失敗ログを精査し、`ModuleNotFoundError: No module named 'app'` が発生していることを確認。
+   - ローカル環境で `pytest tests/unit` を実行して同じエラーを再現し、テスト収集時にパス解決が行われていないことを確認。
+
+2. **Pythonパス解決の修正**
+   - ルートディレクトリを `sys.path` に追加する `tests/conftest.py` を新規作成し、すべてのテストで `app` や `rl` パッケージを解決できるように修正。
+   - 既存のスタブモジュール (`fastapi/`, `pydantic/`) が実ライブラリをシャドーしていたため削除し、公式パッケージを使用するように統一。
+
+3. **依存関係のインストールとテスト実行**
+   - `pip install -r requirements.txt` で FastAPI や SQLAlchemy などの依存関係をインストール。
+   - `pytest tests/unit -q` を実行し、14件のユニットテストがすべて成功することを確認 (DeprecationWarning は既知のまま)。
+
+### 📊 成果物
+- `tests/conftest.py`
+- 不要になったスタブモジュール (`fastapi/`, `pydantic/`) の削除
+
+### 🤔 学んだこと・気づき
+1. ルート配下にライブラリ名と同名のスタブを置くと、本物のパッケージより優先されてしまい CI での挙動が変わるため注意が必要。
+2. テストディレクトリに共通の `conftest.py` を置くことで、個別テストのパス調整コードを排除しつつ一元的に制御できる。
+
+### ⏭️ 次回セッションの予定
+1. テストスイートの DeprecationWarning（`datetime.utcnow()`）解消に向けた改善案の検討。
+2. Phase 8 の残タスク（APIテスト拡充・統合テスト着手）の優先度と工数整理。
+
+### 🔗 関連コミット
+- 2525e66 Fix CI unit test imports by using real dependencies
+
+## 2025-10-08 - Session 4: GitHub Actionsで単体テスト自動実行
+
+### 🎯 セッション目標
+- GitHub Actions 上で単体テストを自動実行するCIパイプラインを構築する
+- テスト実行に必要な開発用依存関係を整理する
+
+### ✅ 実施内容
+
+1. **作業前の情報収集**
+   - `.github/workflows/` 配下の既存ワークフロー (`claude.yml` など) を確認し、既存の自動化との整合性を把握。
+   - `pyproject.toml` のオプション依存関係を見直し、ローカル/CI で不足しているパッケージを洗い出し。
+
+2. **テスト環境の確認**
+   - `pytest tests/unit/api/test_training_endpoints.py` を実行し、`pytest_asyncio` が不足していることを確認。
+   - `pip install pytest-asyncio` で不足分を補い、テストがローカルで成功することを再確認 (3ケース成功)。
+
+3. **CIワークフローの実装**
+   - `backend-tests.yml` を新規作成し、`push`/`pull_request` (mainブランチ対象) トリガーで動く Pytest ジョブを定義。
+   - `actions/setup-python@v5` を利用して Python 3.11 環境をセットアップし、`pip` キャッシュを有効化。
+   - `requirements.txt` と必要なテストツール (`pytest`, `pytest-asyncio`, `httpx`) をインストールしてから `pytest tests/unit` を実行する手順を構築。
+
+4. **依存関係の整理**
+   - `pyproject.toml` の `development` オプション依存関係に `pytest-asyncio` を追加し、開発者が `pip install .[development]` でテスト実行に必要なパッケージを揃えられるように改善。
+
+### 📊 成果物
+- `.github/workflows/backend-tests.yml`
+- `pyproject.toml` (development 依存関係の更新)
+
+### 🤔 学んだこと・気づき
+1. `pytest_asyncio` が不足しているとテスト収集段階で失敗するため、CI前に依存関係の棚卸しをしておく重要性を再認識。
+2. requirements.txt には本番依存がまとまっているが、開発用依存は `pyproject.toml` の extras で管理した方が運用がシンプルになる。
+
+### ⏭️ 次回セッションの予定
+1. CI ワークフローでの実行結果を確認し、必要に応じてキャッシュや並列化を検討。
+2. Phase 4 API の残りエンドポイントに対するテストケース拡充を検討。
+
+### 🔗 関連コミット
+- (作業完了後に記録)
+
+## 2025-10-07 - Session 3: 学習メトリクスAPIのTDD実装
+
+### 🎯 セッション目標
+- Phase 4: 学習セッションメトリクスAPIの実装
+- Phase 8: 学習制御API向け単体テストの着手 (TDD)
+
+### ✅ 実施内容
+
+1. **設計ドキュメント・プロンプト再確認**
+   - `instructions/02_backend_api_design_standalone.md` からメトリクス取得仕様を精読し、レスポンスフォーマットとページネーション要件を確認。
+
+2. **テスト駆動開発 (先にテスト作成)**
+   - `tests/unit/api/test_training_endpoints.py` を新規作成。
+   - SQLite(AIOSQLite) を用いたインメモリDBフィクスチャを構築し、`TrainingJob` / `TrainingMetric` モデルのセットアップとデータ投入を実装。
+   - 3ケースを作成:
+     - 正常系: ページネーションが適用されたメトリクス取得。
+     - 例外系: 存在しないセッションIDでの404応答確認。
+     - ページ遷移: 2ページ目の内容が正しいオフセットになるか検証。
+   - 既存コードではJSON型未指定などでエラーとなることを確認 (テスト失敗を観測)。
+
+3. **モデル層の不具合修正**
+   - `app/models/training.py` にて `config` / `additional_metrics` に JSON 型を設定し、Declarative Mapping エラーを解消。
+   - `app/models/files.py` の `metadata` カラムが予約語衝突していたため `metadata_` フィールドを追加してJSON型を設定。
+   - `app/schemas/files.py` で `metadata_` を `metadata` として公開するためのエイリアス設定を追加。
+
+4. **API実装**
+   - `app/api/v1/endpoints/training.py` で `/sessions/{session_id}/metrics` を実装。
+   - セッション存在チェック、件数取得、タイムスタンプ降順・ページネーション付きクエリ、`TrainingMetricsListResponse` でのレスポンス整形を実装。
+
+5. **テスト実行**
+   - 追加した単体テスト3件が成功することを確認 (`pytest tests/unit/api/test_training_endpoints.py`)。
+
+### 📎 メモ
+- JSONB前提のフィールドはSQLite互換の `JSON` 型で代替しテスト環境でも動作させた。
+- pytest-asyncioのstrictモード対応として `pytest_asyncio.fixture` を採用。
+- datetime.utcnow() の警告は今後の課題として要検討。
 
 ---
 
