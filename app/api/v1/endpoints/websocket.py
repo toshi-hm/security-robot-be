@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.websocket.manager import websocket_manager
+from app.core.websocket.redis_forwarder import redis_forwarder
 from app.models.training import TrainingJob
 from app.schemas.websocket import ConnectionAckMessage, PongMessage, TrainingErrorEvent
 
@@ -62,6 +63,7 @@ async def training_updates(
 
   client_id = str(uuid.uuid4())
   await websocket_manager.connect(websocket, session_id=session_id, client_id=client_id)
+  await redis_forwarder.ensure_session_listener(session_id)
 
   ack = ConnectionAckMessage(client_id=client_id).model_dump()
   ack['session_id'] = session_id
@@ -103,3 +105,4 @@ async def training_updates(
     await websocket_manager.send_personal_message(error.model_dump(), websocket)
   finally:
     await websocket_manager.disconnect(websocket, session_id)
+    await redis_forwarder.release_session(session_id)

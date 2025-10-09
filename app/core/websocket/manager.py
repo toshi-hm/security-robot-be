@@ -236,6 +236,11 @@ class WebSocketManager:
     for connection in connections:
       await self.disconnect(connection, self._connection_meta.get(connection, {}).get("session_id"))
 
+  def has_connections(self, session_id: int) -> bool:
+    """Return True if there are active WebSocket connections for the session."""
+
+    return bool(self.session_connections.get(session_id))
+
   def get_connection_metadata(self, websocket: WebSocket) -> dict[str, Any]:
     """Return metadata tracked for a WebSocket connection."""
 
