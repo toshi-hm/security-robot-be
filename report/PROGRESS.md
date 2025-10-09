@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-14 Session 16
+**最終更新:** 2025-10-15 Session 17
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -30,7 +30,7 @@
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
 | Phase 4: APIエンドポイント | 🔄 進行中 | 90% | トレーニング制御・ファイル管理APIを実装 |
-| Phase 5: WebSocket | 🔄 進行中 | 90% | コールバック実装、メッセージ型定義完了 |
+| Phase 5: WebSocket | ✅ 完了 | 100% | Redis連携と再接続制御まで完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
 | Phase 8: テスト | 🔄 進行中 | 70% | 学習メトリクスAPIとファイル管理APIの単体テストを整備、制御APIテストを拡充 (依存不足を解消済み) |
@@ -180,7 +180,7 @@
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
 
 ### Phase 5: WebSocket・リアルタイム通信
-**進捗:** 90%
+**進捗:** 100%
 
 #### 完了
 - [x] app/core/websocket/manager.py - WebSocketManager基本実装
@@ -192,10 +192,9 @@
 - [x] ハートビート間隔の設定化 (`Settings.websocket_heartbeat_interval` で制御)
 - [x] WebSocket接続拒否時のクローズ理由改善 (4404コード + JSON理由)
 - [x] WebSocketManager のユニットテスト拡充 (mark_seen/heartbeat/broadcast_all/metadata)
-
-#### TODO
-- [ ] 再接続ロジック実装
-- [ ] Redis Pub/Sub 統合と再接続時の再購読処理
+- [x] Redis Pub/Sub ベースのトレーニング進捗フォワーダーを実装し、セッション別リスナー管理を導入
+- [x] WebSocket エンドポイントでのリスナーライフサイクル制御と再接続対応
+- [x] Redis フォワーダーのユニットテスト (セッション配信・リスナー再利用) を追加
 
 ### Phase 6: Celeryバックグラウンドタスク (2025-10-06完了)
 **進捗:** 100% ✅
@@ -322,9 +321,9 @@
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度
-1. **Phase 5仕上げ**: 再接続ロジックと Redis Pub/Sub 連携を実装し、WebSocket 配信をエンドツーエンド化
+1. **Phase 8継続**: Redisフォワーダーを利用した WebSocket 統合テストを設計・実装
 2. **Phase 8継続**: トレーニング制御・ファイル管理APIのエラーパスおよびダウンロード統合テストを追加
-3. **Phase 8継続**: WebSocket エンドポイントの統合テストと環境制御APIテストに着手
+3. **Phase 5→6連携**: Celery トレーニングタスクを Redis Pub/Sub 発行にリファクタリングし、WebSocket ブリッジと接続
 
 ### 🌟 中優先度
 4. **Phase 9完了**: Docker環境の完全検証
