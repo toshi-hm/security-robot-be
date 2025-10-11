@@ -209,7 +209,7 @@ class WebSocketManager:
     if not self.active_connections:
       return
 
-    payload = PingMessage().model_dump()
+    payload = PingMessage().model_dump(mode='json')
 
     async with self._lock:
       connections = list(self.active_connections)
