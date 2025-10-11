@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-15 Session 17
+**最終更新:** 2025-10-18 Session 20
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -50,8 +50,10 @@
 - [x] ルートに `.gitignore` を追加し、バイナリ・ビルド成果物・IDE設定・ログ/DB などの不要ファイルを除外
 - [x] `.gitignore` 運用方針を `report/DIARY.md` / `report/PROGRESS.md` に記録
 
-### CI運用改善 (2025-10-12更新)
+### CI運用改善 (2025-10-18更新)
 - [x] GitHub ActionsのClaude Codeレビュー出力言語を日本語に固定するプロンプトを追加
+- [x] Codex PRレビュー用プロンプトを整備し、レビュー出力が日本語になるよう指示を明文化
+- [x] Codex/Claude 向けエージェントガイド (`AGENTS.md`, `CLAUDE.md`) を英語化し、参照ドキュメント・TDD 手順を統一
 
 ### ローカル環境起動エラー解消 (2025-10-11更新)
 - [x] `pyproject.toml` に `tool.setuptools.packages.find` を追加し、`app`/`rl` 配下のみをパッケージ対象に限定
