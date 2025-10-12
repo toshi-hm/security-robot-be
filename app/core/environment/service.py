@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+from dataclasses import dataclass
+from numbers import Integral
+from typing import Any, Dict
+from uuid import uuid4
 
 from app.core.environment.schemas import (
     EnvironmentDefinition,
@@ -13,11 +17,22 @@ from app.core.environment.schemas import (
 from rl.environments import EnvironmentSpec, available_environments
 
 
+@dataclass(slots=True)
+class _EnvironmentSession:
+    """Tracked environment session for interactive usage."""
+
+    id: str
+    spec: EnvironmentSpec
+    environment: Any
+
+
 class EnvironmentService:
     def __init__(self) -> None:
         self._registry: dict[str, EnvironmentSpec] = {
             spec.id: spec for spec in available_environments()
         }
+        self._sessions: Dict[str, _EnvironmentSession] = {}
+        self._lock = asyncio.Lock()
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
         return [self._build_definition(spec) for spec in self._registry.values()]
@@ -34,6 +49,89 @@ class EnvironmentService:
         observation, _ = env.reset(seed=seed)
 
         return self._build_state(spec, env, observation)
+
+    async def create_session(
+        self,
+        environment_id: str,
+        *,
+        seed: int | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> tuple[str, EnvironmentState]:
+        """Instantiate an interactive environment session."""
+
+        try:
+            spec = self._registry[environment_id]
+        except KeyError as exc:
+            raise KeyError(environment_id) from exc
+
+        overrides = dict(config or {})
+        environment = spec.create(**overrides)
+        observation, _ = environment.reset(seed=seed)
+        state = self._build_state(spec, environment, observation)
+
+        session = _EnvironmentSession(id=uuid4().hex, spec=spec, environment=environment)
+        async with self._lock:
+            self._sessions[session.id] = session
+
+        return session.id, state
+
+    async def reset_session(
+        self, session_id: str, *, seed: int | None = None
+    ) -> EnvironmentState:
+        """Reset an existing environment session."""
+
+        session = await self._get_session(session_id)
+        observation, _ = session.environment.reset(seed=seed)
+        return self._build_state(session.spec, session.environment, observation)
+
+    async def execute_action(
+        self, session_id: str, action: int
+    ) -> tuple[EnvironmentState, float, bool, bool, dict[str, Any]]:
+        """Execute an action against a live environment session."""
+
+        if not isinstance(action, Integral):
+            raise ValueError("action must be an integer")
+
+        session = await self._get_session(session_id)
+
+        action_space = getattr(session.environment, "action_space", None)
+        if action_space is not None and hasattr(action_space, "n"):
+            if action < 0 or action >= int(action_space.n):
+                raise ValueError("action is out of bounds for the environment")
+        elif action < 0:
+            raise ValueError("action must be non-negative")
+
+        observation, reward, terminated, truncated, info = session.environment.step(int(action))
+        state = self._build_state(session.spec, session.environment, observation)
+
+        if info is None:
+            info_payload: dict[str, Any] = {}
+        elif isinstance(info, dict):
+            info_payload = dict(info)
+        else:
+            info_payload = {"details": info}
+
+        return state, float(reward), bool(terminated), bool(truncated), info_payload
+
+    async def close_session(self, session_id: str) -> None:
+        """Dispose of an interactive environment session."""
+
+        async with self._lock:
+            session = self._sessions.pop(session_id, None)
+
+        if session is None:
+            raise KeyError(session_id)
+
+        close = getattr(session.environment, "close", None)
+        if callable(close):
+            close()
+
+    async def _get_session(self, session_id: str) -> _EnvironmentSession:
+        async with self._lock:
+            session = self._sessions.get(session_id)
+        if session is None:
+            raise KeyError(session_id)
+        return session
 
     def refresh_registry(self) -> None:
         self._registry = {spec.id: spec for spec in available_environments()}

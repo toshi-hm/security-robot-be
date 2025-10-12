@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from fastapi import HTTPException
+from fastapi import status
 
 from app.api.v1.endpoints import environment as environment_module
 from app.core.environment.schemas import (
@@ -13,12 +14,18 @@ from app.core.environment.schemas import (
     RobotState,
     SuspiciousObject,
 )
+from app.schemas.environment import (
+    EnvironmentActionRequest,
+    EnvironmentSessionCreate,
+    EnvironmentSessionResetRequest,
+)
 
 
 class StubEnvironmentService:
     def __init__(self, definitions: list[EnvironmentDefinition], state: EnvironmentState):
         self._definitions = definitions
         self._state = state
+        self.closed: list[str] = []
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
         return list(self._definitions)
@@ -27,6 +34,36 @@ class StubEnvironmentService:
         if environment_id != self._state.environment_id:
             raise KeyError(environment_id)
         return self._state
+
+    async def create_session(
+        self,
+        environment_id: str,
+        *,
+        seed: int | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> tuple[str, EnvironmentState]:
+        if environment_id != self._state.environment_id:
+            raise KeyError(environment_id)
+        return "session-1", self._state
+
+    async def reset_session(self, session_id: str, *, seed: int | None = None) -> EnvironmentState:
+        if session_id != "session-1":
+            raise KeyError(session_id)
+        return self._state
+
+    async def execute_action(
+        self, session_id: str, action: int
+    ) -> tuple[EnvironmentState, float, bool, bool, dict[str, Any]]:
+        if session_id != "session-1":
+            raise KeyError(session_id)
+        if action < 0 or action > 5:
+            raise ValueError("invalid action")
+        return self._state, 1.5, False, False, {"action": action}
+
+    async def close_session(self, session_id: str) -> None:
+        if session_id != "session-1":
+            raise KeyError(session_id)
+        self.closed.append(session_id)
 
 
 def _sample_state() -> EnvironmentState:
@@ -84,3 +121,93 @@ def test_get_environment_state_not_found(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert excinfo.value.status_code == 404
     assert "not found" in excinfo.value.detail.lower()
+
+
+def test_create_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentSessionCreate(environment_id="tracked")
+    response = asyncio.run(environment_module.create_environment_session(payload))
+    assert response["data"].session_id == "session-1"
+    assert response["data"].state.environment_id == "tracked"
+
+
+def test_create_environment_session_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentSessionCreate(environment_id="unknown")
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.create_environment_session(payload))
+
+    assert excinfo.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_reset_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentSessionResetRequest(seed=123)
+    response = asyncio.run(
+        environment_module.reset_environment_session("session-1", payload)
+    )
+    assert response["data"].session_id == "session-1"
+
+
+def test_reset_environment_session_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.reset_environment_session("missing", None))
+
+    assert excinfo.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_perform_environment_action(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentActionRequest(action=2)
+    response = asyncio.run(
+        environment_module.perform_environment_action("session-1", payload)
+    )
+    result = response["data"]
+    assert result.reward == pytest.approx(1.5)
+    assert result.info["action"] == 2
+
+
+def test_perform_environment_action_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentActionRequest(action=1)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.perform_environment_action("unknown", payload))
+    assert excinfo.value.status_code == status.HTTP_404_NOT_FOUND
+
+    payload = EnvironmentActionRequest(action=6)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.perform_environment_action("session-1", payload))
+    assert excinfo.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_close_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+    service = StubEnvironmentService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    response = asyncio.run(environment_module.close_environment_session("session-1"))
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert service.closed == ["session-1"]
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.close_environment_session("missing"))
+    assert excinfo.value.status_code == status.HTTP_404_NOT_FOUND
