@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from numbers import Integral
-from typing import Any, Dict
+from typing import Any
 from uuid import uuid4
 
 from app.core.environment.schemas import (
@@ -31,7 +31,7 @@ class EnvironmentService:
         self._registry: dict[str, EnvironmentSpec] = {
             spec.id: spec for spec in available_environments()
         }
-        self._sessions: Dict[str, _EnvironmentSession] = {}
+        self._sessions: dict[str, _EnvironmentSession] = {}
         self._lock = asyncio.Lock()
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
