@@ -180,6 +180,7 @@
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
 - [x] app/api/v1/endpoints/environment.py - 環境セッション作成/リセット/アクション/終了APIを追加
 - [x] app/core/environment/service.py - セッション管理とアクション実行ロジックを実装
+- [x] app/core/environment/service.py - セッション上限とinfoシリアライズ対策を追加 (2025-10-21)
 - [x] app/schemas/environment.py - セッション操作用スキーマを定義
 - [x] app/api/v1/endpoints/health.py - ヘルスチェック
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
@@ -307,6 +308,10 @@
    - Stable-Baselines3とカスタムA3C実装の共存方法
    - 学習中の中断・再開処理
 
+4. **インタラクティブ環境セッションのリソース管理**
+   - セッションタイムアウトと定期クリーンアップの導入が未実装
+   - 長時間アイドルセッションの自動解放方針を決定する必要あり
+
 4. **日付時刻処理の更新** (2025-10-10 解消)
    - `app/utils/datetime.py` の `utcnow()` ユーティリティ導入済み。引き続きUTC表現の整合性を監視。
 
@@ -335,6 +340,8 @@
 4. **Phase 9完了**: Docker環境の完全検証
 5. **ドキュメント整備**: APIドキュメント充実
 6. **パフォーマンステスト**: 負荷テスト実施
+7. **環境セッション**: タイムアウトとバックグラウンドクリーンアップの実装
+8. **環境セッション**: 並行アクセステストの追加
 
 ### 📌 低優先度 (後回し可)
 7. **運用監視**: ログ収集・分析基盤の具体化
