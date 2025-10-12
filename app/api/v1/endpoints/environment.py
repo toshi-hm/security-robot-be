@@ -56,6 +56,11 @@ async def create_environment_session(
             status.HTTP_404_NOT_FOUND,
             detail=f"Environment {payload.environment_id} not found",
         ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Environment session limit reached",
+        ) from exc
 
     envelope = EnvironmentSessionState(
         session_id=session_id,

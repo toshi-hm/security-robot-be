@@ -146,6 +146,29 @@ def test_create_environment_session_not_found(monkeypatch: pytest.MonkeyPatch) -
     assert excinfo.value.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_create_environment_session_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _sample_state()
+
+    class LimitedService(StubEnvironmentService):
+        async def create_session(
+            self,
+            environment_id: str,
+            *,
+            seed: int | None = None,
+            config: dict[str, Any] | None = None,
+        ) -> tuple[str, EnvironmentState]:
+            raise RuntimeError("capacity exceeded")
+
+    service = LimitedService([state.definition], state)
+    monkeypatch.setattr(environment_module, "environment_service", service)
+
+    payload = EnvironmentSessionCreate(environment_id="tracked")
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(environment_module.create_environment_session(payload))
+
+    assert excinfo.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
 def test_reset_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
     state = _sample_state()
     service = StubEnvironmentService([state.definition], state)
