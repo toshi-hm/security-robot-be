@@ -106,6 +106,27 @@ class MinimalEnvironment:
         return observation, {}
 
 
+class NonSerializableEnvironment(MinimalEnvironment):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.closed = False
+
+    def step(self, action: int):
+        observation = [
+            [[0.0, 0.0, 0.0] for _ in range(self.height)]
+            for _ in range(self.width)
+        ]
+        info = {
+            "set": {1, 2, 3},
+            "mapping": {"nested": {"value": complex(1, 2)}},
+            "sequence": (b"bytes", bytearray(b"data")),
+        }
+        return observation, 1.0, False, False, info
+
+    def close(self) -> None:  # pragma: no cover - invoked indirectly
+        self.closed = True
+
+
 def _build_specs() -> Iterable[EnvironmentSpec]:
     tracked_spec = EnvironmentSpec(
         id="tracked",
@@ -221,3 +242,55 @@ def test_environment_session_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
     asyncio.run(service.close_session(session_id))
     with pytest.raises(KeyError):
         asyncio.run(service.execute_action(session_id, 0))
+
+
+def test_execute_action_serializes_info(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = EnvironmentSpec(
+        id="non-serializable",
+        name="NonSerializable",
+        description="",
+        factory=lambda **config: NonSerializableEnvironment(**config),
+        default_config={"width": 2, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete"},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService()
+
+    session_id, _ = asyncio.run(service.create_session("non-serializable"))
+    _, _, _, _, info = asyncio.run(service.execute_action(session_id, 0))
+
+    assert sorted(info["set"]) == [1, 2, 3]
+    assert info["mapping"] == {"nested": {"value": "(1+2j)"}}
+    assert info["sequence"] == ["b'bytes'", "bytearray(b'data')"]
+
+
+def test_create_session_enforces_capacity(monkeypatch: pytest.MonkeyPatch) -> None:
+    created_envs: list[NonSerializableEnvironment] = []
+
+    def factory(**config: Any) -> NonSerializableEnvironment:
+        env = NonSerializableEnvironment(**config)
+        created_envs.append(env)
+        return env
+
+    spec = EnvironmentSpec(
+        id="limited",
+        name="Limited",
+        description="",
+        factory=factory,
+        default_config={"width": 2, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete"},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService(max_sessions=1)
+
+    session_id, _ = asyncio.run(service.create_session("limited"))
+    assert session_id
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(service.create_session("limited"))
+
+    assert created_envs[-1].closed is True
