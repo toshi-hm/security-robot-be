@@ -29,7 +29,7 @@
 | Phase 1: 環境準備・確認 | ✅ 完了 | 100% | uv環境、依存関係更新完了 |
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
-| Phase 4: APIエンドポイント | 🔄 進行中 | 90% | トレーニング制御・ファイル管理APIを実装 |
+| Phase 4: APIエンドポイント | 🔄 進行中 | 95% | トレーニング制御・ファイル管理APIに加え環境セッション操作を実装 |
 | Phase 5: WebSocket | ✅ 完了 | 100% | Redis連携と再接続制御まで完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
@@ -165,7 +165,7 @@
   - [x] PaginationParams/PaginatedResponse - ページネーション共通
 
 ### Phase 4: APIエンドポイント実装・拡張
-**進捗:** 90%
+**進捗:** 95%
 
 #### 完了
 - [x] app/api/v1/endpoints/training.py - 基本エンドポイント
@@ -178,6 +178,9 @@
 - [x] app/core/training/job_manager.py - ジョブ管理スタブの拡張
 - [x] app/schemas/training.py - 制御レスポンス・リストレスポンスの追加
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
+- [x] app/api/v1/endpoints/environment.py - 環境セッション作成/リセット/アクション/終了APIを追加
+- [x] app/core/environment/service.py - セッション管理とアクション実行ロジックを実装
+- [x] app/schemas/environment.py - セッション操作用スキーマを定義
 - [x] app/api/v1/endpoints/health.py - ヘルスチェック
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
 
@@ -260,7 +263,7 @@
 
 ## ⏳ 未着手の項目
 
-### Phase 8: テスト実装 (70%)
+### Phase 8: テスト実装 (75%)
 - [x] pytest設定 (tests/conftest.py で共通パスを整備)
 - [ ] APIテスト実装
   - [x] 学習制御APIテスト - メトリクス取得 (5ケース)
@@ -268,7 +271,8 @@
 - [x] 学習制御APIテスト - その他エンドポイント
     - [x] start/pause/resume/stop/status/list/delete のユニットテスト追加 (JobManagerスタブ利用)
   - [x] FastAPIファイルアップロード依存 (`python-multipart`) と asyncioテスト依存 (`pytest-asyncio`) の不足を解消
-  - [ ] 環境制御APIテスト
+  - [x] 環境セッションAPIテスト（作成/リセット/アクション/終了）
+  - [x] 環境サービスのセッション管理ユニットテスト
 - [x] WebSocketテスト (エンドポイントレベル)
 - [x] WebSocket接続管理ユニットテスト (manager)
 - [ ] 統合テスト実装 (最低1つ)

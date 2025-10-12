@@ -46,6 +46,11 @@ class TrackingEnvironment:
         ]
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+        self.robot_x = 1
+        self.robot_y = 0
+        self.robot_direction = 2
+        self.time_step = 5 if seed is None else seed % 10
+
         observation = [
             [[0.0, 0.0, 0.0] for _ in range(self.height)]
             for _ in range(self.width)
@@ -54,6 +59,26 @@ class TrackingEnvironment:
             for y in range(self.height):
                 observation[x][y][0] = self.threat_levels[x][y]
         return observation, {"seed": seed}
+
+    def step(self, action: int):
+        self.time_step += 1
+
+        if action == 0:
+            self.robot_x = max(0, self.robot_x - 1)
+        elif action == 1:
+            self.robot_y = min(self.height - 1, self.robot_y + 1)
+
+        observation = [
+            [[0.0, 0.0, 0.0] for _ in range(self.height)]
+            for _ in range(self.width)
+        ]
+        for x in range(self.width):
+            for y in range(self.height):
+                observation[x][y][0] = self.threat_levels[x][y]
+                observation[x][y][1] = 1.0 if self.obstacles[x][y] else 0.0
+        observation[self.robot_x][self.robot_y][2] = (self.robot_direction + 1) / 4.0
+
+        return observation, float(action), False, False, {"action": action}
 
     def _grid(self, fill: Any) -> list[list[Any]]:
         return [[fill for _ in range(self.height)] for _ in range(self.width)]
@@ -168,3 +193,31 @@ def test_refresh_registry(monkeypatch: pytest.MonkeyPatch) -> None:
         definition.id for definition in asyncio.run(service.list_definitions())
     }
     assert refreshed_ids == {"minimal"}
+
+
+def test_environment_session_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+    specs = tuple(_build_specs())
+    monkeypatch.setattr(service_module, "available_environments", lambda: specs)
+    service = service_module.EnvironmentService()
+
+    session_id, initial_state = asyncio.run(
+        service.create_session("tracked", seed=7, config={"width": 3, "height": 2})
+    )
+    assert session_id
+    assert initial_state.environment_id == "tracked"
+
+    step_state, reward, terminated, truncated, info = asyncio.run(
+        service.execute_action(session_id, 0)
+    )
+    assert reward == pytest.approx(0.0)
+    assert not terminated
+    assert not truncated
+    assert info["action"] == 0
+    assert step_state.robot.x == 0
+
+    reset_state = asyncio.run(service.reset_session(session_id))
+    assert reset_state.robot.x == 1
+
+    asyncio.run(service.close_session(session_id))
+    with pytest.raises(KeyError):
+        asyncio.run(service.execute_action(session_id, 0))

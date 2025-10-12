@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -91,3 +91,43 @@ class EnvironmentDefinitionResponse(BaseModel):
 class LegacyEnvironmentStateResponse(BaseModel):
   """Legacy environment state response schema."""
   data: CoreEnvironmentState
+
+
+class EnvironmentSessionCreate(BaseModel):
+  """Request schema for creating an interactive environment session."""
+
+  environment_id: str = Field(..., min_length=1)
+  seed: int | None = Field(default=None, ge=0)
+  config: dict[str, Any] | None = Field(default=None, description="Environment overrides")
+
+
+class EnvironmentSessionResetRequest(BaseModel):
+  """Request payload for resetting an environment session."""
+
+  seed: int | None = Field(default=None, ge=0)
+
+
+class EnvironmentActionRequest(BaseModel):
+  """Request payload for performing an action in an environment session."""
+
+  action: int = Field(..., ge=0, description="Discrete action index")
+
+
+class EnvironmentSessionState(BaseModel):
+  """State information for an interactive environment session."""
+
+  session_id: str
+  environment_id: str
+  state: CoreEnvironmentState
+
+
+class EnvironmentStepResponse(BaseModel):
+  """Response model for a single environment step."""
+
+  session_id: str
+  environment_id: str
+  state: CoreEnvironmentState
+  reward: float
+  terminated: bool
+  truncated: bool
+  info: dict[str, Any] = Field(default_factory=dict)
