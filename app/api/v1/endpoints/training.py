@@ -15,7 +15,7 @@ from app.schemas.training import (
   TrainingSessionListResponse,
   TrainingSessionResponse,
 )
-from app.services import TrainingService
+from app.services import TrainingService, training_dispatcher
 
 router = APIRouter()
 
@@ -34,12 +34,25 @@ async def start_training(
   except ValueError as exc:
     raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+  training_config = service.build_training_config(job, config)
+
+  try:
+    task_result = training_dispatcher.dispatch(job, training_config)
+  except ValueError as exc:
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+  except Exception as exc:  # pragma: no cover - defensive guard
+    raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail='Failed to dispatch training task') from exc
+
   queue_payload: dict[str, Any] = {
     'session_id': job.id,
     'algorithm': job.algorithm,
     'environment_type': job.environment_type,
-    'config': config.model_dump(),
+    'config': training_config,
   }
+
+  task_id = getattr(task_result, 'id', None)
+  if task_id is not None:
+    queue_payload['task_id'] = task_id
 
   try:
     await job_manager.enqueue(queue_payload)
@@ -63,6 +76,10 @@ async def stop_training(
     raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Training session {session_id} not found')
 
   await job_manager.stop(session_id)
+  try:
+    training_dispatcher.stop(session_id)
+  except Exception as exc:  # pragma: no cover - defensive guard
+    raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail='Failed to stop training task') from exc
   updated_job = await service.update_status(job, TrainingJobStatus.failed, mark_completed=True)
   return TrainingActionResponse(
     session_id=updated_job.id,
@@ -110,29 +127,33 @@ async def resume_training(
   if job.status != TrainingJobStatus.paused:
     raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Only paused sessions can be resumed')
 
+  training_config = service.build_training_config(job)
+
+  try:
+    task_result = training_dispatcher.dispatch(job, training_config)
+  except ValueError as exc:
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+  except Exception as exc:  # pragma: no cover - defensive guard
+    raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail='Failed to dispatch training task') from exc
+
   queue_payload: dict[str, Any] = {
     'session_id': job.id,
     'algorithm': job.algorithm,
     'environment_type': job.environment_type,
-    'config': {
-      'total_timesteps': job.total_timesteps,
-      'env_width': job.env_width,
-      'env_height': job.env_height,
-      'coverage_weight': job.coverage_weight,
-      'exploration_weight': job.exploration_weight,
-      'diversity_weight': job.diversity_weight,
-      'learning_rate': job.learning_rate,
-      'batch_size': job.batch_size,
-      'num_workers': job.num_workers,
-      'config': job.config,
-    },
+    'config': training_config,
   }
+
+  task_id = getattr(task_result, 'id', None)
+  if task_id is not None:
+    queue_payload['task_id'] = task_id
 
   resume_entry = await job_manager.resume(session_id)
   if resume_entry is None:
     await job_manager.enqueue(queue_payload)
   else:
     resume_entry['payload'] = queue_payload
+    if task_id is not None:
+      resume_entry['task_id'] = task_id
 
   resumed_job = await service.update_status(job, TrainingJobStatus.queued, reset_completion=True)
   return TrainingSessionResponse.model_validate(resumed_job, from_attributes=True)

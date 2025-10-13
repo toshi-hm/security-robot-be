@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -112,3 +112,39 @@ class TrainingService:
 
     await self._db.delete(job)
     await self._db.commit()
+
+  def build_training_config(
+    self,
+    job: TrainingJob,
+    payload: TrainingSessionCreate | None = None,
+  ) -> dict[str, Any]:
+    """Construct the configuration dictionary passed to background workers."""
+
+    extra_config = payload.config if payload is not None else job.config
+
+    config: dict[str, Any] = {
+      'session_id': job.id,
+      'name': job.name,
+      'algorithm': job.algorithm,
+      'environment_type': job.environment_type,
+      'total_timesteps': job.total_timesteps,
+      'env_width': job.env_width,
+      'env_height': job.env_height,
+      'coverage_weight': job.coverage_weight,
+      'exploration_weight': job.exploration_weight,
+      'diversity_weight': job.diversity_weight,
+      'learning_rate': job.learning_rate,
+      'batch_size': job.batch_size,
+      'num_workers': job.num_workers,
+      'model_path': job.model_path,
+      'log_path': job.log_path,
+    }
+
+    if extra_config is not None:
+      config['config'] = extra_config
+
+    if payload is not None and payload.config is None and job.config is not None:
+      # Preserve persisted configuration when the resume payload omits overrides.
+      config['config'] = job.config
+
+    return config
