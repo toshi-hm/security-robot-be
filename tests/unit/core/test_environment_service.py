@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Iterable
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -125,6 +127,42 @@ class NonSerializableEnvironment(MinimalEnvironment):
 
     def close(self) -> None:  # pragma: no cover - invoked indirectly
         self.closed = True
+
+
+class GuardedEnvironment(TrackingEnvironment):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._in_step = False
+        self.step_calls = 0
+
+    def step(self, action: int):
+        if self._in_step:
+            raise RuntimeError("concurrent step detected")
+        self._in_step = True
+        try:
+            self.step_calls += 1
+            return super().step(action)
+        finally:
+            self._in_step = False
+
+
+class TerminatingEnvironment(TrackingEnvironment):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._terminated_once = False
+
+    def step(self, action: int):
+        observation, reward, _, _, info = super().step(action)
+        terminated = not self._terminated_once
+        self._terminated_once = True
+        return observation, reward, terminated, False, info
+
+
+class NonStringInfoEnvironment(TrackingEnvironment):
+    def step(self, action: int):
+        observation, reward, terminated, truncated, _ = super().step(action)
+        info = {1: "value", "action": action}
+        return observation, reward, terminated, truncated, info
 
 
 def _build_specs() -> Iterable[EnvironmentSpec]:
@@ -294,3 +332,104 @@ def test_create_session_enforces_capacity(monkeypatch: pytest.MonkeyPatch) -> No
         asyncio.run(service.create_session("limited"))
 
     assert created_envs[-1].closed is True
+
+
+def test_concurrent_actions_on_same_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = EnvironmentSpec(
+        id="guarded",
+        name="Guarded",
+        description="",
+        factory=lambda **config: GuardedEnvironment(**config),
+        default_config={"width": 3, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete", "n": 4},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService()
+
+    session_id, _ = asyncio.run(service.create_session("guarded"))
+
+    async def _run_steps() -> list[tuple[Any, float, bool, bool, dict[str, Any]]]:
+        return await asyncio.gather(
+            *[service.execute_action(session_id, 0) for _ in range(5)]
+        )
+
+    results = asyncio.run(_run_steps())
+    assert len(results) == 5
+    env = service._sessions[session_id].environment
+    assert isinstance(env, GuardedEnvironment)
+    assert env.step_calls == 5
+
+
+def test_session_reuse_after_terminated(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = EnvironmentSpec(
+        id="terminating",
+        name="Terminating",
+        description="",
+        factory=lambda **config: TerminatingEnvironment(**config),
+        default_config={"width": 3, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete", "n": 2},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService()
+
+    session_id, _ = asyncio.run(service.create_session("terminating"))
+
+    first = asyncio.run(service.execute_action(session_id, 0))
+    assert first[2] is True
+
+    second = asyncio.run(service.execute_action(session_id, 0))
+    assert second[2] is False
+
+
+def test_expired_session_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = EnvironmentSpec(
+        id="expiring",
+        name="Expiring",
+        description="",
+        factory=lambda **config: NonSerializableEnvironment(**config),
+        default_config={"width": 2, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete"},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService(session_timeout_seconds=1)
+
+    session_id, _ = asyncio.run(service.create_session("expiring"))
+    session = service._sessions[session_id]
+    environment = session.environment
+    session.last_accessed -= timedelta(seconds=120)
+
+    with pytest.raises(KeyError):
+        asyncio.run(service.reset_session(session_id))
+
+    assert environment.closed is True
+
+
+def test_execute_action_logs_non_string_info_keys(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    spec = EnvironmentSpec(
+        id="non-string-info",
+        name="NonStringInfo",
+        description="",
+        factory=lambda **config: NonStringInfoEnvironment(**config),
+        default_config={"width": 3, "height": 2, "robot_vision_range": 1},
+        features=[],
+        observation_channels=[],
+        action_space={"type": "discrete", "n": 3},
+    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: (spec,))
+    service = service_module.EnvironmentService()
+
+    session_id, _ = asyncio.run(service.create_session("non-string-info"))
+    caplog.set_level(logging.DEBUG, logger=service_module.__name__)
+
+    _, _, _, _, info = asyncio.run(service.execute_action(session_id, 0))
+
+    assert info["1"] == "value"
+    assert any("Converted non-string info key" in record.message for record in caplog.records)

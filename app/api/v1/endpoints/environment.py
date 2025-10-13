@@ -58,8 +58,8 @@ async def create_environment_session(
         ) from exc
     except RuntimeError as exc:
         raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Environment session limit reached",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Environment session capacity exceeded. Please try again later.",
         ) from exc
 
     envelope = EnvironmentSessionState(

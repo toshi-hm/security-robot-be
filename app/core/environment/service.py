@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from numbers import Integral
 from typing import Any
 from uuid import uuid4
@@ -18,6 +20,9 @@ from app.core.environment.schemas import (
 from rl.environments import EnvironmentSpec, available_environments
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass(slots=True)
 class _EnvironmentSession:
     """Tracked environment session for interactive usage."""
@@ -25,16 +30,21 @@ class _EnvironmentSession:
     id: str
     spec: EnvironmentSpec
     environment: Any
+    last_accessed: datetime
+    timeout_seconds: int
 
 
 class EnvironmentService:
-    def __init__(self, *, max_sessions: int = 128) -> None:
+    def __init__(
+        self, *, max_sessions: int = 128, session_timeout_seconds: int = 1800
+    ) -> None:
         self._registry: dict[str, EnvironmentSpec] = {
             spec.id: spec for spec in available_environments()
         }
         self._sessions: dict[str, _EnvironmentSession] = {}
         self._lock = asyncio.Lock()
         self._max_sessions = int(max_sessions)
+        self._session_timeout_seconds = int(session_timeout_seconds)
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
         return [self._build_definition(spec) for spec in self._registry.values()]
@@ -66,12 +76,20 @@ class EnvironmentService:
         except KeyError as exc:
             raise KeyError(environment_id) from exc
 
+        await self._cleanup_expired_sessions()
+
         overrides = dict(config or {})
         environment = spec.create(**overrides)
         observation, _ = environment.reset(seed=seed)
         state = self._build_state(spec, environment, observation)
 
-        session = _EnvironmentSession(id=uuid4().hex, spec=spec, environment=environment)
+        session = _EnvironmentSession(
+            id=uuid4().hex,
+            spec=spec,
+            environment=environment,
+            last_accessed=datetime.now(tz=UTC),
+            timeout_seconds=self._session_timeout_seconds,
+        )
         try:
             async with self._lock:
                 if len(self._sessions) >= self._max_sessions:
@@ -90,9 +108,18 @@ class EnvironmentService:
     ) -> EnvironmentState:
         """Reset an existing environment session."""
 
-        session = await self._get_session(session_id)
-        observation, _ = session.environment.reset(seed=seed)
-        return self._build_state(session.spec, session.environment, observation)
+        await self._cleanup_expired_sessions()
+
+        async with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                raise KeyError(session_id)
+            observation, _ = session.environment.reset(seed=seed)
+            session.last_accessed = datetime.now(tz=UTC)
+            spec = session.spec
+            environment = session.environment
+
+        return self._build_state(spec, environment, observation)
 
     async def execute_action(
         self, session_id: str, action: int
@@ -102,26 +129,42 @@ class EnvironmentService:
         if not isinstance(action, Integral):
             raise ValueError("action must be an integer")
 
-        session = await self._get_session(session_id)
+        await self._cleanup_expired_sessions()
 
-        action_space = getattr(session.environment, "action_space", None)
-        if action_space is not None and hasattr(action_space, "n"):
-            if action < 0 or action >= int(action_space.n):
-                raise ValueError("action is out of bounds for the environment")
-        elif action < 0:
-            raise ValueError("action must be non-negative")
+        async with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                raise KeyError(session_id)
 
-        observation, reward, terminated, truncated, info = session.environment.step(
-            int(action)
-        )
-        state = self._build_state(session.spec, session.environment, observation)
+            action_space = getattr(session.environment, "action_space", None)
+            if action_space is not None and hasattr(action_space, "n"):
+                if action < 0 or action >= int(action_space.n):
+                    raise ValueError("action is out of bounds for the environment")
+            elif action < 0:
+                raise ValueError("action must be non-negative")
+
+            observation, reward, terminated, truncated, info = (
+                session.environment.step(int(action))
+            )
+            session.last_accessed = datetime.now(tz=UTC)
+            spec = session.spec
+            environment = session.environment
+
+        state = self._build_state(spec, environment, observation)
 
         if info is None:
             info_payload: dict[str, Any] = {}
         elif isinstance(info, Mapping):
-            info_payload = {
-                str(key): self._json_safe(value) for key, value in dict(info).items()
-            }
+            info_payload = {}
+            for key, value in dict(info).items():
+                if isinstance(key, str):
+                    info_payload[key] = self._json_safe(value)
+                else:
+                    converted_key = str(key)
+                    logger.debug(
+                        "Converted non-string info key %r to %r", key, converted_key
+                    )
+                    info_payload[converted_key] = self._json_safe(value)
         else:
             info_payload = {"details": self._json_safe(info)}
 
@@ -136,19 +179,48 @@ class EnvironmentService:
         if session is None:
             raise KeyError(session_id)
 
-        close = getattr(session.environment, "close", None)
-        if callable(close):
-            close()
+        self._close_environment(session)
 
     async def _get_session(self, session_id: str) -> _EnvironmentSession:
+        await self._cleanup_expired_sessions()
+
         async with self._lock:
             session = self._sessions.get(session_id)
-        if session is None:
-            raise KeyError(session_id)
-        return session
+            if session is None:
+                raise KeyError(session_id)
+            session.last_accessed = datetime.now(tz=UTC)
+            return session
+
+    async def _cleanup_expired_sessions(self) -> None:
+        """Remove expired environment sessions."""
+
+        now = datetime.now(tz=UTC)
+        async with self._lock:
+            expired_ids = [
+                session_id
+                for session_id, session in list(self._sessions.items())
+                if (now - session.last_accessed).total_seconds() > session.timeout_seconds
+            ]
+
+            for session_id in expired_ids:
+                session = self._sessions.pop(session_id)
+                logger.debug(
+                    "Cleaning up expired environment session %s", session_id
+                )
+                self._close_environment(session)
 
     def refresh_registry(self) -> None:
         self._registry = {spec.id: spec for spec in available_environments()}
+
+    def _close_environment(self, session: _EnvironmentSession) -> None:
+        close = getattr(session.environment, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:  # pragma: no cover - defensive cleanup
+                logger.exception(
+                    "Error while closing environment for session %s", session.id
+                )
 
     def _build_definition(self, spec: EnvironmentSpec) -> EnvironmentDefinition:
         config = dict(spec.default_config)

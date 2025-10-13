@@ -166,7 +166,7 @@ def test_create_environment_session_limit(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(environment_module.create_environment_session(payload))
 
-    assert excinfo.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+    assert excinfo.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
 
 def test_reset_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
