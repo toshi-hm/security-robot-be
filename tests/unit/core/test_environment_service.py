@@ -189,6 +189,20 @@ def _build_specs() -> Iterable[EnvironmentSpec]:
     return (tracked_spec, minimal_spec)
 
 
+def test_default_timeout_comes_from_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(service_module, "available_environments", _build_specs)
+    monkeypatch.setattr(
+        service_module.settings,
+        "environment_session_timeout_seconds",
+        4321,
+        raising=False,
+    )
+
+    service = service_module.EnvironmentService()
+
+    assert service._session_timeout_seconds == 4321
+
+
 def test_list_definitions_and_get_state(monkeypatch: pytest.MonkeyPatch) -> None:
     specs = tuple(_build_specs())
     monkeypatch.setattr(

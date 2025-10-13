@@ -11,6 +11,7 @@ from numbers import Integral
 from typing import Any
 from uuid import uuid4
 
+from app.core.config import settings
 from app.core.environment.schemas import (
     EnvironmentDefinition,
     EnvironmentState,
@@ -38,7 +39,10 @@ class _EnvironmentSession:
 
 class EnvironmentService:
     def __init__(
-        self, *, max_sessions: int = 128, session_timeout_seconds: int = 1800
+        self,
+        *,
+        max_sessions: int = 128,
+        session_timeout_seconds: int | None = None,
     ) -> None:
         self._registry: dict[str, EnvironmentSpec] = {
             spec.id: spec for spec in available_environments()
@@ -46,7 +50,11 @@ class EnvironmentService:
         self._sessions: dict[str, _EnvironmentSession] = {}
         self._lock = asyncio.Lock()
         self._max_sessions = int(max_sessions)
-        self._session_timeout_seconds = int(session_timeout_seconds)
+        default_timeout = settings.environment_session_timeout_seconds
+        timeout = (
+            default_timeout if session_timeout_seconds is None else session_timeout_seconds
+        )
+        self._session_timeout_seconds = int(timeout)
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
         return [self._build_definition(spec) for spec in self._registry.values()]
@@ -207,7 +215,12 @@ class EnvironmentService:
             return session
 
     async def _cleanup_expired_sessions(self) -> None:
-        """Remove expired environment sessions."""
+        """Remove expired environment sessions.
+
+        ロック取得順序は常に「グローバルロック → セッションロック」となるよう統一しており、
+        `_sessions` 辞書から取り除いた後に各セッションロックを取得することで、
+        `execute_action` / `reset_session` との間でのデッドロックを防いでいる。
+        """
 
         now = datetime.now(tz=UTC)
         expired_sessions: list[tuple[str, _EnvironmentSession]] = []

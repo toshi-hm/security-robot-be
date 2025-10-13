@@ -8,6 +8,7 @@ class Settings(BaseSettings):
   database_url: str = "sqlite+aiosqlite:///./security_robot.db"
   redis_url: str = "redis://localhost:6379/0"
   websocket_heartbeat_interval: float = 30.0
+  environment_session_timeout_seconds: int = 1800
 
   @field_validator('allowed_origins', mode='before')
   @classmethod
