@@ -87,7 +87,9 @@ def test_download_missing_record_returns_not_found(file_api_app: tuple[FastAPI, 
         response = client.get("/api/v1/files/999/download")
 
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    body = response.json()
+    assert "detail" in body
+    assert "not found" in body["detail"].lower()
 
 
 def test_download_missing_binary_returns_not_found(file_api_app: tuple[FastAPI, Path]) -> None:
@@ -109,4 +111,6 @@ def test_download_missing_binary_returns_not_found(file_api_app: tuple[FastAPI, 
         response = client.get(f"/api/v1/files/{payload['id']}/download")
 
     assert response.status_code == 404
-    assert "missing" in response.json()["detail"].lower()
+    body = response.json()
+    assert "detail" in body
+    assert "missing" in body["detail"].lower()
