@@ -32,6 +32,8 @@ class _EnvironmentSession:
     environment: Any
     last_accessed: datetime
     timeout_seconds: int
+    lock: asyncio.Lock
+    closed: bool = False
 
 
 class EnvironmentService:
@@ -89,6 +91,7 @@ class EnvironmentService:
             environment=environment,
             last_accessed=datetime.now(tz=UTC),
             timeout_seconds=self._session_timeout_seconds,
+            lock=asyncio.Lock(),
         )
         try:
             async with self._lock:
@@ -112,7 +115,12 @@ class EnvironmentService:
 
         async with self._lock:
             session = self._sessions.get(session_id)
-            if session is None:
+            if session is None or session.closed:
+                raise KeyError(session_id)
+            session_lock = session.lock
+
+        async with session_lock:
+            if session.closed:
                 raise KeyError(session_id)
             observation, _ = session.environment.reset(seed=seed)
             session.last_accessed = datetime.now(tz=UTC)
@@ -133,7 +141,12 @@ class EnvironmentService:
 
         async with self._lock:
             session = self._sessions.get(session_id)
-            if session is None:
+            if session is None or session.closed:
+                raise KeyError(session_id)
+            session_lock = session.lock
+
+        async with session_lock:
+            if session.closed:
                 raise KeyError(session_id)
 
             action_space = getattr(session.environment, "action_space", None)
@@ -175,38 +188,40 @@ class EnvironmentService:
 
         async with self._lock:
             session = self._sessions.pop(session_id, None)
+            if session is not None:
+                session.closed = True
 
         if session is None:
             raise KeyError(session_id)
 
-        self._close_environment(session)
+        async with session.lock:
+            self._close_environment(session)
 
     async def _get_session(self, session_id: str) -> _EnvironmentSession:
         await self._cleanup_expired_sessions()
 
         async with self._lock:
             session = self._sessions.get(session_id)
-            if session is None:
+            if session is None or session.closed:
                 raise KeyError(session_id)
-            session.last_accessed = datetime.now(tz=UTC)
             return session
 
     async def _cleanup_expired_sessions(self) -> None:
         """Remove expired environment sessions."""
 
         now = datetime.now(tz=UTC)
-        async with self._lock:
-            expired_ids = [
-                session_id
-                for session_id, session in list(self._sessions.items())
-                if (now - session.last_accessed).total_seconds() > session.timeout_seconds
-            ]
+        expired_sessions: list[tuple[str, _EnvironmentSession]] = []
 
-            for session_id in expired_ids:
-                session = self._sessions.pop(session_id)
-                logger.debug(
-                    "Cleaning up expired environment session %s", session_id
-                )
+        async with self._lock:
+            for session_id, session in list(self._sessions.items()):
+                if (now - session.last_accessed).total_seconds() > session.timeout_seconds:
+                    session.closed = True
+                    expired_sessions.append((session_id, session))
+                    self._sessions.pop(session_id)
+
+        for session_id, session in expired_sessions:
+            logger.debug("Cleaning up expired environment session %s", session_id)
+            async with session.lock:
                 self._close_environment(session)
 
     def refresh_registry(self) -> None:
