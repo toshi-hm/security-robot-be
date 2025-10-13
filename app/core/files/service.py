@@ -68,6 +68,8 @@ class FileStorageService:
     root = self._storage_root().resolve()
     if not str(absolute).startswith(str(root)):
       raise ValueError('Invalid file path outside storage root')
+    if not absolute.exists():
+      raise FileNotFoundError(relative_path)
     return absolute
 
 
