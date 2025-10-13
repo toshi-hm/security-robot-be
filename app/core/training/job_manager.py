@@ -8,60 +8,72 @@ from app.utils.datetime import utcnow
 
 
 class JobManager:
-  """Lightweight in-memory queue manager used for API integration tests."""
+    """Lightweight in-memory queue manager used for API integration tests."""
 
-  def __init__(self) -> None:
-    self._jobs: dict[int, dict[str, Any]] = {}
+    def __init__(self) -> None:
+        self._jobs: dict[int, dict[str, Any]] = {}
 
-  async def enqueue(self, payload: dict[str, Any]) -> dict[str, Any]:
-    """Register a training job request and return queue metadata."""
+    async def enqueue(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Register a training job request and return queue metadata."""
 
-    session_id = payload.get('session_id')
-    if session_id is None:
-      raise ValueError('payload must include a session_id')
+        session_id = payload.get("session_id")
+        if session_id is None:
+            raise ValueError("payload must include a session_id")
 
-    task_id = payload.get('task_id') or str(uuid4())
-    metadata = {
-      'session_id': session_id,
-      'task_id': task_id,
-      'status': 'queued',
-      'payload': payload,
-      'enqueued_at': utcnow(),
-    }
-    self._jobs[session_id] = metadata
-    return metadata
+        task_id = payload.get("task_id") or str(uuid4())
+        metadata = {
+            "session_id": session_id,
+            "task_id": task_id,
+            "status": "queued",
+            "payload": payload,
+            "enqueued_at": utcnow(),
+        }
+        self._jobs[session_id] = metadata
+        return metadata
 
-  async def stop(self, session_id: int) -> bool:
-    """Mark the given session as stopped if it is known."""
+    async def stop(self, session_id: int, *, reason: str = "stopped") -> dict[str, Any] | None:
+        """Update the queue entry to reflect a paused or stopped state."""
 
-    if session_id not in self._jobs:
-      return False
+        entry = self._jobs.get(session_id)
+        if entry is None:
+            return None
 
-    entry = self._jobs[session_id]
-    entry['status'] = 'stopped'
-    entry['stopped_at'] = utcnow()
-    return True
+        timestamp = utcnow()
+        entry["status"] = reason
+        if reason == "stopped":
+            entry["stopped_at"] = timestamp
+        elif reason == "paused":
+            entry["paused_at"] = timestamp
+        else:
+            entry["updated_at"] = timestamp
 
-  async def resume(self, session_id: int) -> dict[str, Any] | None:
-    """Resume a paused session by marking it as queued again."""
+        return entry
 
-    entry = self._jobs.get(session_id)
-    if entry is None:
-      return None
+    async def resume(self, session_id: int) -> dict[str, Any] | None:
+        """Resume a paused session by marking it as queued again."""
 
-    entry['status'] = 'queued'
-    entry['resumed_at'] = utcnow()
-    return entry
+        entry = self._jobs.get(session_id)
+        if entry is None:
+            return None
 
-  async def discard(self, session_id: int) -> None:
-    """Remove a session from the queue manager."""
+        entry["status"] = "queued"
+        entry["resumed_at"] = utcnow()
+        return entry
 
-    self._jobs.pop(session_id, None)
+    async def discard(self, session_id: int) -> None:
+        """Remove a session from the queue manager."""
 
-  def snapshot(self) -> list[dict[str, Any]]:
-    """Return a snapshot of the known job queue state."""
+        self._jobs.pop(session_id, None)
 
-    return list(self._jobs.values())
+    def get(self, session_id: int) -> dict[str, Any] | None:
+        """Return the queue entry for a specific session."""
+
+        return self._jobs.get(session_id)
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        """Return a snapshot of the known job queue state."""
+
+        return list(self._jobs.values())
 
 
 job_manager = JobManager()

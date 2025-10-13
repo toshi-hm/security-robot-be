@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import app.main as main_module
 from app.api.deps import get_db
+from app.api.v1.endpoints import jobs as jobs_module
 from app.api.v1.endpoints import training as training_module
 from app.core.training.job_manager import JobManager
 from app.db import database as database_module
@@ -56,6 +57,7 @@ def training_api_app(
 
     job_manager = JobManager()
     monkeypatch.setattr(training_module, "job_manager", job_manager)
+    monkeypatch.setattr(jobs_module, "job_manager", job_manager)
 
     dispatcher_stub = _DispatcherStub()
     monkeypatch.setattr(training_module, "training_dispatcher", dispatcher_stub)
@@ -204,7 +206,7 @@ def test_resume_requeues_paused_session_dispatches_job(
             await session.commit()
 
     asyncio.run(_mark_paused())
-    asyncio.run(job_manager.stop(session_id))
+    asyncio.run(job_manager.stop(session_id, reason="paused"))
 
     with TestClient(app) as client:
         resume_response = client.post(f"/api/v1/training/{session_id}/resume")
@@ -261,6 +263,8 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     body = stop_response.json()
     assert body["status"] == TrainingJobStatus.failed.value
     assert "stopped successfully" in body["message"].lower()
+    assert body["celery_task_id"] == f"stop-{session_id}"
+    assert body["queue_task_id"] == dispatcher.dispatched[0]["task_id"]
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -272,6 +276,47 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     assert queue_entries[0]["status"] == "stopped"
 
     assert dispatcher.stopped == [session_id]
+
+
+def test_pause_training_updates_queue_entry_and_response_task_ids(
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+) -> None:
+    app, _, job_manager, dispatcher = training_api_app
+
+    payload = {
+        "name": "Pausing job",
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "total_timesteps": 120,
+        "env_width": 6,
+        "env_height": 6,
+        "coverage_weight": 1.1,
+        "exploration_weight": 2.1,
+        "diversity_weight": 1.3,
+        "learning_rate": 0.0003,
+        "batch_size": 32,
+        "num_workers": 1,
+        "config": None,
+    }
+
+    with TestClient(app) as client:
+        start_response = client.post("/api/v1/training/start", json=payload)
+        assert start_response.status_code == 202
+        session_id = start_response.json()["id"]
+
+        pause_response = client.post(f"/api/v1/training/{session_id}/pause")
+
+    assert pause_response.status_code == 200
+    body = pause_response.json()
+    assert body["status"] == TrainingJobStatus.paused.value
+    assert body["celery_task_id"] is None
+    queue_task_id = body["queue_task_id"]
+
+    entry = job_manager.get(session_id)
+    assert entry is not None
+    assert entry["status"] == "paused"
+    assert entry["task_id"] == queue_task_id == dispatcher.dispatched[0]["task_id"]
+    assert "paused_at" in entry
 
 
 def test_status_endpoint_returns_persisted_job_state(
@@ -378,3 +423,46 @@ def test_delete_training_session_removes_job_and_queue_entry(
     assert delete_response.status_code == 204
     assert _load_job(session_maker, session_id) is None
     assert job_manager.snapshot() == []
+
+
+def test_jobs_endpoints_expose_queue_metadata(
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+) -> None:
+    app, _, job_manager, dispatcher = training_api_app
+
+    payload = {
+        "name": "Queue job",
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "total_timesteps": 90,
+        "env_width": 5,
+        "env_height": 5,
+        "coverage_weight": 1.0,
+        "exploration_weight": 2.0,
+        "diversity_weight": 1.0,
+        "learning_rate": 0.0003,
+        "batch_size": 16,
+        "num_workers": 1,
+        "config": None,
+    }
+
+    with TestClient(app) as client:
+        start_response = client.post("/api/v1/training/start", json=payload)
+        assert start_response.status_code == 202
+        session_id = start_response.json()["id"]
+
+        list_response = client.get("/api/v1/jobs/")
+        detail_response = client.get(f"/api/v1/jobs/{session_id}")
+        missing_response = client.get("/api/v1/jobs/9999")
+
+    assert list_response.status_code == 200
+    jobs_payload = list_response.json()
+    assert jobs_payload["jobs"]
+    assert jobs_payload["jobs"][0]["session_id"] == session_id
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["job"]["session_id"] == session_id
+    assert detail_payload["job"]["task_id"] == dispatcher.dispatched[0]["task_id"]
+
+    assert missing_response.status_code == 404

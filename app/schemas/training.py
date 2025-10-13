@@ -169,11 +169,13 @@ class TrainingSessionListResponse(BaseModel):
 
 
 class TrainingActionResponse(BaseModel):
-  """Standard response payload for training control actions."""
+    """Standard response payload for training control actions."""
 
-  session_id: int
-  status: str
-  message: str
+    session_id: int
+    status: str
+    message: str
+    celery_task_id: Optional[str] = None
+    queue_task_id: Optional[str] = None
 
 
 # Legacy schemas for backward compatibility
