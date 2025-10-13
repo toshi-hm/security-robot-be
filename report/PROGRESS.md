@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-13 Session 35
+**最終更新:** 2025-10-13 Session 36
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -29,7 +29,7 @@
 | Phase 1: 環境準備・確認 | ✅ 完了 | 100% | uv環境、依存関係更新完了 |
 | Phase 2: データベースモデル | ✅ 完了 | 100% | 設計書に基づき全モデル拡張完了 |
 | Phase 3: Pydanticスキーマ | ✅ 完了 | 100% | 全スキーマ拡張・バリデーション追加完了 |
-| Phase 4: APIエンドポイント | 🔄 進行中 | 95% | トレーニング制御・ファイル管理APIに加え環境セッション操作を実装 (2025-10-12: 環境セッションサービスの型ヒントをPython 3.12に合わせて更新 / 2025-10-13: セッション単位ロックで高負荷時のスループット低下を防止 / 2025-10-13: Celery託送をAPI層から呼び出す経路を整備 / 2025-10-13: 学習停止・一時停止レスポンスでCelery/キュータスクIDを返却し、ジョブ監視APIからキュー状態を取得可能に更新) |
+| Phase 4: APIエンドポイント | 🔄 進行中 | 95% | トレーニング制御・ファイル管理APIに加え環境セッション操作を実装 (2025-10-12: 環境セッションサービスの型ヒントをPython 3.12に合わせて更新 / 2025-10-13: セッション単位ロックで高負荷時のスループット低下を防止 / 2025-10-13: Celery託送をAPI層から呼び出す経路を整備 / 2025-10-13: 学習停止・一時停止レスポンスでCelery/キュータスクIDを返却し、ジョブ監視APIからキュー状態を取得可能に更新 / 2025-10-13: トレーニングAPIでアルゴリズム種別をEnum化し、不正値は400で拒否) |
 | Phase 5: WebSocket | ✅ 完了 | 100% | Redis連携と再接続制御まで完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装 |
 | Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
@@ -124,6 +124,7 @@
   - [x] 追加パラメータ (learning_rate, batch_size, num_workers)
   - [x] ファイルパスフィールド (model_path, log_path)
   - [x] 設定JSONB (config)
+  - [x] 2025-10-13: `TrainingAlgorithm` Enum列を導入し、DBレイヤでサポート外アルゴリズムを拒否
 - [x] app/models/training.py - TrainingMetricモデル完全拡張
   - [x] 環境固有メトリクス (coverage_ratio, exploration_score, threat_level_avg)
   - [x] 追加メトリクスJSON (additional_metrics)
@@ -153,6 +154,7 @@
   - [x] TrainingSessionUpdate - 更新スキーマ追加
   - [x] TrainingMetricCreate/Response - 環境固有メトリクス対応
   - [x] TrainingMetricsListResponse - ページネーション対応
+  - [x] 2025-10-13: `TrainingAlgorithm` Enumでアルゴリズム入力を制限し、API層と整合
 - [x] app/schemas/environment.py - 完全拡張
   - [x] EnvironmentStateCreate/Response - プレイバック用スキーマ
   - [x] EnvironmentStatesListResponse - ページネーション対応

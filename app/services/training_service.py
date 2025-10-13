@@ -7,7 +7,7 @@ from typing import Any, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.training import TrainingJob, TrainingJobStatus
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
 from app.schemas.training import TrainingSessionCreate
 from app.utils.datetime import utcnow
 
@@ -24,12 +24,18 @@ class TrainingService:
     if payload.total_timesteps <= 0:
       raise ValueError('total_timesteps must be greater than zero')
 
-    if payload.algorithm == 'a3c' and payload.num_workers < 1:
+    algorithm = (
+      payload.algorithm
+      if isinstance(payload.algorithm, TrainingAlgorithm)
+      else TrainingAlgorithm(payload.algorithm)
+    )
+
+    if algorithm == TrainingAlgorithm.a3c and payload.num_workers < 1:
       raise ValueError('num_workers must be at least 1 when using the A3C algorithm')
 
     job = TrainingJob(
       name=payload.name,
-      algorithm=payload.algorithm,
+      algorithm=algorithm,
       environment_type=payload.environment_type,
       status=TrainingJobStatus.created,
       total_timesteps=payload.total_timesteps,
@@ -122,10 +128,19 @@ class TrainingService:
 
     extra_config = payload.config if payload is not None else job.config
 
+    try:
+      algorithm = (
+        job.algorithm
+        if isinstance(job.algorithm, TrainingAlgorithm)
+        else TrainingAlgorithm(job.algorithm)
+      )
+    except ValueError as exc:
+      raise ValueError(f'Unsupported training algorithm: {job.algorithm}') from exc
+
     config: dict[str, Any] = {
       'session_id': job.id,
       'name': job.name,
-      'algorithm': job.algorithm,
+      'algorithm': algorithm.value,
       'environment_type': job.environment_type,
       'total_timesteps': job.total_timesteps,
       'env_width': job.env_width,

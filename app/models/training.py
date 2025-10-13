@@ -11,6 +11,11 @@ from app.models.base import Base
 from app.utils.datetime import utcnow
 
 
+class TrainingAlgorithm(str, Enum):
+  ppo = 'ppo'
+  a3c = 'a3c'
+
+
 class TrainingJobStatus(str, Enum):
   created = 'created'
   queued = 'queued'
@@ -23,7 +28,10 @@ class TrainingJobStatus(str, Enum):
 class TrainingJob(Base):
   # Basic information
   name: Mapped[str] = mapped_column(String(255))
-  algorithm: Mapped[str] = mapped_column(String(10))  # 'ppo' or 'a3c'
+  algorithm: Mapped[TrainingAlgorithm] = mapped_column(
+    SqlEnum(TrainingAlgorithm, name='training_algorithm'),
+    nullable=False,
+  )
   environment_type: Mapped[str] = mapped_column(String(20), default='standard')  # 'standard' or 'enhanced'
   status: Mapped[TrainingJobStatus] = mapped_column(
     SqlEnum(TrainingJobStatus, name='training_job_status'),

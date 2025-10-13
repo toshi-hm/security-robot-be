@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.training.job_manager import job_manager
-from app.models.training import TrainingJob, TrainingJobStatus, TrainingMetric
+from app.models.training import (
+    TrainingAlgorithm,
+    TrainingJob,
+    TrainingJobStatus,
+    TrainingMetric,
+)
 from app.schemas.training import (
     TrainingActionResponse,
     TrainingMetricResponse,
@@ -43,9 +48,18 @@ async def start_training(
     except Exception as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task") from exc
 
+    try:
+        algorithm = (
+            job.algorithm
+            if isinstance(job.algorithm, TrainingAlgorithm)
+            else TrainingAlgorithm(job.algorithm)
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
     queue_payload: dict[str, Any] = {
         "session_id": job.id,
-        "algorithm": job.algorithm,
+        "algorithm": algorithm.value,
         "environment_type": job.environment_type,
         "config": training_config,
     }
@@ -147,9 +161,18 @@ async def resume_training(
     except Exception as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task") from exc
 
+    try:
+        algorithm = (
+            job.algorithm
+            if isinstance(job.algorithm, TrainingAlgorithm)
+            else TrainingAlgorithm(job.algorithm)
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
     queue_payload: dict[str, Any] = {
         "session_id": job.id,
-        "algorithm": job.algorithm,
+        "algorithm": algorithm.value,
         "environment_type": job.environment_type,
         "config": training_config,
     }

@@ -4,13 +4,14 @@ from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.utils.datetime import utcnow
+from app.models.training import TrainingAlgorithm
 
 # Training Session Schemas
 
 class TrainingSessionCreate(BaseModel):
   """Request schema for creating a training session."""
   name: str = Field(..., min_length=1, max_length=255, description="Training session name")
-  algorithm: str = Field(..., pattern="^(ppo|a3c)$", description="RL algorithm: 'ppo' or 'a3c'")
+  algorithm: TrainingAlgorithm = Field(..., description="RL algorithm: 'ppo' or 'a3c'")
   environment_type: str = Field(default="standard", pattern="^(standard|enhanced)$", description="Environment type")
   
   # Training parameters
@@ -40,7 +41,7 @@ class TrainingSessionResponse(BaseModel):
   
   id: int
   name: str
-  algorithm: str
+  algorithm: TrainingAlgorithm
   environment_type: str
   status: str
   
@@ -183,7 +184,7 @@ class TrainingActionResponse(BaseModel):
 class TrainingRequest(BaseModel):
   """Legacy training request schema."""
   name: str
-  algorithm: str
+  algorithm: TrainingAlgorithm
   environment_type: str
   total_timesteps: int
 
