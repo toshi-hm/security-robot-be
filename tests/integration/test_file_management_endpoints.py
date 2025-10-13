@@ -88,7 +88,7 @@ def test_download_missing_record_returns_not_found(file_api_app: tuple[FastAPI, 
 
     assert response.status_code == 404
     body = response.json()
-    assert "detail" in body
+    assert "detail" in body, f"Expected 'detail' key in error response, got: {body}"
     assert "not found" in body["detail"].lower()
 
 
@@ -112,5 +112,5 @@ def test_download_missing_binary_returns_not_found(file_api_app: tuple[FastAPI, 
 
     assert response.status_code == 404
     body = response.json()
-    assert "detail" in body
+    assert "detail" in body, f"Expected 'detail' key in error response, got: {body}"
     assert "missing" in body["detail"].lower()
