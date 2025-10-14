@@ -92,6 +92,11 @@ def _get_training_job(db: Session, session_id: int) -> TrainingJob:
 
 def _mark_job_failed(db: Session, session_id: int) -> None:
   try:
+    db.rollback()
+  except Exception:  # pragma: no cover - defensive logging
+    logger.debug("Rollback before marking training session %s as failed was skipped", session_id)
+
+  try:
     job = db.query(TrainingJob).filter(TrainingJob.id == session_id).first()
     if job is None:
       return
@@ -99,7 +104,13 @@ def _mark_job_failed(db: Session, session_id: int) -> None:
     job.completed_at = utcnow()
     db.commit()
   except Exception as exc:  # pragma: no cover - defensive logging
-    db.rollback()
+    try:
+      db.rollback()
+    except Exception:
+      logger.debug(
+        "Secondary rollback while marking training session %s as failed was skipped",
+        session_id,
+      )
     logger.warning("Unable to mark training session %s as failed", session_id, exc_info=exc)
 
 
@@ -263,7 +274,6 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
   except Exception as exc:
     logger.error("PPO training task failed for session %s", session_id, exc_info=exc)
-    db.rollback()
     _mark_job_failed(db, session_id)
     _publish_training_event(
       redis_client,
@@ -283,10 +293,11 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     return {"status": "failed", "session_id": session_id, "error": str(exc)}
 
   finally:
-    try:
-      metrics_db.close()
-    finally:
-      db.close()
+    for session in (metrics_db, db):
+      try:
+        session.close()
+      except Exception:
+        logger.debug("Failed to close database session for training task", exc_info=True)
 
 
 @celery_app.task(bind=True, name="training.run_a3c_training")
@@ -305,7 +316,6 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     job.completed_at = utcnow()
     db.commit()
   except Exception as exc:
-    db.rollback()
     _mark_job_failed(db, session_id)
     logger.debug("Failed to persist A3C placeholder status for session %s", session_id, exc_info=exc)
   finally:

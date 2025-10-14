@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
 
 import numpy as np
 from redis.exceptions import RedisError
 from stable_baselines3.common.callbacks import BaseCallback
+
+
+if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+  from app.models.training import TrainingJobStatus
+
+
+def _load_training_status_enum() -> "type[TrainingJobStatus] | None":
+  try:
+    from app.models.training import TrainingJobStatus
+  except Exception:  # pragma: no cover - avoid import errors during optional use
+    return None
+  return TrainingJobStatus
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +49,7 @@ class RedisTrainingCallback(BaseCallback):
     verbose: int = 0,
     max_retries: int = 3,
     critical_statuses: Sequence[str] | None = None,
-    status_getter: Optional[Callable[[], Any]] = None,
+    status_getter: Optional[Callable[[], "TrainingJobStatus | None"]] = None,
     status_check_interval: Optional[int] = None,
   ) -> None:
     super().__init__(verbose)
@@ -204,11 +216,37 @@ class RedisTrainingCallback(BaseCallback):
     if status is None:
       return
 
-    status_value = getattr(status, "value", status)
-    if isinstance(status_value, str) and status_value.lower() == "paused":
+    status_enum = self._normalise_status(status)
+    training_status_enum = _load_training_status_enum()
+    if training_status_enum is None or status_enum is None:
+      return
+
+    if status_enum == training_status_enum.paused:
       self._publish_status("paused", "Training paused by user request")
       self._emit_state_update({"status": "paused", "current": self.num_timesteps})
       raise TrainingCancelled("Training paused")
+
+  def _normalise_status(self, status: object) -> "TrainingJobStatus | None":
+    TrainingJobStatus = _load_training_status_enum()
+    if TrainingJobStatus is None:
+      return None
+
+    if isinstance(status, TrainingJobStatus):
+      return status
+
+    if isinstance(status, str):
+      try:
+        return TrainingJobStatus(status)
+      except ValueError:
+        return None
+
+    if hasattr(status, "value"):
+      try:
+        return TrainingJobStatus(getattr(status, "value"))
+      except (ValueError, TypeError):
+        return None
+
+    return None
 
 
 __all__ = ["RedisTrainingCallback", "TrainingCancelled"]

@@ -7,11 +7,11 @@ from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.database import database_engine
+from app.db.database import async_engine, sync_engine
 
 
 # Async session factory used by FastAPI request handlers.
-async_session = async_sessionmaker(database_engine, expire_on_commit=False, class_=AsyncSession)
+async_session = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
 
 
 def get_session() -> AsyncIterator[AsyncSession]:
@@ -21,7 +21,7 @@ def get_session() -> AsyncIterator[AsyncSession]:
 # Celery workers operate in a synchronous context.  The async engine exposes a
 # synchronous facade that we reuse here to keep both execution models in sync.
 SessionLocal = sessionmaker(
-  bind=database_engine.sync_engine,
+  bind=sync_engine,
   class_=Session,
   autoflush=False,
   autocommit=False,

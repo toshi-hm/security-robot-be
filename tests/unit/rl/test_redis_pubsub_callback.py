@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 from redis.exceptions import RedisError
 
+from app.models.training import TrainingJobStatus
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback, TrainingCancelled
 
 
@@ -108,8 +109,8 @@ def test_redis_callback_raises_when_job_paused() -> None:
     redis = _DummyRedis()
     states: list[dict[str, object]] = []
 
-    def status_getter() -> str:
-        return "paused"
+    def status_getter() -> TrainingJobStatus:
+        return TrainingJobStatus.paused
 
     callback = RedisTrainingCallback(
         session_id=7,
