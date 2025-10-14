@@ -40,15 +40,39 @@ def _create_redis_client() -> Redis | _NoOpRedis:
     return _NoOpRedis()
 
 
-def _publish_training_event(redis_client: Redis | _NoOpRedis, session_id: int, payload: dict[str, Any]) -> None:
+def _publish_training_event(
+  redis_client: Redis | _NoOpRedis,
+  session_id: int,
+  payload: dict[str, Any],
+  *,
+  critical: bool = False,
+  max_retries: int = 3,
+) -> None:
   payload.setdefault("session_id", session_id)
   channel = f"training_progress_{session_id}"
-  try:
-    redis_client.publish(channel, json.dumps(payload))
-  except RedisError as exc:
-    logger.warning("Failed to publish training event for session %s", session_id, exc_info=exc)
-  except Exception as exc:  # pragma: no cover - defensive logging
-    logger.warning("Unexpected error publishing training event for session %s", session_id, exc_info=exc)
+  attempts = max(1, max_retries if critical else 1)
+  for attempt in range(1, attempts + 1):
+    try:
+      redis_client.publish(channel, json.dumps(payload))
+      break
+    except RedisError as exc:
+      log = logger.error if critical and attempt == attempts else logger.warning
+      log(
+        "Failed to publish training event for session %s (attempt %s/%s)",
+        session_id,
+        attempt,
+        attempts,
+        exc_info=exc,
+      )
+    except Exception as exc:  # pragma: no cover - defensive logging
+      log = logger.error if critical and attempt == attempts else logger.warning
+      log(
+        "Unexpected error publishing training event for session %s (attempt %s/%s)",
+        session_id,
+        attempt,
+        attempts,
+        exc_info=exc,
+      )
 
 
 def _resolve_interval(value: Any, default: int) -> int:
@@ -107,6 +131,7 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
   redis_client = _create_redis_client()
   db = SessionLocal()
+  metrics_db = SessionLocal()
 
   try:
     job = _get_training_job(db, session_id)
@@ -144,7 +169,7 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       ),
       DatabaseMetricsCallback(
         session_id=session_id,
-        db_session=db,
+        db_session=metrics_db,
         update_interval=metrics_interval,
       ),
     ]
@@ -176,12 +201,13 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
           "model_path": job.model_path,
           "timestamp": utcnow().isoformat(),
         },
+        critical=True,
       )
     else:
-      db.rollback()
-      job = _get_training_job(db, session_id)
       job.status = TrainingJobStatus.failed
       job.completed_at = utcnow()
+      if "total_timesteps" in result:
+        job.current_timestep = result["total_timesteps"]
       db.commit()
 
       _publish_training_event(
@@ -193,6 +219,7 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
           "error": result.get("error", "Training failed"),
           "timestamp": utcnow().isoformat(),
         },
+        critical=True,
       )
 
     logger.info("PPO training task finished for session %s with status %s", session_id, status)
@@ -211,6 +238,7 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
         "error": str(exc),
         "timestamp": utcnow().isoformat(),
       },
+      critical=True,
     )
     self.update_state(
       state="FAILURE",
@@ -219,7 +247,10 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     return {"status": "failed", "session_id": session_id, "error": str(exc)}
 
   finally:
-    db.close()
+    try:
+      metrics_db.close()
+    finally:
+      db.close()
 
 
 @celery_app.task(bind=True, name="training.run_a3c_training")
@@ -254,6 +285,7 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       "error": error_message,
       "timestamp": utcnow().isoformat(),
     },
+    critical=True,
   )
   self.update_state(
     state="FAILURE",

@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from redis.exceptions import RedisError
 
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
 
@@ -11,6 +12,20 @@ class _DummyRedis:
         self.messages: list[tuple[str, str]] = []
 
     def publish(self, channel: str, message: str) -> None:
+        self.messages.append((channel, message))
+
+
+class _FlakyRedis:
+    def __init__(self, outcomes: list[str]) -> None:
+        self.outcomes = outcomes
+        self.messages: list[tuple[str, str]] = []
+        self.attempts = 0
+
+    def publish(self, channel: str, message: str) -> None:
+        self.attempts += 1
+        outcome = self.outcomes.pop(0) if self.outcomes else "success"
+        if outcome == "error":
+            raise RedisError("publish failed")
         self.messages.append((channel, message))
 
 
@@ -68,3 +83,22 @@ def test_redis_callback_publishes_progress_and_status() -> None:
     assert states[1]["current"] == 2
     assert pytest.approx(states[1]["progress"]) == pytest.approx(0.2)
     assert states[2]["status"] == "completed"
+
+
+def test_redis_callback_retries_critical_status() -> None:
+    redis = _FlakyRedis(["success", "error", "error", "success"])
+    callback = RedisTrainingCallback(
+        session_id=42,
+        redis_client=redis,
+        update_interval=5,
+    )
+
+    callback._on_training_start()
+    callback._on_training_end()
+
+    assert redis.attempts == 4
+    assert len(redis.messages) == 2
+    types = [json.loads(message)["type"] for _, message in redis.messages]
+    assert types == ["training_status", "training_status"]
+    statuses = [json.loads(message)["status"] for _, message in redis.messages]
+    assert statuses[-1] == "completed"

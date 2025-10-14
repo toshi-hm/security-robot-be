@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 from redis.exceptions import RedisError
@@ -29,6 +29,8 @@ class RedisTrainingCallback(BaseCallback):
     total_timesteps: Optional[int] = None,
     state_hook: Optional[ProgressHook] = None,
     verbose: int = 0,
+    max_retries: int = 3,
+    critical_statuses: Sequence[str] | None = None,
   ) -> None:
     super().__init__(verbose)
     self._session_id = session_id
@@ -36,6 +38,8 @@ class RedisTrainingCallback(BaseCallback):
     self._update_interval = max(1, update_interval)
     self._total_timesteps = total_timesteps
     self._state_hook = state_hook
+    self._max_retries = max(1, max_retries)
+    self._critical_statuses = set(critical_statuses or ("completed", "failed"))
 
     self._channel = f"training_progress_{session_id}"
     self._episode_rewards: list[float] = []
@@ -132,17 +136,35 @@ class RedisTrainingCallback(BaseCallback):
     self._publish(payload)
 
   def _publish(self, payload: dict[str, Any]) -> None:
-    try:
-      message = json.dumps(payload)
-      self._redis.publish(self._channel, message)
-    except RedisError as exc:
-      logger.warning(
-        "Failed to publish training event for session %s", self._session_id, exc_info=exc
-      )
-    except Exception as exc:  # pragma: no cover - defensive logging
-      logger.warning(
-        "Unexpected error publishing training event for session %s", self._session_id, exc_info=exc
-      )
+    is_critical_status = (
+      payload.get("type") == "training_status"
+      and payload.get("status") in self._critical_statuses
+    )
+    attempts = self._max_retries if is_critical_status else 1
+
+    for attempt in range(1, attempts + 1):
+      try:
+        message = json.dumps(payload)
+        self._redis.publish(self._channel, message)
+        break
+      except RedisError as exc:
+        log = logger.error if is_critical_status and attempt == attempts else logger.warning
+        log(
+          "Failed to publish training event for session %s (attempt %s/%s)",
+          self._session_id,
+          attempt,
+          attempts,
+          exc_info=exc,
+        )
+      except Exception as exc:  # pragma: no cover - defensive logging
+        log = logger.error if is_critical_status and attempt == attempts else logger.warning
+        log(
+          "Unexpected error publishing training event for session %s (attempt %s/%s)",
+          self._session_id,
+          attempt,
+          attempts,
+          exc_info=exc,
+        )
 
   def _emit_state_update(self, meta: dict[str, Any]) -> None:
     if not self._state_hook:
