@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 ProgressHook = Callable[[dict[str, Any]], None]
 
 
+class TrainingCancelled(RuntimeError):
+  """Raised when an external signal requests that training stop early."""
+
+  pass
+
+
 class RedisTrainingCallback(BaseCallback):
   """Emit training progress messages to Redis Pub/Sub consumers."""
 
@@ -31,6 +37,8 @@ class RedisTrainingCallback(BaseCallback):
     verbose: int = 0,
     max_retries: int = 3,
     critical_statuses: Sequence[str] | None = None,
+    status_getter: Optional[Callable[[], Any]] = None,
+    status_check_interval: Optional[int] = None,
   ) -> None:
     super().__init__(verbose)
     self._session_id = session_id
@@ -39,7 +47,10 @@ class RedisTrainingCallback(BaseCallback):
     self._total_timesteps = total_timesteps
     self._state_hook = state_hook
     self._max_retries = max(1, max_retries)
-    self._critical_statuses = set(critical_statuses or ("completed", "failed"))
+    self._critical_statuses = set(critical_statuses or ("completed", "failed", "paused"))
+    self._status_getter = status_getter
+    self._status_check_interval = max(1, status_check_interval or self._update_interval)
+    self._status_check_counter = 0
 
     self._channel = f"training_progress_{session_id}"
     self._episode_rewards: list[float] = []
@@ -70,6 +81,11 @@ class RedisTrainingCallback(BaseCallback):
 
     if self.n_calls % self._update_interval == 0:
       self._publish_progress()
+
+    self._status_check_counter += 1
+    if self._status_getter and self._status_check_counter >= self._status_check_interval:
+      self._status_check_counter = 0
+      self._enforce_status()
 
     return True
 
@@ -178,5 +194,21 @@ class RedisTrainingCallback(BaseCallback):
     except Exception as exc:  # pragma: no cover - defensive logging
       logger.debug("Failed to notify Celery state hook", exc_info=exc)
 
+  def _enforce_status(self) -> None:
+    try:
+      status = self._status_getter() if self._status_getter else None
+    except Exception as exc:  # pragma: no cover - defensive logging
+      logger.debug("Failed to obtain external training status", exc_info=exc)
+      return
 
-__all__ = ["RedisTrainingCallback"]
+    if status is None:
+      return
+
+    status_value = getattr(status, "value", status)
+    if isinstance(status_value, str) and status_value.lower() == "paused":
+      self._publish_status("paused", "Training paused by user request")
+      self._emit_state_update({"status": "paused", "current": self.num_timesteps})
+      raise TrainingCancelled("Training paused")
+
+
+__all__ = ["RedisTrainingCallback", "TrainingCancelled"]

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from redis.exceptions import RedisError
 
-from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
+from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback, TrainingCancelled
 
 
 class _DummyRedis:
@@ -102,3 +102,36 @@ def test_redis_callback_retries_critical_status() -> None:
     assert types == ["training_status", "training_status"]
     statuses = [json.loads(message)["status"] for _, message in redis.messages]
     assert statuses[-1] == "completed"
+
+
+def test_redis_callback_raises_when_job_paused() -> None:
+    redis = _DummyRedis()
+    states: list[dict[str, object]] = []
+
+    def status_getter() -> str:
+        return "paused"
+
+    callback = RedisTrainingCallback(
+        session_id=7,
+        redis_client=redis,
+        update_interval=1,
+        total_timesteps=100,
+        state_hook=lambda meta: states.append(meta),
+        status_getter=status_getter,
+        status_check_interval=1,
+    )
+
+    callback.model = SimpleNamespace(logger=SimpleNamespace(name_to_value={}))
+
+    callback._on_training_start()
+
+    callback.locals = {"rewards": [0.0], "dones": [False]}
+    callback.n_calls = 1
+    callback.num_timesteps = 1
+
+    with pytest.raises(TrainingCancelled):
+        callback._on_step()
+
+    _, payload = redis.messages[-1]
+    assert json.loads(payload)["status"] == "paused"
+    assert states[-1]["status"] == "paused"

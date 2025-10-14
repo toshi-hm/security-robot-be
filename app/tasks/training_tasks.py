@@ -103,6 +103,22 @@ def _mark_job_failed(db: Session, session_id: int) -> None:
     logger.warning("Unable to mark training session %s as failed", session_id, exc_info=exc)
 
 
+def _make_training_status_probe(session_id: int):
+  def _probe() -> TrainingJobStatus | None:
+    session = SessionLocal()
+    try:
+      result = (
+        session.query(TrainingJob.status)
+        .filter(TrainingJob.id == session_id)
+        .first()
+      )
+      return result[0] if result else None
+    finally:
+      session.close()
+
+  return _probe
+
+
 def _update_celery_progress(task, session_id: int, meta: dict[str, Any]) -> None:
   payload = {"session_id": session_id, **meta}
   try:
@@ -166,6 +182,8 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
         update_interval=progress_interval,
         total_timesteps=total_timesteps,
         state_hook=_state_hook,
+        status_getter=_make_training_status_probe(session_id),
+        status_check_interval=progress_interval,
       ),
       DatabaseMetricsCallback(
         session_id=session_id,
@@ -200,6 +218,24 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
           "status": TrainingJobStatus.completed.value,
           "model_path": job.model_path,
           "timestamp": utcnow().isoformat(),
+        },
+        critical=True,
+      )
+    elif status == "paused":
+      job.status = TrainingJobStatus.paused
+      job.updated_at = utcnow()
+      if "total_timesteps" in result:
+        job.current_timestep = result["total_timesteps"]
+      db.commit()
+
+      _publish_training_event(
+        redis_client,
+        session_id,
+        {
+          "type": "training_paused",
+          "status": TrainingJobStatus.paused.value,
+          "timestamp": utcnow().isoformat(),
+          "current_timestep": job.current_timestep,
         },
         critical=True,
       )
@@ -299,6 +335,7 @@ def stop_training_task(session_id: int) -> dict[str, Any]:
   """Mark a running training task as paused."""
 
   logger.info("Stop requested for training session %s", session_id)
+  redis_client = _create_redis_client()
   db = SessionLocal()
   try:
     job = db.query(TrainingJob).filter(TrainingJob.id == session_id).first()
@@ -313,9 +350,15 @@ def stop_training_task(session_id: int) -> dict[str, Any]:
     job.updated_at = utcnow()
     db.commit()
 
-    logger.warning(
-      "Training stop requested for session %s; cooperative cancellation callback pending",
+    _publish_training_event(
+      redis_client,
       session_id,
+      {
+        "type": "training_stop_requested",
+        "status": TrainingJobStatus.paused.value,
+        "timestamp": utcnow().isoformat(),
+      },
+      critical=True,
     )
     return {
       "status": "stopped",
