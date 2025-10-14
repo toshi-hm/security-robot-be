@@ -1,0 +1,160 @@
+"""Stable-Baselines3 callback that publishes training updates via Redis."""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import Any, Callable, Optional
+
+import numpy as np
+from redis.exceptions import RedisError
+from stable_baselines3.common.callbacks import BaseCallback
+
+
+logger = logging.getLogger(__name__)
+
+
+ProgressHook = Callable[[dict[str, Any]], None]
+
+
+class RedisTrainingCallback(BaseCallback):
+  """Emit training progress messages to Redis Pub/Sub consumers."""
+
+  def __init__(
+    self,
+    session_id: int,
+    redis_client: Any,
+    *,
+    update_interval: int = 100,
+    total_timesteps: Optional[int] = None,
+    state_hook: Optional[ProgressHook] = None,
+    verbose: int = 0,
+  ) -> None:
+    super().__init__(verbose)
+    self._session_id = session_id
+    self._redis = redis_client
+    self._update_interval = max(1, update_interval)
+    self._total_timesteps = total_timesteps
+    self._state_hook = state_hook
+
+    self._channel = f"training_progress_{session_id}"
+    self._episode_rewards: list[float] = []
+    self._episode_lengths: list[int] = []
+    self._current_episode_reward = 0.0
+    self._current_episode_length = 0
+
+  # ------------------------------------------------------------------
+  # Stable-Baselines3 callback interface
+  # ------------------------------------------------------------------
+  def _on_training_start(self) -> None:
+    self._publish_status("running", "Training started")
+    self._emit_state_update({"status": "running", "current": 0})
+
+  def _on_step(self) -> bool:
+    rewards = self.locals.get("rewards", [0.0])
+    dones = self.locals.get("dones", [False])
+
+    reward = float(rewards[0]) if rewards else 0.0
+    self._current_episode_reward += reward
+    self._current_episode_length += 1
+
+    if dones and dones[0]:
+      self._episode_rewards.append(self._current_episode_reward)
+      self._episode_lengths.append(self._current_episode_length)
+      self._current_episode_reward = 0.0
+      self._current_episode_length = 0
+
+    if self.n_calls % self._update_interval == 0:
+      self._publish_progress()
+
+    return True
+
+  def _on_training_end(self) -> None:
+    self._publish_status("completed", "Training completed successfully")
+    self._emit_state_update({"status": "completed", "current": self.num_timesteps})
+
+  # ------------------------------------------------------------------
+  # Redis helpers
+  # ------------------------------------------------------------------
+  def _publish_progress(self) -> None:
+    mean_reward = (
+      float(np.mean(self._episode_rewards[-10:])) if self._episode_rewards else 0.0
+    )
+    loss = None
+    if hasattr(self.model, "logger") and getattr(self.model.logger, "name_to_value", None):
+      loss_val = self.model.logger.name_to_value.get("train/loss")
+      if loss_val is not None:
+        loss = float(loss_val)
+
+    payload: dict[str, Any] = {
+      "type": "training_progress",
+      "session_id": self._session_id,
+      "timestep": self.num_timesteps,
+      "episode": len(self._episode_rewards),
+      "reward": mean_reward,
+      "loss": loss,
+      "additional_metrics": {
+        "episode_length": (
+          int(np.mean(self._episode_lengths[-10:])) if self._episode_lengths else 0
+        ),
+        "total_episodes": len(self._episode_rewards),
+      },
+    }
+
+    self._publish(payload)
+
+    progress_meta: dict[str, Any] = {
+      "session_id": self._session_id,
+      "current": self.num_timesteps,
+    }
+    if self._total_timesteps:
+      progress_meta["total"] = self._total_timesteps
+      progress_meta["progress"] = min(
+        1.0, self.num_timesteps / float(self._total_timesteps)
+      )
+
+    self._emit_state_update(progress_meta)
+
+    if self.verbose > 0:
+      logger.info(
+        "Published Redis progress update for session %s at timestep %s",
+        self._session_id,
+        self.num_timesteps,
+      )
+
+  def _publish_status(self, status: str, message: str) -> None:
+    payload = {
+      "type": "training_status",
+      "session_id": self._session_id,
+      "status": status,
+      "message": message,
+    }
+    self._publish(payload)
+
+  def _publish(self, payload: dict[str, Any]) -> None:
+    try:
+      message = json.dumps(payload)
+      self._redis.publish(self._channel, message)
+    except RedisError as exc:
+      logger.warning(
+        "Failed to publish training event for session %s", self._session_id, exc_info=exc
+      )
+    except Exception as exc:  # pragma: no cover - defensive logging
+      logger.warning(
+        "Unexpected error publishing training event for session %s", self._session_id, exc_info=exc
+      )
+
+  def _emit_state_update(self, meta: dict[str, Any]) -> None:
+    if not self._state_hook:
+      return
+
+    progress_meta = meta.copy()
+    if self._total_timesteps and "total" not in progress_meta:
+      progress_meta["total"] = self._total_timesteps
+    try:
+      self._state_hook(progress_meta)
+    except Exception as exc:  # pragma: no cover - defensive logging
+      logger.debug("Failed to notify Celery state hook", exc_info=exc)
+
+
+__all__ = ["RedisTrainingCallback"]
