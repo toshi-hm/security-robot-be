@@ -8,6 +8,8 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv
 import gymnasium as gym
 
+from rl.callbacks.redis_pubsub_callback import TrainingCancelled
+
 logger = logging.getLogger(__name__)
 
 
@@ -170,6 +172,13 @@ class PPOTrainingService:
         'model_path': model_path
       }
       
+    except TrainingCancelled as exc:
+      logger.info("PPO training cancelled: %s", exc)
+      return {
+        'status': 'paused',
+        'algorithm': 'ppo',
+        'total_timesteps': getattr(self.model, 'num_timesteps', 0),
+      }
     except Exception as e:
       logger.error(f"PPO training failed: {e}", exc_info=True)
       return {
