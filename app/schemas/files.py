@@ -8,6 +8,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.training import TrainingAlgorithm
+
 
 class FileMetadataResponse(BaseModel):
   """Response schema for file metadata."""
@@ -58,7 +60,7 @@ class ModelFileInfo(BaseModel):
 
   filename: str
   file_size: int
-  algorithm: str
+  algorithm: TrainingAlgorithm
   training_session_id: Optional[int] = None
   created_at: datetime
   metadata: Optional[dict[str, Any]] = None

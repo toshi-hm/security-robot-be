@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from dataclasses import dataclass
 
 import pytest
 import pytest_asyncio
@@ -39,6 +43,38 @@ def job_manager_stub(monkeypatch: pytest.MonkeyPatch) -> JobManager:
     manager = JobManager()
     monkeypatch.setattr(training_module, "job_manager", manager)
     return manager
+
+
+@dataclass
+class _StubTaskResult:
+    """Mimic Celery's AsyncResult interface for predictable IDs."""
+
+    id: str
+
+
+class _TrainingDispatcherStub:
+    """Capture dispatch/stop calls without requiring a Celery broker."""
+
+    def __init__(self) -> None:
+        self.dispatch_calls: list[tuple[int, dict[str, object]]] = []
+        self.stop_calls: list[int] = []
+
+    def dispatch(self, job: TrainingJob, config: dict[str, object]) -> _StubTaskResult:
+        self.dispatch_calls.append((job.id, config))
+        return _StubTaskResult(id=f"celery-task-{job.id}")
+
+    def stop(self, session_id: int) -> _StubTaskResult:
+        self.stop_calls.append(session_id)
+        return _StubTaskResult(id=f"celery-stop-{session_id}")
+
+
+@pytest.fixture
+def dispatcher_stub(monkeypatch: pytest.MonkeyPatch) -> _TrainingDispatcherStub:
+    """Replace the real training dispatcher with an in-memory stub."""
+
+    dispatcher = _TrainingDispatcherStub()
+    monkeypatch.setattr(training_module, "training_dispatcher", dispatcher)
+    return dispatcher
 
 
 def _session_payload(**overrides: object) -> TrainingSessionCreate:
@@ -99,6 +135,7 @@ async def _create_metrics(session: AsyncSession, job_id: int, count: int = 3) ->
 async def test_start_training_enqueues_job_and_returns_response(
     db_session: AsyncSession,
     job_manager_stub: JobManager,
+    dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
     config = _session_payload(total_timesteps=500, coverage_weight=2.0)
 
@@ -110,6 +147,9 @@ async def test_start_training_enqueues_job_and_returns_response(
     entry = queue_entries[0]
     assert entry["session_id"] == response.id
     assert entry["payload"]["config"]["total_timesteps"] == config.total_timesteps
+    assert entry["task_id"] == f"celery-task-{response.id}"
+
+    assert dispatcher_stub.dispatch_calls == [(response.id, entry["payload"]["config"])]
 
     persisted = await db_session.get(TrainingJob, response.id)
     assert persisted is not None
@@ -170,7 +210,7 @@ async def test_pause_training_updates_status_and_queue(
     assert refreshed is not None
     assert refreshed.status is TrainingJobStatus.paused
     entry = job_manager_stub.snapshot()[0]
-    assert entry["status"] == "stopped"
+    assert entry["status"] == "paused"
     assert entry["session_id"] == job.id
 
 
@@ -178,6 +218,7 @@ async def test_pause_training_updates_status_and_queue(
 async def test_resume_training_requeues_existing_job(
     db_session: AsyncSession,
     job_manager_stub: JobManager,
+    dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
     job = await _create_job(db_session)
     job.status = TrainingJobStatus.paused
@@ -198,12 +239,16 @@ async def test_resume_training_requeues_existing_job(
     entry = job_manager_stub.snapshot()[0]
     assert entry["status"] == "queued"
     assert entry["payload"]["session_id"] == job.id
+    assert entry["task_id"] == f"celery-task-{job.id}"
+
+    assert dispatcher_stub.dispatch_calls[-1][0] == job.id
 
 
 @pytest.mark.asyncio
 async def test_resume_training_enqueues_when_missing_from_queue(
     db_session: AsyncSession,
     job_manager_stub: JobManager,
+    dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
     job = await _create_job(db_session)
     job.status = TrainingJobStatus.paused
@@ -214,16 +259,20 @@ async def test_resume_training_enqueues_when_missing_from_queue(
     assert response.status == TrainingJobStatus.queued
     entry = job_manager_stub.snapshot()[0]
     assert entry["session_id"] == job.id
+    assert entry["task_id"] == f"celery-task-{job.id}"
+
+    assert dispatcher_stub.dispatch_calls[-1][0] == job.id
 
 
 @pytest.mark.asyncio
 async def test_stop_training_marks_job_failed_and_updates_queue(
     db_session: AsyncSession,
     job_manager_stub: JobManager,
+    dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
     job = await _create_job(db_session)
     await db_session.commit()
-    await job_manager_stub.enqueue({"session_id": job.id})
+    queue_entry = await job_manager_stub.enqueue({"session_id": job.id})
 
     response = await training_module.stop_training(session_id=job.id, db=db_session)
 
@@ -234,6 +283,10 @@ async def test_stop_training_marks_job_failed_and_updates_queue(
     assert refreshed.completed_at is not None
     entry = job_manager_stub.snapshot()[0]
     assert entry["status"] == "stopped"
+    assert response.celery_task_id == f"celery-stop-{job.id}"
+    assert response.queue_task_id == queue_entry["task_id"]
+
+    assert dispatcher_stub.stop_calls == [job.id]
 
 
 @pytest.mark.asyncio

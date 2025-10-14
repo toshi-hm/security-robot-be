@@ -1,8 +1,10 @@
 from pydantic import BaseModel
 
+from app.models.training import TrainingAlgorithm
+
 
 class TrainingConfig(BaseModel):
-  algorithm: str
+  algorithm: TrainingAlgorithm
   environment_id: str
   total_timesteps: int
 

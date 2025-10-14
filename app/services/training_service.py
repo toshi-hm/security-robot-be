@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.training import TrainingJob, TrainingJobStatus
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
 from app.schemas.training import TrainingSessionCreate
 from app.utils.datetime import utcnow
 
@@ -24,12 +24,18 @@ class TrainingService:
     if payload.total_timesteps <= 0:
       raise ValueError('total_timesteps must be greater than zero')
 
-    if payload.algorithm == 'a3c' and payload.num_workers < 1:
+    algorithm = (
+      payload.algorithm
+      if isinstance(payload.algorithm, TrainingAlgorithm)
+      else TrainingAlgorithm(payload.algorithm)
+    )
+
+    if algorithm == TrainingAlgorithm.a3c and payload.num_workers < 1:
       raise ValueError('num_workers must be at least 1 when using the A3C algorithm')
 
     job = TrainingJob(
       name=payload.name,
-      algorithm=payload.algorithm,
+      algorithm=algorithm,
       environment_type=payload.environment_type,
       status=TrainingJobStatus.created,
       total_timesteps=payload.total_timesteps,
@@ -112,3 +118,48 @@ class TrainingService:
 
     await self._db.delete(job)
     await self._db.commit()
+
+  def build_training_config(
+    self,
+    job: TrainingJob,
+    payload: TrainingSessionCreate | None = None,
+  ) -> dict[str, Any]:
+    """Construct the configuration dictionary passed to background workers."""
+
+    extra_config = payload.config if payload is not None else job.config
+
+    try:
+      algorithm = (
+        job.algorithm
+        if isinstance(job.algorithm, TrainingAlgorithm)
+        else TrainingAlgorithm(job.algorithm)
+      )
+    except ValueError as exc:
+      raise ValueError(f'Unsupported training algorithm: {job.algorithm}') from exc
+
+    config: dict[str, Any] = {
+      'session_id': job.id,
+      'name': job.name,
+      'algorithm': algorithm.value,
+      'environment_type': job.environment_type,
+      'total_timesteps': job.total_timesteps,
+      'env_width': job.env_width,
+      'env_height': job.env_height,
+      'coverage_weight': job.coverage_weight,
+      'exploration_weight': job.exploration_weight,
+      'diversity_weight': job.diversity_weight,
+      'learning_rate': job.learning_rate,
+      'batch_size': job.batch_size,
+      'num_workers': job.num_workers,
+      'model_path': job.model_path,
+      'log_path': job.log_path,
+    }
+
+    if extra_config is not None:
+      config['config'] = extra_config
+
+    if payload is not None and payload.config is None and job.config is not None:
+      # Preserve persisted configuration when the resume payload omits overrides.
+      config['config'] = job.config
+
+    return config
