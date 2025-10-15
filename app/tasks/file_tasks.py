@@ -8,9 +8,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from app.core.files import storage
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+ARCHIVE_ROOT = (storage.STORAGE_ROOT / 'archives').resolve()
+ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def _validate_source(path: str) -> Path:
@@ -22,18 +26,21 @@ def _validate_source(path: str) -> Path:
   return source
 
 
+def _sanitize_segment(value: str, *, fallback: str) -> str:
+  sanitized = Path(value).name.strip().replace(' ', '_')
+  return sanitized or fallback
+
+
 def _build_archive_path(source: Path) -> Path:
-  if source.is_file():
-    base_dir = source.parent
-    stem = source.stem or source.name
-  else:
-    base_dir = source.parent
-    stem = source.name or 'logs'
+  stem = source.stem if source.is_file() else source.name
+  safe_stem = _sanitize_segment(stem or 'logs', fallback='logs')
 
   timestamp = datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')
   unique = uuid4().hex
-  archive_name = f'{stem}_{timestamp}_{unique}.zip'
-  return base_dir / archive_name
+  archive_dir = ARCHIVE_ROOT / safe_stem
+  archive_dir.mkdir(parents=True, exist_ok=True)
+  archive_name = f'{safe_stem}_{timestamp}_{unique}.zip'
+  return archive_dir / archive_name
 
 
 def _add_directory_contents(archive: zipfile.ZipFile, root: Path) -> None:

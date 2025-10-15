@@ -5,7 +5,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from app.tasks.file_tasks import archive_logs
+from app.tasks import file_tasks
 
 
 def _create_log_directory(root: Path) -> Path:
@@ -17,12 +17,17 @@ def _create_log_directory(root: Path) -> Path:
 
 
 def test_archive_logs_directory(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archives"
+    archive_root.mkdir(parents=True)
+    file_tasks.ARCHIVE_ROOT = archive_root
+
     logs_dir = _create_log_directory(tmp_path)
 
-    archive_path = Path(archive_logs.run(str(logs_dir)))
+    archive_path = Path(file_tasks.archive_logs.run(str(logs_dir)))
 
     assert archive_path.exists()
     assert archive_path.suffix == ".zip"
+    assert archive_path.parent == archive_root / "logs"
 
     with ZipFile(archive_path) as archive:
         namelist = set(archive.namelist())
@@ -32,13 +37,18 @@ def test_archive_logs_directory(tmp_path: Path) -> None:
 
 
 def test_archive_logs_file(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archives"
+    archive_root.mkdir(parents=True)
+    file_tasks.ARCHIVE_ROOT = archive_root
+
     log_file = tmp_path / "training.log"
     log_file.write_text("log-line")
 
-    archive_path = Path(archive_logs.run(str(log_file)))
+    archive_path = Path(file_tasks.archive_logs.run(str(log_file)))
 
     assert archive_path.exists()
     assert archive_path.suffix == ".zip"
+    assert archive_path.parent == archive_root / "training"
 
     with ZipFile(archive_path) as archive:
         assert archive.namelist() == ["training.log"]
@@ -46,7 +56,11 @@ def test_archive_logs_file(tmp_path: Path) -> None:
 
 
 def test_archive_logs_missing_path_raises(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archives"
+    archive_root.mkdir(parents=True)
+    file_tasks.ARCHIVE_ROOT = archive_root
+
     missing = tmp_path / "missing"
 
     with pytest.raises(ValueError):
-        archive_logs.run(str(missing))
+        file_tasks.archive_logs.run(str(missing))
