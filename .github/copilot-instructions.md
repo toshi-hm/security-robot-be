@@ -22,7 +22,7 @@
 
 ## 🔍 レビュー・出力スタイル
 - Pull Request レビューやフィードバックを生成する場合は、**必ず日本語で記述**してください。
-- レビューでは [`instructions/prompts`](../instructions/prompts) 内の該当プロンプト (特に `02_codex_review_prompt.md`) を参照し、既存のエージェントガイド (Codex/Claude) と整合性のある観点で指摘を行ってください。
+- レビューでは [`instructions/prompts`](../instructions/prompts) 内の該当プロンプト (特に [`02_codex_review_prompt.md`](../instructions/prompts/02_codex_review_prompt.md)) を参照し、既存のエージェントガイド (Codex/Claude) と整合性のある観点で指摘を行ってください。
 
 ## 🧪 テスト & 品質ゲート
 - 変更提案では `pytest` の実行やテストケース追加を優先し、テストカバレッジ向上を支援する提案を行ってください。
