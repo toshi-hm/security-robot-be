@@ -38,6 +38,26 @@ class TrainingDispatcher:
 
     return training_tasks.stop_training_task.delay(session_id)
 
+  def revoke(
+    self,
+    task_id: str,
+    *,
+    terminate: bool = True,
+    signal: str | None = "SIGTERM",
+  ) -> AsyncResult:
+    """Forcefully revoke a running Celery task by task identifier."""
+
+    if not task_id:
+      raise ValueError("task_id must be provided to revoke a Celery task")
+
+    async_result = AsyncResult(task_id, app=training_tasks.celery_app)
+    try:
+      async_result.revoke(terminate=terminate, signal=signal)
+    except Exception as exc:  # pragma: no cover - defensive guard
+      raise RuntimeError(f"Failed to revoke Celery task {task_id}") from exc
+
+    return async_result
+
 
 training_dispatcher = TrainingDispatcher()
 

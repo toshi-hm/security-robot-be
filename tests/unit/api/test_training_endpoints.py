@@ -58,6 +58,7 @@ class _TrainingDispatcherStub:
     def __init__(self) -> None:
         self.dispatch_calls: list[tuple[int, dict[str, object]]] = []
         self.stop_calls: list[int] = []
+        self.revoke_calls: list[dict[str, object]] = []
 
     def dispatch(self, job: TrainingJob, config: dict[str, object]) -> _StubTaskResult:
         self.dispatch_calls.append((job.id, config))
@@ -66,6 +67,21 @@ class _TrainingDispatcherStub:
     def stop(self, session_id: int) -> _StubTaskResult:
         self.stop_calls.append(session_id)
         return _StubTaskResult(id=f"celery-stop-{session_id}")
+
+    def revoke(
+        self,
+        task_id: str,
+        *,
+        terminate: bool = True,
+        signal: str | None = "SIGTERM",
+    ) -> None:
+        self.revoke_calls.append(
+            {
+                "task_id": task_id,
+                "terminate": terminate,
+                "signal": signal,
+            }
+        )
 
 
 @pytest.fixture
@@ -277,6 +293,8 @@ async def test_stop_training_marks_job_failed_and_updates_queue(
     response = await training_module.stop_training(session_id=job.id, db=db_session)
 
     assert response.status == TrainingJobStatus.failed
+    assert response.forced is False
+    assert response.revoked_task_id is None
     refreshed = await db_session.get(TrainingJob, job.id)
     assert refreshed is not None
     assert refreshed.status is TrainingJobStatus.failed
@@ -287,6 +305,37 @@ async def test_stop_training_marks_job_failed_and_updates_queue(
     assert response.queue_task_id == queue_entry["task_id"]
 
     assert dispatcher_stub.stop_calls == [job.id]
+    assert dispatcher_stub.revoke_calls == []
+
+
+@pytest.mark.asyncio
+async def test_stop_training_forcefully_revokes_task(
+    db_session: AsyncSession,
+    job_manager_stub: JobManager,
+    dispatcher_stub: _TrainingDispatcherStub,
+) -> None:
+    job = await _create_job(db_session)
+    await db_session.commit()
+    queue_entry = await job_manager_stub.enqueue({"session_id": job.id, "task_id": "queue-task"})
+
+    response = await training_module.stop_training(session_id=job.id, force=True, db=db_session)
+
+    assert response.status == TrainingJobStatus.failed
+    assert response.forced is True
+    assert response.queue_task_id == queue_entry["task_id"]
+    assert response.revoked_task_id == queue_entry["task_id"]
+
+    refreshed = await db_session.get(TrainingJob, job.id)
+    assert refreshed is not None
+    assert refreshed.status is TrainingJobStatus.failed
+
+    entry = job_manager_stub.snapshot()[0]
+    assert entry["status"] == "revoked"
+    assert entry["forced"] is True
+
+    assert dispatcher_stub.stop_calls[-1] == job.id
+    assert dispatcher_stub.revoke_calls[-1]["task_id"] == queue_entry["task_id"]
+    assert dispatcher_stub.revoke_calls[-1]["terminate"] is True
 
 
 @pytest.mark.asyncio

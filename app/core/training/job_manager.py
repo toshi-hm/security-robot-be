@@ -27,6 +27,7 @@ class JobManager:
             "status": "queued",
             "payload": payload,
             "enqueued_at": utcnow(),
+            "forced": False,
         }
         self._jobs[session_id] = metadata
         return metadata
@@ -42,10 +43,17 @@ class JobManager:
         entry["status"] = reason
         if reason == "stopped":
             entry["stopped_at"] = timestamp
+            entry["forced"] = False
         elif reason == "paused":
             entry["paused_at"] = timestamp
+            entry["forced"] = False
+        elif reason == "revoked":
+            entry["revoked_at"] = timestamp
+            entry["forced"] = True
+            entry["updated_at"] = timestamp
         else:
             entry["updated_at"] = timestamp
+            entry["forced"] = entry.get("forced", False)
 
         return entry
 
@@ -58,6 +66,7 @@ class JobManager:
 
         entry["status"] = "queued"
         entry["resumed_at"] = utcnow()
+        entry["forced"] = False
         return entry
 
     async def discard(self, session_id: int) -> None:
