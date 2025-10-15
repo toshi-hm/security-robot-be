@@ -200,6 +200,7 @@
 - [x] app/api/v1/endpoints/training.py - 基本エンドポイント
 - [x] app/api/v1/endpoints/training.py - GET /sessions/{id}/metrics (ページネーション対応)
 - [x] app/api/v1/endpoints/training.py - POST /start, /{id}/pause, /{id}/resume, /{id}/stop を実装
+- [x] app/api/v1/endpoints/training.py - stopエンドポイントに`force`クエリを追加し、Celeryタスクのrevokeとキュー状態の強制停止フラグを連携 (2025-10-14追加)
 - [x] app/api/v1/endpoints/training.py - GET /list と GET /{id}/status を実装
 - [x] app/api/v1/endpoints/training.py - DELETE /{id} エンドポイントを実装
 - [x] app/api/v1/endpoints/jobs.py - ジョブキュー状態一覧 API を実装
@@ -245,10 +246,12 @@
   - [x] run_a3c_training_task - A3C学習タスク (骨組み、未実装警告あり)
   - [x] stop_training_task - 学習停止タスク
 - [x] app/tasks/file_tasks.py - ログ/モデルファイルのアーカイブタスクを実装し、ZIP出力とバリデーションを整備
+- [x] app/services/training_dispatcher.py - Celeryタスクrevokeメソッドを追加し、強制停止パスから利用 (2025-10-14追加)
+  
 
 #### TODO
 - [ ] A3C学習タスクの完全実装
-- [ ] CeleryリボークAPI連携など強制停止パスの整備 (協調停止は実装済み)
+- [x] CeleryリボークAPI連携など強制停止パスの整備 (協調停止は実装済み)
 
 #### マシン固有 - 動作確認状況
 - ⏳ Celeryワーカー起動確認 (各環境で実施が必要)

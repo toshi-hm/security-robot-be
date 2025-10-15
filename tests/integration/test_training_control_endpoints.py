@@ -24,6 +24,7 @@ class _DispatcherStub:
     def __init__(self) -> None:
         self.dispatched: list[dict[str, object]] = []
         self.stopped: list[int] = []
+        self.revoked: list[dict[str, object]] = []
 
     def dispatch(self, job: TrainingJob, config: dict) -> SimpleNamespace:
         task_id = f"task-{job.id}-{len(self.dispatched) + 1}"
@@ -40,6 +41,22 @@ class _DispatcherStub:
     def stop(self, session_id: int) -> SimpleNamespace:
         self.stopped.append(session_id)
         return SimpleNamespace(id=f"stop-{session_id}")
+
+    def revoke(
+        self,
+        task_id: str,
+        *,
+        terminate: bool = True,
+        signal: str | None = "SIGTERM",
+    ) -> SimpleNamespace:
+        self.revoked.append(
+            {
+                "task_id": task_id,
+                "terminate": terminate,
+                "signal": signal,
+            }
+        )
+        return SimpleNamespace(id=task_id)
 
 
 @pytest.fixture()
@@ -265,6 +282,8 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     assert "stopped successfully" in body["message"].lower()
     assert body["celery_task_id"] == f"stop-{session_id}"
     assert body["queue_task_id"] == dispatcher.dispatched[0]["task_id"]
+    assert body["revoked_task_id"] is None
+    assert body["forced"] is False
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -274,8 +293,63 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     queue_entries = job_manager.snapshot()
     assert len(queue_entries) == 1
     assert queue_entries[0]["status"] == "stopped"
+    assert queue_entries[0]["forced"] is False
 
     assert dispatcher.stopped == [session_id]
+    assert dispatcher.revoked == []
+
+
+def test_force_stop_training_revokes_celery_task(
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+) -> None:
+    app, session_maker, job_manager, dispatcher = training_api_app
+
+    payload = {
+        "name": "Force stop job",
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "total_timesteps": 180,
+        "env_width": 6,
+        "env_height": 6,
+        "coverage_weight": 1.2,
+        "exploration_weight": 2.4,
+        "diversity_weight": 1.6,
+        "learning_rate": 0.0004,
+        "batch_size": 32,
+        "num_workers": 1,
+        "config": None,
+    }
+
+    with TestClient(app) as client:
+        start_response = client.post("/api/v1/training/start", json=payload)
+        assert start_response.status_code == 202
+        session_id = start_response.json()["id"]
+
+        stop_response = client.post(
+            f"/api/v1/training/{session_id}/stop",
+            params={"force": "true"},
+        )
+
+    assert stop_response.status_code == 200
+    body = stop_response.json()
+    assert body["status"] == TrainingJobStatus.failed.value
+    assert body["forced"] is True
+    assert body["revoked_task_id"] == dispatcher.dispatched[0]["task_id"]
+    assert "forcefully" in body["message"].lower()
+
+    job = _load_job(session_maker, session_id)
+    assert job is not None
+    assert job.status is TrainingJobStatus.failed
+
+    queue_entries = job_manager.snapshot()
+    assert len(queue_entries) == 1
+    queue_entry = queue_entries[0]
+    assert queue_entry["status"] == "revoked"
+    assert queue_entry["forced"] is True
+
+    assert dispatcher.stopped[-1] == session_id
+    assert dispatcher.revoked[-1]["task_id"] == dispatcher.dispatched[0]["task_id"]
+    assert dispatcher.revoked[-1]["terminate"] is True
 
 
 def test_pause_training_updates_queue_entry_and_response_task_ids(
