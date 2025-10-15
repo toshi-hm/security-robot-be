@@ -177,6 +177,8 @@ class TrainingActionResponse(BaseModel):
     message: str
     celery_task_id: Optional[str] = None
     queue_task_id: Optional[str] = None
+    revoked_task_id: Optional[str] = None
+    forced: bool = False
 
 
 # Legacy schemas for backward compatibility

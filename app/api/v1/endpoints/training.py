@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.params import Query as QueryInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,33 +81,62 @@ async def start_training(
 @router.post("/{session_id}/stop", response_model=TrainingActionResponse)
 async def stop_training(
     session_id: int,
+    force: bool = Query(
+        False,
+        description="Forcefully revoke the Celery task in addition to cooperative stop",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> TrainingActionResponse:
     """Stop an active training session and mark it as failed."""
 
     service = TrainingService(db)
+    if isinstance(force, QueryInfo):
+        force_flag = bool(getattr(force, "default", False))
+    else:
+        force_flag = bool(force)
+
     job = await service.get_session(session_id)
     if job is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
 
-    queue_entry = await job_manager.stop(session_id, reason="stopped")
+    existing_queue_entry = job_manager.get(session_id)
+    queue_entry = await job_manager.stop(session_id, reason="revoked" if force_flag else "stopped")
 
     try:
         stop_result = training_dispatcher.stop(session_id)
     except Exception as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to stop training task") from exc
 
+    revoke_task_id: str | None = None
+    target_entry = queue_entry or existing_queue_entry
+    if force_flag and target_entry is not None:
+        task_id = target_entry.get("task_id")
+        if task_id:
+            try:
+                training_dispatcher.revoke(task_id, terminate=True)
+            except Exception as exc:
+                raise HTTPException(
+                    status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Failed to revoke Celery task {task_id}: {exc}",
+                ) from exc
+            revoke_task_id = task_id
+
     updated_job = await service.update_status(job, TrainingJobStatus.failed, mark_completed=True)
 
     celery_task_id = getattr(stop_result, "id", None)
-    queue_task_id = queue_entry.get("task_id") if queue_entry else None
+    queue_task_id = target_entry.get("task_id") if target_entry else None
+    message = "Training session {session_id} stopped successfully"
+    if force_flag:
+        message = "Training session {session_id} forcefully stopped"
 
     return TrainingActionResponse(
         session_id=updated_job.id,
         status=updated_job.status,
-        message=f"Training session {session_id} stopped successfully",
+        message=message.format(session_id=session_id),
         celery_task_id=celery_task_id,
         queue_task_id=queue_task_id,
+        revoked_task_id=revoke_task_id,
+        forced=force_flag,
     )
 
 
