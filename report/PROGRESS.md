@@ -240,9 +240,9 @@
     - [x] エラーハンドリング・通知 (Redis経由)
   - [x] run_a3c_training_task - A3C学習タスク (骨組み、未実装警告あり)
   - [x] stop_training_task - 学習停止タスク
+- [x] app/tasks/file_tasks.py - ログ/モデルファイルのアーカイブタスクを実装し、ZIP出力とバリデーションを整備
 
 #### TODO
-- [ ] app/tasks/file_tasks.py - ファイル処理タスク実装
 - [ ] A3C学習タスクの完全実装
 - [ ] CeleryリボークAPI連携など強制停止パスの整備 (協調停止は実装済み)
 
