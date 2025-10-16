@@ -13,6 +13,9 @@ from rl.algorithms.a3c.network import A3CNetwork
 from rl.algorithms.a3c.worker import A3CWorker, RolloutResult
 
 
+MAX_WORKERS = 16
+
+
 class A3CTrainer:
   """High-level trainer that orchestrates workers and aggregates progress."""
 
@@ -41,7 +44,16 @@ class A3CTrainer:
       raise ValueError('environment must expose a discrete action space')
 
     self._total_timesteps_target = max(1, int(self._config.get('total_timesteps', 10000)))
-    self._num_workers = max(1, int(self._config.get('num_workers', 1)))
+    workers_config = self._config.get('num_workers', 1)
+    try:
+      requested_workers = int(workers_config)
+    except (TypeError, ValueError) as exc:
+      raise ValueError('num_workers must be an integer value') from exc
+    if requested_workers < 1:
+      raise ValueError('num_workers must be a positive integer')
+    if requested_workers > MAX_WORKERS:
+      raise ValueError(f'num_workers must not exceed {MAX_WORKERS}')
+    self._num_workers = requested_workers
     self._rollout_steps = max(1, int(self._config.get('n_steps', 20)))
     self._gamma = float(self._config.get('gamma', 0.99))
     self._gae_lambda = float(self._config.get('gae_lambda', 0.95))

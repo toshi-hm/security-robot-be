@@ -11,6 +11,8 @@ from redis import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
+import torch
+
 from app.core.config import settings
 from app.core.training.a3c_service import A3CTrainingService
 from app.core.training.ppo_service import PPOTrainingService
@@ -25,6 +27,20 @@ from app.tasks.celery_app import celery_app
 from app.utils.datetime import utcnow
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
 from rl.callbacks.websocket_callback import DatabaseMetricsCallback
+
+try:  # pragma: no cover - optional dependency guard
+  from gymnasium import error as gym_error
+except ImportError:  # pragma: no cover - exercised when gymnasium is absent
+  gym_error = None
+
+
+if gym_error is not None:
+  GymEnvironmentError = gym_error.Error
+else:  # pragma: no cover - fallback used when gymnasium is absent
+  class GymEnvironmentError(Exception):
+    """Placeholder used when gymnasium is not installed."""
+
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +175,39 @@ def _make_training_status_probe(session_id: int):
       session.close()
 
   return _probe
+
+
+def _handle_a3c_failure(
+  task: Any,
+  db: Session,
+  redis_client: Redis | _NoOpRedis,
+  session_id: int,
+  message: str,
+  exc: Exception,
+) -> dict[str, Any]:
+  logger.error("A3C training task failed for session %s: %s", session_id, message, exc_info=exc)
+  _mark_job_failed(db, session_id)
+  _publish_training_event(
+    redis_client,
+    session_id,
+    {
+      "type": "training_error",
+      "status": TrainingJobStatus.failed.value,
+      "error": message,
+      "timestamp": utcnow().isoformat(),
+    },
+    critical=True,
+  )
+  try:
+    task.update_state(
+      state="FAILURE",
+      meta={"session_id": session_id, "error": message},
+    )
+  except Exception as state_exc:  # pragma: no cover - defensive logging
+    logger.debug(
+      "Failed to update Celery failure state for session %s", session_id, exc_info=state_exc
+    )
+  return {"status": "failed", "session_id": session_id, "error": message}
 
 
 def _update_celery_progress(task, session_id: int, meta: dict[str, Any]) -> None:
@@ -443,25 +492,48 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     logger.info("A3C training task finished for session %s with status %s", session_id, status)
     return result | {"session_id": session_id}
 
-  except Exception as exc:
-    logger.error("A3C training task failed for session %s", session_id, exc_info=exc)
-    _mark_job_failed(db, session_id)
-    _publish_training_event(
+  except torch.cuda.OutOfMemoryError as exc:
+    torch.cuda.empty_cache()
+
+    def _format_oom_message() -> str:
+      suffix = ""
+      if torch.cuda.is_available():
+        try:
+          device = torch.cuda.current_device()
+        except Exception:  # pragma: no cover - defensive logging
+          device = None
+        if device is not None:
+          suffix = f" on device {device}"
+      return f"CUDA out of memory encountered during A3C training{suffix}"
+
+    return _handle_a3c_failure(
+      self,
+      db,
       redis_client,
       session_id,
-      {
-        "type": "training_error",
-        "status": TrainingJobStatus.failed.value,
-        "error": str(exc),
-        "timestamp": utcnow().isoformat(),
-      },
-      critical=True,
+      _format_oom_message(),
+      exc,
     )
-    self.update_state(
-      state="FAILURE",
-      meta={"session_id": session_id, "error": str(exc)},
+
+  except GymEnvironmentError as exc:  # type: ignore[misc]
+    return _handle_a3c_failure(
+      self,
+      db,
+      redis_client,
+      session_id,
+      f"Environment initialisation failed: {exc}",
+      exc,
     )
-    return {"status": "failed", "session_id": session_id, "error": str(exc)}
+
+  except Exception as exc:
+    return _handle_a3c_failure(
+      self,
+      db,
+      redis_client,
+      session_id,
+      str(exc),
+      exc,
+    )
 
   finally:
     for session in (metrics_db, db):

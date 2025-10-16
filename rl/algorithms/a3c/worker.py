@@ -37,10 +37,14 @@ def compute_gae(
     raise ValueError('rewards must contain at least one element')
 
   device = rewards[0].device
+
+  def _as_row(tensor: Tensor) -> Tensor:
+    return tensor.to(device).squeeze().unsqueeze(0)
+
   values_tensor = torch.cat([
-    value.to(device).reshape(1) for value in values
-  ] + [next_value.to(device).reshape(1)])
-  rewards_tensor = torch.cat([reward.to(device).reshape(1) for reward in rewards])
+    _as_row(value) for value in values
+  ] + [_as_row(next_value)])
+  rewards_tensor = torch.cat([_as_row(reward) for reward in rewards])
 
   advantages: List[Tensor] = []
   gae = torch.zeros(1, device=device)
@@ -51,7 +55,7 @@ def compute_gae(
     gae = delta + gamma * lam * mask * gae
     advantages.insert(0, gae)
 
-  advantages_tensor = torch.cat([adv.to(device).reshape(1) for adv in advantages])
+  advantages_tensor = torch.cat([_as_row(adv) for adv in advantages])
   returns_tensor = advantages_tensor + values_tensor[:-1]
   return returns_tensor, advantages_tensor
 
