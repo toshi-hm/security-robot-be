@@ -67,6 +67,7 @@ class A3CTrainer:
     self._global_network = A3CNetwork(self._input_dim, self._action_dim).to(self._device)
     self._optimizer = torch.optim.Adam(self._global_network.parameters(), lr=self._learning_rate)
     self._grad_lock = Lock()
+    self._metrics_lock = Lock()
 
   def _create_workers(self) -> Iterable[A3CWorker]:
     for worker_id in range(self._num_workers):
@@ -130,14 +131,16 @@ class A3CTrainer:
               continue
 
             if not stop_requested:
-              total_timesteps += result.timesteps
-              last_metrics = result
-              if result.episode_done:
-                episodes += 1
-
+              with self._metrics_lock:
+                total_timesteps += result.timesteps
+                last_metrics = result
+                if result.episode_done:
+                  episodes += 1
+                current_timesteps = total_timesteps
+                current_episode = episodes
               if progress_callback is not None:
                 metrics_payload = {
-                  'episode': episodes,
+                  'episode': current_episode,
                   'reward': result.reward,
                   'loss': result.loss,
                   'additional_metrics': {
@@ -146,9 +149,9 @@ class A3CTrainer:
                     'entropy': result.entropy,
                   },
                 }
-                progress_callback(total_timesteps, metrics_payload)
+                progress_callback(current_timesteps, metrics_payload)
 
-              if total_timesteps >= self._total_timesteps_target:
+              if current_timesteps >= self._total_timesteps_target:
                 stop_requested = True
 
             if not stop_requested:
@@ -157,19 +160,24 @@ class A3CTrainer:
       for worker in workers:
         worker.close()
 
-    if progress_callback is not None and last_metrics is not None:
+    with self._metrics_lock:
+      final_timesteps = total_timesteps
+      final_episodes = episodes
+      final_metrics = last_metrics
+
+    if progress_callback is not None and final_metrics is not None:
       metrics_payload = {
-        'episode': episodes,
-        'reward': last_metrics.reward,
-        'loss': last_metrics.loss,
+        'episode': final_episodes,
+        'reward': final_metrics.reward,
+        'loss': final_metrics.loss,
         'additional_metrics': {
-          'policy_loss': last_metrics.policy_loss,
-          'value_loss': last_metrics.value_loss,
-          'entropy': last_metrics.entropy,
+          'policy_loss': final_metrics.policy_loss,
+          'value_loss': final_metrics.value_loss,
+          'entropy': final_metrics.entropy,
         },
         'force_emit': True,
       }
-      progress_callback(total_timesteps, metrics_payload)
+      progress_callback(final_timesteps, metrics_payload)
 
     model_path = self._config.get('model_path')
     if model_path:
@@ -180,17 +188,17 @@ class A3CTrainer:
     result_payload: dict[str, Any] = {
       'status': 'completed',
       'algorithm': 'a3c',
-      'total_timesteps': total_timesteps,
-      'episodes_completed': episodes,
+      'total_timesteps': final_timesteps,
+      'episodes_completed': final_episodes,
     }
 
     if model_path:
       result_payload['model_path'] = model_path
-    if last_metrics is not None:
-      result_payload['loss'] = last_metrics.loss
-      result_payload['policy_loss'] = last_metrics.policy_loss
-      result_payload['value_loss'] = last_metrics.value_loss
-      result_payload['entropy'] = last_metrics.entropy
+    if final_metrics is not None:
+      result_payload['loss'] = final_metrics.loss
+      result_payload['policy_loss'] = final_metrics.policy_loss
+      result_payload['value_loss'] = final_metrics.value_loss
+      result_payload['entropy'] = final_metrics.entropy
 
     return result_payload
 

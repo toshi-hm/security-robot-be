@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import logging
 from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Callable, List, Optional, Tuple
@@ -13,6 +15,8 @@ from torch.distributions import Categorical
 
 from rl.algorithms.a3c.network import A3CNetwork
 
+
+logger = logging.getLogger(__name__)
 
 Tensor = torch.Tensor
 
@@ -54,8 +58,9 @@ def compute_gae(
     mask = 0.0 if dones[step] else 1.0
     delta = rewards_tensor[step] + gamma * values_tensor[step + 1] * mask - values_tensor[step]
     gae = delta + gamma * lam * mask * gae
-    advantages.insert(0, gae)
+    advantages.append(gae.clone())
 
+  advantages.reverse()
   advantages_tensor = torch.cat([_as_row(adv) for adv in advantages])
   returns_tensor = advantages_tensor + values_tensor[:-1]
   return returns_tensor, advantages_tensor
@@ -95,7 +100,15 @@ class A3CWorker:
   ) -> None:
     self.worker_id = worker_id
     self._env_factory = env_factory
-    self._env = env_factory()
+    self._env: Any | None = None
+    try:
+      self._env = env_factory()
+      self._state, _ = self._env.reset()
+    except Exception:
+      if self._env is not None:
+        with contextlib.suppress(Exception):
+          self._env.close()
+      raise
     self._global_network = global_network
     self._optimizer = optimizer
     self._device = device
@@ -110,15 +123,15 @@ class A3CWorker:
     self._value_loss_coef = value_loss_coef
     self._max_grad_norm = max_grad_norm
     self._grad_lock = grad_lock
-
-    self._state, _ = self._env.reset()
     self._episode_done = False
 
   def close(self) -> None:
+    if self._env is None:
+      return
     try:
       self._env.close()
-    except Exception:  # pragma: no cover - defensive cleanup
-      pass
+    except Exception as exc:  # pragma: no cover - defensive cleanup
+      logger.warning('Worker %d failed to close environment: %s', self.worker_id, exc)
 
   def run(self) -> RolloutResult:
     """Execute a single rollout and update the shared global network."""
