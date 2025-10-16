@@ -109,6 +109,29 @@ def test_a3c_trainer_handles_multiple_workers() -> None:
   assert result['total_timesteps'] >= 8
 
 
+def test_a3c_trainer_respects_stop_signal() -> None:
+  config = {
+    'total_timesteps': 100,
+    'n_steps': 2,
+    'learning_rate': 1e-3,
+    'num_workers': 1,
+  }
+
+  stop_calls = 0
+
+  def _stop_signal() -> bool:
+    nonlocal stop_calls
+    stop_calls += 1
+    return stop_calls >= 2
+
+  trainer = A3CTrainer(_dummy_env_factory, config, device='cpu')
+  result = trainer.train(stop_signal=_stop_signal)
+
+  assert result['status'] == 'paused'
+  assert result['stop_reason'] == 'pause_requested'
+  assert result['total_timesteps'] < config['total_timesteps']
+
+
 @pytest.mark.asyncio()
 async def test_a3c_training_service_supports_custom_env_factory() -> None:
   config = {

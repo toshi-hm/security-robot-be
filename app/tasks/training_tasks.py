@@ -410,6 +410,11 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     )
 
     last_progress_emit = 0
+    status_probe = _make_training_status_probe(session_id)
+
+    def _should_pause() -> bool:
+      status = status_probe()
+      return status == TrainingJobStatus.paused
 
     def _progress_callback(timestep: int, metrics: dict[str, Any]) -> None:
       nonlocal last_progress_emit
@@ -445,6 +450,7 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       service.start_training(
         config={**config, "session_id": session_id},
         progress_callback=_progress_callback,
+        stop_signal=_should_pause,
       )
     )
 
@@ -470,6 +476,36 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
         },
         critical=True,
       )
+    elif status == "paused":
+      job.status = TrainingJobStatus.paused
+      job.updated_at = utcnow()
+      if "total_timesteps" in result:
+        job.current_timestep = result["total_timesteps"]
+      if "episodes_completed" in result:
+        job.episodes_completed = result["episodes_completed"]
+      db.commit()
+
+      _publish_training_event(
+        redis_client,
+        session_id,
+        {
+          "type": "training_paused",
+          "status": TrainingJobStatus.paused.value,
+          "timestamp": utcnow().isoformat(),
+          "current_timestep": job.current_timestep,
+          "episodes_completed": job.episodes_completed,
+          "stop_reason": result.get("stop_reason", "pause_requested"),
+        },
+        critical=True,
+      )
+      progress_meta: dict[str, Any] = {
+        "status": "paused",
+        "current": job.current_timestep,
+      }
+      if total_timesteps:
+        progress_meta["total"] = total_timesteps
+        progress_meta["progress"] = min(1.0, job.current_timestep / float(total_timesteps))
+      _update_celery_progress(self, session_id, progress_meta)
     else:
       job.status = TrainingJobStatus.failed
       job.completed_at = utcnow()

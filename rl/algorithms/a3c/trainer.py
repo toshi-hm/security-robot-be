@@ -8,6 +8,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Callable, Iterable, Optional
 
+import logging
+
 import numpy as np
 import torch
 
@@ -16,6 +18,9 @@ from rl.algorithms.a3c.worker import A3CWorker, RolloutResult
 
 
 MAX_WORKERS = 16
+
+
+logger = logging.getLogger(__name__)
 
 
 class A3CTrainer:
@@ -55,6 +60,14 @@ class A3CTrainer:
       raise ValueError('num_workers must be a positive integer')
     if requested_workers > MAX_WORKERS:
       raise ValueError(f'num_workers must not exceed {MAX_WORKERS}')
+    self._reduced_workers_due_to_cuda = False
+    if self._device.type == 'cuda' and requested_workers > 1:
+      logger.warning(
+        'CUDA execution detected; falling back to single-worker mode for A3C training '
+        'because thread-based workers do not safely share CUDA contexts.'
+      )
+      requested_workers = 1
+      self._reduced_workers_due_to_cuda = True
     self._num_workers = requested_workers
     self._rollout_steps = max(1, int(self._config.get('n_steps', 20)))
     self._gamma = float(self._config.get('gamma', 0.99))
@@ -92,6 +105,7 @@ class A3CTrainer:
     self,
     *,
     progress_callback: Optional[Callable[[int, dict[str, Any]], None]] = None,
+    stop_signal: Optional[Callable[[], bool]] = None,
   ) -> dict[str, Any]:
     """Execute training until the configured timestep target is reached."""
 
@@ -102,6 +116,8 @@ class A3CTrainer:
     last_metrics: Optional[RolloutResult] = None
 
     futures: dict[Future[RolloutResult], A3CWorker] = {}
+
+    external_stop_requested = False
 
     try:
       with ThreadPoolExecutor(max_workers=self._num_workers) as executor:
@@ -130,29 +146,42 @@ class A3CTrainer:
                 _schedule(worker)
               continue
 
-            if not stop_requested:
-              with self._metrics_lock:
-                total_timesteps += result.timesteps
-                last_metrics = result
-                if result.episode_done:
-                  episodes += 1
-                current_timesteps = total_timesteps
-                current_episode = episodes
-              if progress_callback is not None:
-                metrics_payload = {
-                  'episode': current_episode,
-                  'reward': result.reward,
-                  'loss': result.loss,
-                  'additional_metrics': {
-                    'policy_loss': result.policy_loss,
-                    'value_loss': result.value_loss,
-                    'entropy': result.entropy,
-                  },
-                }
-                progress_callback(current_timesteps, metrics_payload)
+            if stop_requested:
+              continue
 
-              if current_timesteps >= self._total_timesteps_target:
-                stop_requested = True
+            with self._metrics_lock:
+              total_timesteps += result.timesteps
+              last_metrics = result
+              if result.episode_done:
+                episodes += 1
+              current_timesteps = total_timesteps
+              current_episode = episodes
+            if progress_callback is not None:
+              metrics_payload = {
+                'episode': current_episode,
+                'reward': result.reward,
+                'loss': result.loss,
+                'additional_metrics': {
+                  'policy_loss': result.policy_loss,
+                  'value_loss': result.value_loss,
+                  'entropy': result.entropy,
+                },
+              }
+              progress_callback(current_timesteps, metrics_payload)
+
+            reached_target = current_timesteps >= self._total_timesteps_target
+            external_stop_triggered = False
+            if not reached_target and stop_signal is not None:
+              try:
+                external_stop_triggered = bool(stop_signal())
+              except Exception:
+                logger.exception('stop_signal callable raised unexpectedly')
+
+            if reached_target:
+              stop_requested = True
+            elif external_stop_triggered:
+              stop_requested = True
+              external_stop_requested = True
 
             if not stop_requested:
               _schedule(worker)
@@ -185,8 +214,9 @@ class A3CTrainer:
       path.parent.mkdir(parents=True, exist_ok=True)
       torch.save(self._global_network.state_dict(), path)
 
+    result_status = 'paused' if external_stop_requested else 'completed'
     result_payload: dict[str, Any] = {
-      'status': 'completed',
+      'status': result_status,
       'algorithm': 'a3c',
       'total_timesteps': final_timesteps,
       'episodes_completed': final_episodes,
@@ -199,6 +229,14 @@ class A3CTrainer:
       result_payload['policy_loss'] = final_metrics.policy_loss
       result_payload['value_loss'] = final_metrics.value_loss
       result_payload['entropy'] = final_metrics.entropy
+
+    if self._reduced_workers_due_to_cuda:
+      result_payload['concurrency_warning'] = (
+        'CUDA device detected; trainer forced single-worker execution to avoid '
+        'unsafe CUDA context sharing in threaded workers.'
+      )
+    if external_stop_requested:
+      result_payload['stop_reason'] = 'pause_requested'
 
     return result_payload
 

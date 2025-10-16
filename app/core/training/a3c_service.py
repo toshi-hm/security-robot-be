@@ -53,6 +53,7 @@ class A3CTrainingService:
     *,
     config: dict[str, Any],
     progress_callback: Callable[[int, dict[str, Any]], None] | None = None,
+    stop_signal: Callable[[], bool] | None = None,
   ) -> dict[str, Any]:
     """Execute training asynchronously, delegating to a thread pool if needed."""
 
@@ -64,7 +65,10 @@ class A3CTrainingService:
     trainer = A3CTrainer(env_factory, config_copy, device=self._device)
 
     def _run_training() -> dict[str, Any]:
-      return trainer.train(progress_callback=progress_callback)
+      return trainer.train(
+        progress_callback=progress_callback,
+        stop_signal=stop_signal,
+      )
 
     return await loop.run_in_executor(None, _run_training)
 
