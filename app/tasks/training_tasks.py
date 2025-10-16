@@ -12,9 +12,15 @@ from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.training.a3c_service import A3CTrainingService
 from app.core.training.ppo_service import PPOTrainingService
 from app.db.session import SessionLocal
-from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
+from app.models.training import (
+  TrainingAlgorithm,
+  TrainingJob,
+  TrainingJobStatus,
+  TrainingMetric,
+)
 from app.tasks.celery_app import celery_app
 from app.utils.datetime import utcnow
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
@@ -112,6 +118,31 @@ def _mark_job_failed(db: Session, session_id: int) -> None:
         session_id,
       )
     logger.warning("Unable to mark training session %s as failed", session_id, exc_info=exc)
+
+
+def _record_metric(
+  db: Session,
+  session_id: int,
+  timestep: int,
+  metrics: dict[str, Any],
+) -> None:
+  try:
+    metric = TrainingMetric(
+      job_id=session_id,
+      timestep=timestep,
+      episode=metrics.get("episode"),
+      reward=float(metrics.get("reward", 0.0)),
+      loss=metrics.get("loss"),
+      additional_metrics=metrics.get("additional_metrics"),
+    )
+    db.add(metric)
+    db.commit()
+  except Exception as exc:
+    try:
+      db.rollback()
+    except Exception:
+      logger.debug("Secondary rollback while recording metric for session %s", session_id)
+    logger.debug("Failed to persist training metric for session %s", session_id, exc_info=exc)
 
 
 def _make_training_status_probe(session_id: int):
@@ -302,42 +333,142 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
 @celery_app.task(bind=True, name="training.run_a3c_training")
 def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict[str, Any]:
-  """Placeholder A3C task that records a failure until implemented."""
+  """Execute a custom A3C training job inside a Celery worker."""
 
-  logger.info("A3C training requested for session %s, but the implementation is pending", session_id)
+  logger.info("Starting A3C training task for session %s", session_id)
   self.update_state(state="STARTED", meta={"session_id": session_id, "status": "initializing"})
 
   redis_client = _create_redis_client()
   db = SessionLocal()
+  metrics_db = SessionLocal()
+
   try:
     job = _get_training_job(db, session_id)
     _validate_algorithm(job, TrainingAlgorithm.a3c)
-    job.status = TrainingJobStatus.failed
-    job.completed_at = utcnow()
-    db.commit()
-  except Exception as exc:
-    _mark_job_failed(db, session_id)
-    logger.debug("Failed to persist A3C placeholder status for session %s", session_id, exc_info=exc)
-  finally:
-    db.close()
 
-  error_message = "A3C training not yet implemented"
-  _publish_training_event(
-    redis_client,
-    session_id,
-    {
-      "type": "training_error",
-      "status": TrainingJobStatus.failed.value,
-      "error": error_message,
-      "timestamp": utcnow().isoformat(),
-    },
-    critical=True,
-  )
-  self.update_state(
-    state="FAILURE",
-    meta={"session_id": session_id, "error": error_message},
-  )
-  return {"status": "failed", "session_id": session_id, "error": error_message}
+    job.status = TrainingJobStatus.running
+    job.started_at = utcnow()
+    db.commit()
+
+    total_timesteps = config.get("total_timesteps") or job.total_timesteps
+    progress_interval = _resolve_interval(
+      config.get("progress_update_interval"),
+      DEFAULT_PROGRESS_INTERVAL,
+    )
+    metrics_interval = _resolve_interval(
+      config.get("metrics_update_interval"),
+      progress_interval,
+    )
+
+    last_progress_emit = 0
+
+    def _progress_callback(timestep: int, metrics: dict[str, Any]) -> None:
+      nonlocal last_progress_emit
+      if timestep <= last_progress_emit and not metrics.get("force_emit"):
+        return
+      if timestep - last_progress_emit < progress_interval and not metrics.get("force_emit"):
+        return
+
+      last_progress_emit = timestep
+
+      payload = {
+        "type": "training_progress",
+        "session_id": session_id,
+        "timestep": timestep,
+        "episode": metrics.get("episode"),
+        "reward": metrics.get("reward"),
+        "loss": metrics.get("loss"),
+        "additional_metrics": metrics.get("additional_metrics"),
+      }
+      _publish_training_event(redis_client, session_id, payload)
+
+      progress_meta: dict[str, Any] = {"status": "running", "current": timestep}
+      if total_timesteps:
+        progress_meta["total"] = total_timesteps
+        progress_meta["progress"] = min(1.0, timestep / float(total_timesteps))
+      _update_celery_progress(self, session_id, progress_meta)
+
+      if metrics_db and (timestep % metrics_interval == 0 or metrics.get("force_emit")):
+        _record_metric(metrics_db, session_id, timestep, metrics)
+
+    service = A3CTrainingService()
+    result = asyncio.run(
+      service.start_training(
+        config={**config, "session_id": session_id},
+        progress_callback=_progress_callback,
+      )
+    )
+
+    status = result.get("status", "failed")
+    if status == "completed":
+      job.status = TrainingJobStatus.completed
+      job.completed_at = utcnow()
+      job.current_timestep = result.get("total_timesteps", total_timesteps)
+      job.episodes_completed = result.get("episodes_completed", job.episodes_completed)
+      model_path = result.get("model_path")
+      if model_path:
+        job.model_path = model_path
+      db.commit()
+
+      _publish_training_event(
+        redis_client,
+        session_id,
+        {
+          "type": "training_complete",
+          "status": TrainingJobStatus.completed.value,
+          "model_path": job.model_path,
+          "timestamp": utcnow().isoformat(),
+        },
+        critical=True,
+      )
+    else:
+      job.status = TrainingJobStatus.failed
+      job.completed_at = utcnow()
+      if "total_timesteps" in result:
+        job.current_timestep = result["total_timesteps"]
+      db.commit()
+
+      _publish_training_event(
+        redis_client,
+        session_id,
+        {
+          "type": "training_error",
+          "status": TrainingJobStatus.failed.value,
+          "error": result.get("error", "Training failed"),
+          "timestamp": utcnow().isoformat(),
+        },
+        critical=True,
+      )
+
+    logger.info("A3C training task finished for session %s with status %s", session_id, status)
+    return result | {"session_id": session_id}
+
+  except Exception as exc:
+    logger.error("A3C training task failed for session %s", session_id, exc_info=exc)
+    _mark_job_failed(db, session_id)
+    _publish_training_event(
+      redis_client,
+      session_id,
+      {
+        "type": "training_error",
+        "status": TrainingJobStatus.failed.value,
+        "error": str(exc),
+        "timestamp": utcnow().isoformat(),
+      },
+      critical=True,
+    )
+    self.update_state(
+      state="FAILURE",
+      meta={"session_id": session_id, "error": str(exc)},
+    )
+    return {"status": "failed", "session_id": session_id, "error": str(exc)}
+
+  finally:
+    for session in (metrics_db, db):
+      try:
+        session.close()
+      except Exception:
+        logger.debug("Failed to close database session for A3C training task", exc_info=True)
 
 
 @celery_app.task(name="training.stop_training")

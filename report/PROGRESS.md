@@ -32,7 +32,7 @@
 | Phase 4: APIエンドポイント | 🔄 進行中 | 95% | トレーニング制御・ファイル管理APIに加え環境セッション操作を実装 (2025-10-12: 環境セッションサービスの型ヒントをPython 3.12に合わせて更新 / 2025-10-13: セッション単位ロックで高負荷時のスループット低下を防止 / 2025-10-13: Celery託送をAPI層から呼び出す経路を整備 / 2025-10-13: 学習停止・一時停止レスポンスでCelery/キュータスクIDを返却し、ジョブ監視APIからキュー状態を取得可能に更新 / 2025-10-13: トレーニングAPIでアルゴリズム種別をEnum化し、不正値は400で拒否) |
 | Phase 5: WebSocket | ✅ 完了 | 100% | Redis連携と再接続制御まで完了 |
 | Phase 6: Celeryタスク | ✅ 完了 | 100% | PPO学習タスク完全実装。ログ/モデル成果物アーカイブタスクを追加し、ファイル配布の自動化基盤を整備 |
-| Phase 7: RL統合 | ✅ 完了 | 85% | PPOService + SB3統合完了、A3Cは未実装 |
+| Phase 7: RL統合 | ✅ 完了 | 100% | PPO/A3Cサービス実装完了、Celery連携含む |
 | Phase 8: テスト | 🔄 進行中 | 80% | 学習メトリクスAPIとファイル管理APIの単体テストを整備し、ファイルダウンロード統合テストを追加。404レスポンス検証を防御的アサーションと診断メッセージで強化 (依存不足を解消済み) / 2025-10-13: トレーニング制御のCeleryタスクID返却とジョブキューAPIを検証する統合テストを追加 |
 | Phase 9: Docker環境 | 🔄 進行中 | 40% | docker-compose.yml存在、要検証 |
 
@@ -250,7 +250,7 @@
   
 
 #### TODO
-- [ ] A3C学習タスクの完全実装
+- [x] A3C学習タスクの完全実装
 - [x] CeleryリボークAPI連携など強制停止パスの整備 (協調停止は実装済み)
 
 #### マシン固有 - 動作確認状況
@@ -260,7 +260,7 @@
 ---
 
 ### Phase 7: RL統合 (2025-10-06完了)
-**進捗:** 85% ✅
+**進捗:** 100% ✅
 
 #### 完了
 - [x] PPOServiceクラス実装 (app/core/training/ppo_service.py)
@@ -270,6 +270,11 @@
   - [x] 学習実行機能 (非同期対応)
   - [x] モデル保存・ロード機能
   - [x] TensorBoardログ対応
+- [x] A3Cカスタム実装とサービス統合
+  - [x] `rl/algorithms/a3c/network.py` / `worker.py` / `trainer.py` の本実装
+  - [x] `app/core/training/a3c_service.py` で環境生成・非同期実行を提供
+  - [x] `run_a3c_training_task` を実装し、Redis/DB連携とCelery進捗更新を整備
+  - [x] `tests/unit/rl/test_a3c.py` でネットワーク・GAE・サービスのユニットテストを追加
 - [x] rl/callbacks/websocket_callback.py - 完全実装
   - [x] WebSocketTrainingCallback - SB3互換コールバック
     - [x] リアルタイム進捗配信
@@ -283,9 +288,6 @@
   - [x] EnhancedSecurityEnvironment - 動作確認予定
 
 #### TODO
-- [ ] A3CServiceクラス実装 (オプション)
-  - [ ] カスタムPyTorch実装
-  - [ ] マルチプロセス学習
 - [ ] 学習実行・エンドツーエンド検証
 
 #### マシン固有 - 動作確認状況
