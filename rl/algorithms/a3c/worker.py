@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List, Tuple
+from threading import Lock
+from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -90,6 +91,7 @@ class A3CWorker:
     entropy_coef: float = 0.01,
     value_loss_coef: float = 0.5,
     max_grad_norm: float = 0.5,
+    grad_lock: Optional[Lock] = None,
   ) -> None:
     self.worker_id = worker_id
     self._env_factory = env_factory
@@ -107,6 +109,7 @@ class A3CWorker:
     self._entropy_coef = entropy_coef
     self._value_loss_coef = value_loss_coef
     self._max_grad_norm = max_grad_norm
+    self._grad_lock = grad_lock
 
     self._state, _ = self._env.reset()
     self._episode_done = False
@@ -195,16 +198,23 @@ class A3CWorker:
     loss.backward()
     torch.nn.utils.clip_grad_norm_(self._local_network.parameters(), self._max_grad_norm)
 
-    with torch.no_grad():
-      for global_param, local_param in zip(
-        self._global_network.parameters(), self._local_network.parameters()
-      ):
-        if local_param.grad is None:
-          global_param.grad = None
-        else:
-          global_param.grad = local_param.grad.detach().clone()
+    def _apply_gradients() -> None:
+      with torch.no_grad():
+        for global_param, local_param in zip(
+          self._global_network.parameters(), self._local_network.parameters()
+        ):
+          if local_param.grad is None:
+            global_param.grad = torch.zeros_like(global_param)
+          else:
+            global_param.grad = local_param.grad.detach().clone()
 
-    self._optimizer.step()
+      self._optimizer.step()
+
+    if self._grad_lock is None:
+      _apply_gradients()
+    else:
+      with self._grad_lock:
+        _apply_gradients()
     self._local_network.load_state_dict(self._global_network.state_dict())
 
     return RolloutResult(

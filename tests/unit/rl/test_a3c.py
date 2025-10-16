@@ -94,6 +94,21 @@ def test_a3c_trainer_runs_with_dummy_environment() -> None:
   assert progress[-1][1].get('force_emit') is True
 
 
+def test_a3c_trainer_handles_multiple_workers() -> None:
+  config = {
+    'total_timesteps': 8,
+    'n_steps': 2,
+    'learning_rate': 1e-3,
+    'num_workers': 3,
+  }
+
+  trainer = A3CTrainer(_dummy_env_factory, config, device='cpu')
+  result = trainer.train()
+
+  assert result['status'] == 'completed'
+  assert result['total_timesteps'] >= 8
+
+
 @pytest.mark.asyncio()
 async def test_a3c_training_service_supports_custom_env_factory() -> None:
   config = {

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
+from threading import Lock
 from typing import Any, Callable, Iterable, Optional
 
 import numpy as np
@@ -64,6 +66,7 @@ class A3CTrainer:
 
     self._global_network = A3CNetwork(self._input_dim, self._action_dim).to(self._device)
     self._optimizer = torch.optim.Adam(self._global_network.parameters(), lr=self._learning_rate)
+    self._grad_lock = Lock()
 
   def _create_workers(self) -> Iterable[A3CWorker]:
     for worker_id in range(self._num_workers):
@@ -81,6 +84,7 @@ class A3CTrainer:
         entropy_coef=self._entropy_coef,
         value_loss_coef=self._value_loss_coef,
         max_grad_norm=self._max_grad_norm,
+        grad_lock=self._grad_lock,
       )
 
   def train(
@@ -96,33 +100,59 @@ class A3CTrainer:
     episodes = 0
     last_metrics: Optional[RolloutResult] = None
 
+    futures: dict[Future[RolloutResult], A3CWorker] = {}
+
     try:
-      while total_timesteps < self._total_timesteps_target:
+      with ThreadPoolExecutor(max_workers=self._num_workers) as executor:
+        def _schedule(worker: A3CWorker) -> None:
+          future = executor.submit(worker.run)
+          futures[future] = worker
+
         for worker in workers:
-          result = worker.run()
-          if result.timesteps == 0:
-            continue
+          _schedule(worker)
 
-          total_timesteps += result.timesteps
-          last_metrics = result
-          if result.episode_done:
-            episodes += 1
+        stop_requested = False
 
-          if progress_callback is not None:
-            metrics_payload = {
-              'episode': episodes,
-              'reward': result.reward,
-              'loss': result.loss,
-              'additional_metrics': {
-                'policy_loss': result.policy_loss,
-                'value_loss': result.value_loss,
-                'entropy': result.entropy,
-              },
-            }
-            progress_callback(total_timesteps, metrics_payload)
+        while futures:
+          done, _ = wait(set(futures.keys()), return_when=FIRST_COMPLETED)
+          for future in done:
+            worker = futures.pop(future)
+            try:
+              result = future.result()
+            except Exception:
+              for pending in futures:
+                pending.cancel()
+              raise
 
-          if total_timesteps >= self._total_timesteps_target:
-            break
+            if result.timesteps == 0:
+              if not stop_requested:
+                _schedule(worker)
+              continue
+
+            if not stop_requested:
+              total_timesteps += result.timesteps
+              last_metrics = result
+              if result.episode_done:
+                episodes += 1
+
+              if progress_callback is not None:
+                metrics_payload = {
+                  'episode': episodes,
+                  'reward': result.reward,
+                  'loss': result.loss,
+                  'additional_metrics': {
+                    'policy_loss': result.policy_loss,
+                    'value_loss': result.value_loss,
+                    'entropy': result.entropy,
+                  },
+                }
+                progress_callback(total_timesteps, metrics_payload)
+
+              if total_timesteps >= self._total_timesteps_target:
+                stop_requested = True
+
+            if not stop_requested:
+              _schedule(worker)
     finally:
       for worker in workers:
         worker.close()
