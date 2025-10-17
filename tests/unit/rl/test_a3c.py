@@ -50,6 +50,29 @@ def test_a3c_network_shapes() -> None:
   torch.testing.assert_close(action_probs.sum(), torch.tensor(1.0), rtol=1e-5, atol=1e-6)
 
 
+def _manual_gae(
+  rewards: list[float],
+  values: list[float],
+  next_value: float,
+  dones: list[bool],
+  *,
+  gamma: float,
+  lam: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+  values_sequence = values + [next_value]
+  advantages: list[float] = []
+  gae = 0.0
+  for idx in reversed(range(len(rewards))):
+    mask = 0.0 if dones[idx] else 1.0
+    delta = rewards[idx] + gamma * values_sequence[idx + 1] * mask - values_sequence[idx]
+    gae = delta + gamma * lam * mask * gae
+    advantages.append(gae)
+  advantages.reverse()
+  advantages_tensor = torch.tensor(advantages, dtype=torch.float32)
+  returns_tensor = advantages_tensor + torch.tensor(values, dtype=torch.float32)
+  return returns_tensor, advantages_tensor
+
+
 def test_compute_gae_matches_expected() -> None:
   rewards = [torch.tensor(1.0), torch.tensor(0.5)]
   values = [torch.tensor(0.2), torch.tensor(0.3)]
@@ -65,13 +88,49 @@ def test_compute_gae_matches_expected() -> None:
     lam=0.95,
   )
 
+  manual_returns, manual_advantages = _manual_gae(
+    [reward.item() for reward in rewards],
+    [value.item() for value in values],
+    float(next_value.item()),
+    dones,
+    gamma=0.99,
+    lam=0.95,
+  )
+
   assert returns.shape == torch.Size([2])
   assert advantages.shape == torch.Size([2])
-  # Manual calculation of the expected values
-  expected_returns = torch.tensor([1.0 + 0.99 * (0.3 + 0.95 * 0.2), 0.5])
-  expected_advantages = expected_returns - torch.tensor([0.2, 0.3])
-  torch.testing.assert_close(returns, expected_returns, rtol=1e-5, atol=1e-4)
-  torch.testing.assert_close(advantages, expected_advantages, rtol=1e-5, atol=1e-4)
+  torch.testing.assert_close(returns, manual_returns, rtol=1e-5, atol=1e-4)
+  torch.testing.assert_close(advantages, manual_advantages, rtol=1e-5, atol=1e-4)
+
+
+def test_compute_gae_handles_longer_rollouts() -> None:
+  rewards = [torch.tensor(1.0), torch.tensor(0.5), torch.tensor(0.2)]
+  values = [torch.tensor(0.2), torch.tensor(0.3), torch.tensor(0.25)]
+  next_value = torch.tensor(0.1)
+  dones = [False, False, True]
+
+  returns, advantages = compute_gae(
+    rewards,
+    values,
+    next_value,
+    dones,
+    gamma=0.99,
+    lam=0.95,
+  )
+
+  manual_returns, manual_advantages = _manual_gae(
+    [reward.item() for reward in rewards],
+    [value.item() for value in values],
+    float(next_value.item()),
+    dones,
+    gamma=0.99,
+    lam=0.95,
+  )
+
+  assert returns.shape == torch.Size([3])
+  assert advantages.shape == torch.Size([3])
+  torch.testing.assert_close(returns, manual_returns, rtol=1e-5, atol=1e-4)
+  torch.testing.assert_close(advantages, manual_advantages, rtol=1e-5, atol=1e-4)
 
 
 def test_a3c_trainer_runs_with_dummy_environment() -> None:

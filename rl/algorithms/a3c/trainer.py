@@ -3,24 +3,48 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
 from threading import Lock
 from typing import Any, Callable, Iterable, Optional
 
-import logging
-
 import numpy as np
 import torch
 
+from app.core.config import settings
 from rl.algorithms.a3c.network import A3CNetwork
 from rl.algorithms.a3c.worker import A3CWorker, RolloutResult
 
 
-MAX_WORKERS = 16
+DEFAULT_MAX_WORKERS = 16
 
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_max_workers() -> int:
+  value = getattr(settings, 'max_a3c_workers', DEFAULT_MAX_WORKERS)
+  try:
+    max_workers = int(value)
+  except (TypeError, ValueError):
+    logger.warning(
+      'Invalid max_a3c_workers value %r; falling back to default of %s',
+      value,
+      DEFAULT_MAX_WORKERS,
+    )
+    return DEFAULT_MAX_WORKERS
+  if max_workers < 1:
+    logger.warning(
+      'Configured max_a3c_workers %s is less than 1; using default of %s',
+      max_workers,
+      DEFAULT_MAX_WORKERS,
+    )
+    return DEFAULT_MAX_WORKERS
+  return max_workers
+
+
+MAX_WORKERS = _resolve_max_workers()
 
 
 class A3CTrainer:

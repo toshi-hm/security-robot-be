@@ -389,7 +389,13 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
   redis_client = _create_redis_client()
   db = SessionLocal()
-  metrics_db = SessionLocal()
+  metrics_session: Session | None = None
+
+  def _get_metrics_session() -> Session:
+    nonlocal metrics_session
+    if metrics_session is None:
+      metrics_session = SessionLocal()
+    return metrics_session
 
   try:
     job = _get_training_job(db, session_id)
@@ -442,8 +448,9 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
         progress_meta["progress"] = min(1.0, timestep / float(total_timesteps))
       _update_celery_progress(self, session_id, progress_meta)
 
-      if metrics_db and (timestep % metrics_interval == 0 or metrics.get("force_emit")):
-        _record_metric(metrics_db, session_id, timestep, metrics)
+      if timestep % metrics_interval == 0 or metrics.get("force_emit"):
+        session = _get_metrics_session()
+        _record_metric(session, session_id, timestep, metrics)
 
     service = A3CTrainingService()
     result = asyncio.run(
@@ -572,7 +579,9 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     )
 
   finally:
-    for session in (metrics_db, db):
+    for session in (metrics_session, db):
+      if session is None:
+        continue
       try:
         session.close()
       except Exception:
