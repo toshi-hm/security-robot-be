@@ -17,10 +17,9 @@ from rl.algorithms.a3c.network import A3CNetwork
 from rl.algorithms.a3c.worker import A3CWorker, RolloutResult
 
 
-DEFAULT_MAX_WORKERS = 16
-
-
 logger = logging.getLogger(__name__)
+
+DEFAULT_MAX_WORKERS = 16
 
 
 def _resolve_max_workers() -> int:
@@ -42,9 +41,6 @@ def _resolve_max_workers() -> int:
     )
     return DEFAULT_MAX_WORKERS
   return max_workers
-
-
-MAX_WORKERS = _resolve_max_workers()
 
 
 class A3CTrainer:
@@ -82,8 +78,9 @@ class A3CTrainer:
       raise ValueError('num_workers must be an integer value') from exc
     if requested_workers < 1:
       raise ValueError('num_workers must be a positive integer')
-    if requested_workers > MAX_WORKERS:
-      raise ValueError(f'num_workers must not exceed {MAX_WORKERS}')
+    max_workers_limit = _resolve_max_workers()
+    if requested_workers > max_workers_limit:
+      raise ValueError(f'num_workers must not exceed {max_workers_limit}')
     if self._device.type == 'cuda' and requested_workers > 1:
       raise ValueError(
         'A3C training with multiple workers is not supported on CUDA devices. '
@@ -91,6 +88,7 @@ class A3CTrainer:
         'multi-worker training.'
       )
     self._num_workers = requested_workers
+    self._max_workers_limit = max_workers_limit
     self._rollout_steps = max(1, int(self._config.get('n_steps', 20)))
     self._gamma = float(self._config.get('gamma', 0.99))
     self._gae_lambda = float(self._config.get('gae_lambda', 0.95))
