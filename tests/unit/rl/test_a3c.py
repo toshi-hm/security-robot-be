@@ -168,6 +168,19 @@ def test_a3c_trainer_handles_multiple_workers() -> None:
   assert result['total_timesteps'] >= 8
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA not available')
+def test_a3c_trainer_rejects_multi_worker_cuda_configuration() -> None:
+  config = {
+    'total_timesteps': 4,
+    'n_steps': 2,
+    'learning_rate': 1e-3,
+    'num_workers': 2,
+  }
+
+  with pytest.raises(ValueError, match='multiple workers is not supported on CUDA devices'):
+    A3CTrainer(_dummy_env_factory, config, device='cuda')
+
+
 def test_a3c_trainer_respects_stop_signal() -> None:
   config = {
     'total_timesteps': 100,

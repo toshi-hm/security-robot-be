@@ -84,14 +84,12 @@ class A3CTrainer:
       raise ValueError('num_workers must be a positive integer')
     if requested_workers > MAX_WORKERS:
       raise ValueError(f'num_workers must not exceed {MAX_WORKERS}')
-    self._reduced_workers_due_to_cuda = False
     if self._device.type == 'cuda' and requested_workers > 1:
-      logger.warning(
-        'CUDA execution detected; falling back to single-worker mode for A3C training '
-        'because thread-based workers do not safely share CUDA contexts.'
+      raise ValueError(
+        'A3C training with multiple workers is not supported on CUDA devices. '
+        'Set num_workers=1 when using CUDA or switch to CPU execution for '
+        'multi-worker training.'
       )
-      requested_workers = 1
-      self._reduced_workers_due_to_cuda = True
     self._num_workers = requested_workers
     self._rollout_steps = max(1, int(self._config.get('n_steps', 20)))
     self._gamma = float(self._config.get('gamma', 0.99))
@@ -254,11 +252,6 @@ class A3CTrainer:
       result_payload['value_loss'] = final_metrics.value_loss
       result_payload['entropy'] = final_metrics.entropy
 
-    if self._reduced_workers_due_to_cuda:
-      result_payload['concurrency_warning'] = (
-        'CUDA device detected; trainer forced single-worker execution to avoid '
-        'unsafe CUDA context sharing in threaded workers.'
-      )
     if external_stop_requested:
       result_payload['stop_reason'] = 'pause_requested'
 

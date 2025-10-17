@@ -137,11 +137,11 @@ def _mark_job_failed(db: Session, session_id: int) -> None:
 
 
 def _record_metric(
-  db: Session,
   session_id: int,
   timestep: int,
   metrics: dict[str, Any],
 ) -> None:
+  session = SessionLocal()
   try:
     metric = TrainingMetric(
       job_id=session_id,
@@ -151,14 +151,19 @@ def _record_metric(
       loss=metrics.get("loss"),
       additional_metrics=metrics.get("additional_metrics"),
     )
-    db.add(metric)
-    db.commit()
+    session.add(metric)
+    session.commit()
   except Exception as exc:
     try:
-      db.rollback()
+      session.rollback()
     except Exception:
       logger.debug("Secondary rollback while recording metric for session %s", session_id)
     logger.debug("Failed to persist training metric for session %s", session_id, exc_info=exc)
+  finally:
+    try:
+      session.close()
+    except Exception:
+      logger.debug("Failed to close metrics session for training session %s", session_id, exc_info=True)
 
 
 def _make_training_status_probe(session_id: int):
@@ -389,13 +394,6 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
   redis_client = _create_redis_client()
   db = SessionLocal()
-  metrics_session: Session | None = None
-
-  def _get_metrics_session() -> Session:
-    nonlocal metrics_session
-    if metrics_session is None:
-      metrics_session = SessionLocal()
-    return metrics_session
 
   try:
     job = _get_training_job(db, session_id)
@@ -449,8 +447,7 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       _update_celery_progress(self, session_id, progress_meta)
 
       if timestep % metrics_interval == 0 or metrics.get("force_emit"):
-        session = _get_metrics_session()
-        _record_metric(session, session_id, timestep, metrics)
+        _record_metric(session_id, timestep, metrics)
 
     service = A3CTrainingService()
     result = asyncio.run(
@@ -579,13 +576,10 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
     )
 
   finally:
-    for session in (metrics_session, db):
-      if session is None:
-        continue
-      try:
-        session.close()
-      except Exception:
-        logger.debug("Failed to close database session for A3C training task", exc_info=True)
+    try:
+      db.close()
+    except Exception:
+      logger.debug("Failed to close database session for A3C training task", exc_info=True)
 
 
 @celery_app.task(name="training.stop_training")

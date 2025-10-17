@@ -44,7 +44,9 @@ def compute_gae(
   device = rewards[0].device
 
   def _as_row(tensor: Tensor) -> Tensor:
-    return tensor.to(device).squeeze().unsqueeze(0)
+    if tensor.device != device:
+      tensor = tensor.to(device)
+    return tensor.squeeze().unsqueeze(0)
 
   values_tensor = torch.cat([
     _as_row(value) for value in values
