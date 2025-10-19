@@ -21,4 +21,5 @@
 
 ## 参考
 - 詳細な経緯は `report/DIARY01.md` を参照してください。
-- 今後の記録は `report/DIARY02.md` に追記します。
+- 直近フェーズの要点は `report/summary/DIARY02.md` を参照してください。
+- 最新の記録は `report/DIARY03.md` に追記します。

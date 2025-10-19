@@ -9,8 +9,9 @@ Guidance for Claude Code when collaborating on this repository.
 - [Test plan](instructions/04_test_design_standalone.md)
 - [Implementation prompts](instructions/prompts)
 - [Progress tracker](report/PROGRESS.md)
-- [Development diary summary](report/summary/DIARY01.md)
-- [Current development diary](report/DIARY02.md)
+- [Development diary summary 01](report/summary/DIARY01.md)
+- [Development diary summary 02](report/summary/DIARY02.md)
+- [Current development diary](report/DIARY03.md)
 
 ## 🛠️ Environment & setup
 - Provision the Python environment with `uv`: run `uv venv`, then `uv pip install -r requirements.txt`.
@@ -18,10 +19,10 @@ Guidance for Claude Code when collaborating on this repository.
 - When Redis, Celery, or other infrastructure is required, consult `README.md` for service configuration details.
 
 ## ✅ Workflow expectations
-1. Begin every session by reviewing `report/PROGRESS.md`, `report/summary/DIARY01.md`, and `report/DIARY02.md` to capture current objectives and context.
+1. Begin every session by reviewing `report/PROGRESS.md`, `report/summary/DIARY01.md`, `report/summary/DIARY02.md`, and `report/DIARY03.md` to capture current objectives and context.
 2. Study the applicable design documents and prompts before editing code to ensure that acceptance criteria and constraints are satisfied.
 3. Follow strict test-driven development: introduce or update tests first, then implement code, and keep running `pytest` until the suite succeeds.
-4. Close each session by updating `report/PROGRESS.md` and logging a new entry in `report/DIARY02.md` that summarizes the changes and decisions.
+4. Close each session by updating `report/PROGRESS.md` and logging a new entry in `report/DIARY03.md` that summarizes the changes and decisions.
 
 ## 🔍 Review & prompt usage
 - When performing reviews, follow the prompts located in [`instructions/prompts`](instructions/prompts), especially [`02_codex_review_prompt.md`](instructions/prompts/02_codex_review_prompt.md) when coordinating with Codex outputs.
