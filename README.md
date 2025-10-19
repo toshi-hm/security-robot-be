@@ -104,4 +104,4 @@ docker compose up --build
 - `instructions/02_backend_api_design_standalone.md`
 - `instructions/prompts/01_backend_implementation_guide.md`
 
-開発セッションのログや進捗は `report/summary/DIARY01.md`、`report/DIARY02.md`、`report/PROGRESS.md` で管理されています。
+開発セッションのログや進捗は `report/summary/DIARY01.md`、`report/summary/DIARY02.md`、`report/DIARY03.md`、`report/PROGRESS.md` で管理されています。

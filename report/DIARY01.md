@@ -1,7 +1,7 @@
 # セキュリティロボット強化学習システム - 開発日記 (DIARY01アーカイブ)
 
 このファイルには、2025-10-06 〜 2025-10-12 の各セッションで実施した作業内容を**最新が上**の順で記録しています。
-最新の記録を確認する場合は `report/summary/DIARY01.md` と `report/DIARY02.md` を参照してください。
+最新の記録を確認する場合は `report/summary/DIARY01.md`、`report/summary/DIARY02.md`、`report/DIARY03.md` を参照してください。
 
 ## 📑 目次
 
@@ -1160,8 +1160,8 @@
 ---
 
 **日記記入のガイドライン (現行):**
-1. 各セッションの最初に `report/summary/DIARY01.md` と `report/DIARY02.md`, `report/PROGRESS.md` を読む
-2. セッション終了時は `report/DIARY02.md` に追記する
+1. 各セッションの最初に `report/summary/DIARY01.md`、`report/summary/DIARY02.md`、`report/DIARY03.md`、`report/PROGRESS.md` を読む
+2. セッション終了時は `report/DIARY03.md` に追記する
 3. 実施内容は具体的に記録する (コマンド、エラー、解決策など)
 4. 学んだことや気づきを必ず記録する
 5. 次回セッションへの引き継ぎ事項を明記する
