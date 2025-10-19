@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import Enum as SqlEnum, ForeignKey, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.utils.datetime import utcnow
+
+if TYPE_CHECKING:
+  from app.models.environment import EnvironmentState
 
 
 class TrainingAlgorithm(str, Enum):
@@ -69,7 +72,12 @@ class TrainingJob(Base):
   completed_at: Mapped[Optional[datetime]] = mapped_column(default=None)
   
   # Relationships
-  metrics: Mapped[list['TrainingMetric']] = relationship(back_populates='job', cascade='all, delete-orphan')
+  metrics: Mapped[list['TrainingMetric']] = relationship(
+    back_populates='job', cascade='all, delete-orphan'
+  )
+  states: Mapped[list['EnvironmentState']] = relationship(
+    back_populates='job', cascade='all, delete-orphan'
+  )
 
 
 class TrainingMetric(Base):

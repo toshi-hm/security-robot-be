@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-17 Session 47
+**最終更新:** 2025-10-18 Session 48
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -147,6 +147,7 @@
   - [x] ロボット状態 (robot_x, robot_y, robot_orientation)
   - [x] 環境状態JSON (threat_grid, coverage_map, suspicious_objects)
   - [x] アクション情報 (action_taken, reward_received)
+  - [x] 2025-10-18: TrainingJobリレーションとインデックスを追加し、プレイバック集計に対応
 - [x] app/models/files.py - FileMetadataモデル完全拡張
   - [x] ファイル情報フィールド (filename, original_filename, file_path, file_size)
   - [x] ファイルタイプ (file_type, content_type)
@@ -214,6 +215,9 @@
 - [x] app/schemas/environment.py - セッション操作用スキーマを定義
 - [x] app/api/v1/endpoints/health.py - ヘルスチェック
 - [x] app/api/v1/endpoints/files.py - ファイル管理API実装（アップロード/一覧/削除/ダウンロード）
+- [x] app/api/v1/endpoints/playback.py - プレイバックセッション一覧/フレーム取得APIを追加 (2025-10-18)
+- [x] app/services/playback_service.py - フレーム集計と記録サービスを新設 (2025-10-18)
+- [x] app/schemas/playback.py - プレイバックレスポンススキーマを追加 (2025-10-18)
 
 ### Phase 5: WebSocket・リアルタイム通信
 **進捗:** 100%
@@ -316,6 +320,7 @@
 - [x] トレーニング制御APIの単体テストでCeleryディスパッチャをスタブ化し、ユニットテストがRedisなしで実行できるよう修正 (2025-10-13追加)
 - [x] `tests/integration/test_training_control_endpoints.py` へリネームし、ユニットテストとのモジュール名衝突を解消 (2025-10-13追加)
 - [x] CeleryトレーニングタスクがRedis Pub/Subで進捗・完了イベントを発行し、Redisコールバックのユニットテストを追加 (2025-10-14追加)
+- [x] プレイバックAPIユニットテストを追加し、セッション集計・フレーム取得・404応答を検証 (2025-10-18追加)
 - [ ] 統合テスト実装 (最低1つ) - ファイル管理APIのダウンロード統合テストを追加済み、トレーニング制御APIは start/pause/resume をカバー (Celery連携シナリオは未着手)
 - [ ] カバレッジ70%以上達成
 - [x] GitHub Actionsで単体テストを自動実行
