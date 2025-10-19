@@ -127,7 +127,7 @@ async def test_list_playback_sessions_returns_summary_sorted_by_last_recorded(
 
 
 @pytest.mark.asyncio
-async def test_get_playback_data_returns_frames_sorted(
+async def test_get_playback_frames_returns_frames_sorted(
     db_session: AsyncSession,
 ) -> None:
     job = await _create_job(db_session)
@@ -141,7 +141,7 @@ async def test_get_playback_data_returns_frames_sorted(
     db_session.add_all(states)
     await db_session.commit()
 
-    response = await playback_module.get_playback_data(
+    response = await playback_module.get_playback_frames(
         session_id=job.id,
         page=1,
         page_size=10,
@@ -159,11 +159,11 @@ async def test_get_playback_data_returns_frames_sorted(
 
 
 @pytest.mark.asyncio
-async def test_get_playback_data_returns_empty_when_session_has_no_frames(
+async def test_get_playback_frames_returns_empty_when_session_has_no_frames(
     db_session: AsyncSession,
 ) -> None:
     job = await _create_job(db_session)
-    response = await playback_module.get_playback_data(
+    response = await playback_module.get_playback_frames(
         session_id=job.id,
         page=1,
         page_size=5,
@@ -175,11 +175,11 @@ async def test_get_playback_data_returns_empty_when_session_has_no_frames(
 
 
 @pytest.mark.asyncio
-async def test_get_playback_data_raises_for_unknown_session(
+async def test_get_playback_frames_raises_for_unknown_session(
     db_session: AsyncSession,
 ) -> None:
     with pytest.raises(HTTPException) as exc_info:
-        await playback_module.get_playback_data(
+        await playback_module.get_playback_frames(
             session_id=999,
             page=1,
             page_size=10,
