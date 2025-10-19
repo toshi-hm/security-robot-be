@@ -1,13 +1,15 @@
 import os
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Any, Callable, Optional
 import logging
 
+from sqlalchemy.orm import Session
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv
 import gymnasium as gym
 
+from app.core.training.playback_recorder import wrap_environment_for_playback
 from rl.callbacks.redis_pubsub_callback import TrainingCancelled
 
 logger = logging.getLogger(__name__)
@@ -106,9 +108,13 @@ class PPOTrainingService:
   
   async def start_training(
     self,
+    *,
     config: dict,
     callbacks: Optional[list[BaseCallback]] = None,
-    progress_callback: Optional[Callable] = None
+    progress_callback: Optional[Callable] = None,
+    session_id: int | None = None,
+    db_session_factory: Callable[[], Session] | None = None,
+    playback_options: dict[str, Any] | None = None,
   ) -> dict:
     """Start PPO training with the given configuration.
     
@@ -129,7 +135,27 @@ class PPOTrainingService:
     """
     try:
       # Create environment
-      self.env = self.create_environment(config)
+      environment = self.create_environment(config)
+
+      effective_session_id = session_id or config.get('session_id')
+      playback_config = dict(config.get('playback') or {})
+      if playback_options:
+        playback_config.update(playback_options)
+      playback_enabled = playback_config.pop('enabled', True)
+
+      if (
+        effective_session_id is not None
+        and db_session_factory is not None
+        and playback_enabled
+      ):
+        environment = wrap_environment_for_playback(
+          environment,
+          session_id=int(effective_session_id),
+          session_factory=db_session_factory,
+          options=playback_config,
+        )
+
+      self.env = environment
       
       # Prepare log directory
       log_path = config.get('log_path')
