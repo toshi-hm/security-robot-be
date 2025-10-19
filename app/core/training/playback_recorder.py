@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.environment import EnvironmentState
@@ -17,10 +18,24 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RECORD_INTERVAL = 1
 DEFAULT_BUFFER_SIZE = 64
+MAX_BUFFER_SIZE = 1024
+UNKNOWN_POSITION = -1
+
+ATTR_MAPPING = {
+  "robot_x": ("robot_x", UNKNOWN_POSITION),
+  "robot_y": ("robot_y", UNKNOWN_POSITION),
+  "robot_orientation": ("robot_direction", 0),
+}
 
 
 def _copy_grid(grid: Any) -> list[list[Any]]:
   """Return a JSON-serialisable deep copy of a 2D grid-like object."""
+
+  if hasattr(grid, "tolist"):
+    try:
+      return list(grid.tolist())
+    except Exception:  # pragma: no cover - defensive logging
+      logger.debug("Failed to convert grid with tolist(); falling back", exc_info=True)
 
   rows: list[list[Any]] = []
   for row in list(grid or []):
@@ -78,7 +93,13 @@ class _PlaybackRecorder:
 
   session_factory: Callable[[], Session]
   buffer_size: int = DEFAULT_BUFFER_SIZE
+  statement_timeout_ms: int | None = None
   _buffer: list[dict[str, Any]] = field(default_factory=list, init=False)
+
+  def __post_init__(self) -> None:
+    self.buffer_size = max(1, min(int(self.buffer_size), MAX_BUFFER_SIZE))
+    if self.statement_timeout_ms is not None and self.statement_timeout_ms <= 0:
+      self.statement_timeout_ms = None
 
   def record(self, payload: dict[str, Any]) -> None:
     self._buffer.append(payload)
@@ -90,11 +111,27 @@ class _PlaybackRecorder:
       return
     session = self.session_factory()
     try:
+      if (
+        self.statement_timeout_ms is not None
+        and (bind := session.get_bind()) is not None
+        and bind.dialect.name == "postgresql"
+      ):
+        session.execute(
+          text("SET LOCAL statement_timeout = :timeout"),
+          {"timeout": self.statement_timeout_ms},
+        )
       session.bulk_insert_mappings(EnvironmentState, list(self._buffer))
       session.commit()
       self._buffer.clear()
     except Exception as exc:  # pragma: no cover - defensive logging
-      logger.warning("Failed to persist playback frames", exc_info=exc)
+      logger.error(
+        "Failed to persist playback frames",
+        exc_info=exc,
+        extra={
+          "buffer_size": len(self._buffer),
+          "session_id": self._buffer[0].get("session_id") if self._buffer else None,
+        },
+      )
       try:
         session.rollback()
       except Exception:  # pragma: no cover - defensive logging
@@ -118,13 +155,20 @@ class PlaybackRecordingWrapper:
     session_factory: Callable[[], Session],
     record_interval: int = DEFAULT_RECORD_INTERVAL,
     buffer_size: int = DEFAULT_BUFFER_SIZE,
+    statement_timeout_ms: int | None = None,
     record_on_reset: bool = True,
   ) -> None:
+    if session_id <= 0:
+      raise ValueError(f"Invalid session_id: {session_id}")
     self._env = env
     self._session_id = session_id
     self._record_interval = max(1, record_interval)
     self._record_on_reset = record_on_reset
-    self._recorder = _PlaybackRecorder(session_factory, buffer_size)
+    self._recorder = _PlaybackRecorder(
+      session_factory,
+      buffer_size=buffer_size,
+      statement_timeout_ms=statement_timeout_ms,
+    )
     self._episode = -1
     self._step_in_episode = 0
     self._steps_since_record = 0
@@ -201,15 +245,19 @@ class PlaybackRecordingWrapper:
       "session_id": self._session_id,
       "episode": self._episode,
       "step": int(step),
-      "robot_x": int(getattr(self._env, "robot_x", 0)),
-      "robot_y": int(getattr(self._env, "robot_y", 0)),
-      "robot_orientation": int(getattr(self._env, "robot_direction", 0)),
       "threat_grid": {"levels": _copy_grid(getattr(self._env, "threat_levels", []))},
       "coverage_map": None,
       "suspicious_objects": _copy_mapping(getattr(self._env, "suspicious_objects", None)),
       "action_taken": self._normalise_action(action),
       "reward_received": float(reward) if reward is not None else None,
     }
+
+    for payload_key, (source_attr, default) in ATTR_MAPPING.items():
+      value = getattr(self._env, source_attr, default)
+      if isinstance(value, (int, float)):
+        payload[payload_key] = int(value)
+      else:
+        payload[payload_key] = value
 
     coverage_source = None
     if hasattr(self._env, "visit_count"):
@@ -256,13 +304,20 @@ def wrap_environment_for_playback(
   record_interval = int(options.get("record_interval", DEFAULT_RECORD_INTERVAL))
   buffer_size = int(options.get("buffer_size", DEFAULT_BUFFER_SIZE))
   record_on_reset = bool(options.get("record_on_reset", True))
+  statement_timeout = options.get("statement_timeout_ms")
+  statement_timeout_ms = (
+    int(statement_timeout)
+    if statement_timeout is not None and int(statement_timeout) > 0
+    else None
+  )
 
   return PlaybackRecordingWrapper(
     env,
     session_id=session_id,
     session_factory=session_factory,
     record_interval=max(1, record_interval),
-    buffer_size=max(1, buffer_size),
+    buffer_size=max(1, min(buffer_size, MAX_BUFFER_SIZE)),
+    statement_timeout_ms=statement_timeout_ms,
     record_on_reset=record_on_reset,
   )
 

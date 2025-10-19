@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.training.playback_recorder import wrap_environment_for_playback
+from app.core.training.playback_recorder import MAX_BUFFER_SIZE, wrap_environment_for_playback
 from app.models.base import Base
 from app.models.environment import EnvironmentState
 
@@ -103,3 +103,104 @@ def test_playback_wrapper_persists_frames(session_factory: sessionmaker[Session]
   assert second_step.reward_received == pytest.approx(1.5)
   assert second_step.suspicious_objects is not None
   assert any(obj.get("spawn_time") == 2 for obj in second_step.suspicious_objects)
+
+
+def test_wrap_environment_rejects_invalid_session_id(session_factory: sessionmaker[Session]) -> None:
+  env = _DummyEnv()
+
+  with pytest.raises(ValueError):
+    wrap_environment_for_playback(env, session_id=0, session_factory=session_factory)
+
+
+def test_wrapper_caps_buffer_size(session_factory: sessionmaker[Session]) -> None:
+  env = _DummyEnv()
+
+  wrapped = wrap_environment_for_playback(
+    env,
+    session_id=1,
+    session_factory=session_factory,
+    options={"buffer_size": MAX_BUFFER_SIZE * 10},
+  )
+
+  assert wrapped._recorder.buffer_size == MAX_BUFFER_SIZE
+
+
+def test_wrapper_handles_missing_attributes(session_factory: sessionmaker[Session]) -> None:
+  class MinimalEnv:
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+      del seed, options
+      return [[0.0]], {}
+
+    def step(self, action: int):
+      del action
+      return [[0.1]], 1.0, True, False, {}
+
+  env = MinimalEnv()
+  wrapped = wrap_environment_for_playback(env, session_id=1, session_factory=session_factory)
+
+  wrapped.reset()
+  wrapped.step(0)
+  wrapped.close()
+
+  states = _fetch_states(session_factory)
+  assert states[0].robot_x == -1
+  assert states[0].robot_y == -1
+  assert states[0].robot_orientation == 0
+
+
+def test_recorder_flushes_on_buffer_capacity(session_factory: sessionmaker[Session]) -> None:
+  env = _DummyEnv()
+  wrapped = wrap_environment_for_playback(
+    env,
+    session_id=7,
+    session_factory=session_factory,
+    options={"buffer_size": 2, "record_on_reset": False},
+  )
+
+  wrapped.reset()
+  wrapped.step(0)
+
+  states_after_first_step = _fetch_states(session_factory)
+  assert len(states_after_first_step) == 0
+
+  wrapped.step(1)
+
+  states_after_second_step = _fetch_states(session_factory)
+  assert len(states_after_second_step) == 2
+
+  wrapped.close()
+
+
+def test_recorder_clears_buffer_after_session_error(session_factory: sessionmaker[Session]) -> None:
+  class FailingSession(Session):
+    def bulk_insert_mappings(self, *args, **kwargs):  # type: ignore[override]
+      raise RuntimeError("boom")
+
+  base_session = session_factory()
+  bind = base_session.get_bind()
+  base_session.close()
+
+  failing_factory = sessionmaker(
+    bind=bind,
+    class_=FailingSession,
+    autoflush=False,
+    expire_on_commit=False,
+  )
+
+  env = _DummyEnv()
+  wrapped = wrap_environment_for_playback(
+    env,
+    session_id=9,
+    session_factory=failing_factory,
+    options={"buffer_size": 1},
+  )
+
+  wrapped.reset()
+
+  # Recording should swallow the error and clear the buffer
+  wrapped.step(0)
+
+  # Close should not raise even though flush previously failed
+  wrapped.close()
+
+  assert _fetch_states(session_factory) == []
