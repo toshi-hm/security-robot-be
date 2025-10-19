@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.training.job_manager import job_manager
 from app.schemas.jobs import JobQueueDetailResponse, JobQueueEntry, JobQueueListResponse
@@ -29,7 +29,7 @@ async def get_job(session_id: int) -> JobQueueDetailResponse:
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_job(session_id: int) -> Response:
+async def delete_job(session_id: int) -> None:
     """Remove a job entry from the in-memory queue manager."""
 
     entry = job_manager.get(session_id)
@@ -40,4 +40,3 @@ async def delete_job(session_id: int) -> Response:
         )
 
     await job_manager.discard(session_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
