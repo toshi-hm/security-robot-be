@@ -293,6 +293,8 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       training_service.start_training(
         config=config,
         callbacks=callbacks,
+        session_id=session_id,
+        db_session_factory=SessionLocal,
       )
     )
 
@@ -455,6 +457,8 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
         config={**config, "session_id": session_id},
         progress_callback=_progress_callback,
         stop_signal=_should_pause,
+        session_id=session_id,
+        db_session_factory=SessionLocal,
       )
     )
 

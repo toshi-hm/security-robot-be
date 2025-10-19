@@ -13,6 +13,10 @@ from rl.algorithms.a3c.trainer import A3CTrainer
 from rl.environments.enhanced_env import EnhancedSecurityEnvironment
 from rl.environments.security_env import SecurityEnvironment
 
+from sqlalchemy.orm import Session
+
+from app.core.training.playback_recorder import wrap_environment_for_playback
+
 
 EnvironmentFactory = Callable[[], Any]
 
@@ -40,13 +44,37 @@ class A3CTrainingService:
       )
     raise ValueError(f"Unknown environment type: {env_type}")
 
-  def _resolve_env_factory(self, config: dict[str, Any]) -> EnvironmentFactory:
+  def _resolve_env_factory(
+    self,
+    config: dict[str, Any],
+    *,
+    session_id: int | None = None,
+    session_factory: Callable[[], Session] | None = None,
+    playback_options: dict[str, Any] | None = None,
+  ) -> EnvironmentFactory:
     if 'env_factory' in config:
       factory = config['env_factory']
       if not callable(factory):
         raise ValueError('env_factory must be callable when provided')
       return factory
-    return partial(self._create_environment, config)
+    base_factory = partial(self._create_environment, config)
+
+    if session_id is not None and session_factory is not None:
+      playback_config = dict(playback_options or {})
+      playback_enabled = playback_config.pop('enabled', True)
+      if playback_enabled:
+        def _factory() -> Any:
+          env = base_factory()
+          return wrap_environment_for_playback(
+            env,
+            session_id=session_id,
+            session_factory=session_factory,
+            options=playback_config,
+          )
+
+        return _factory
+
+    return base_factory
 
   async def start_training(
     self,
@@ -54,11 +82,23 @@ class A3CTrainingService:
     config: dict[str, Any],
     progress_callback: Callable[[int, dict[str, Any]], None] | None = None,
     stop_signal: Callable[[], bool] | None = None,
+    session_id: int | None = None,
+    db_session_factory: Callable[[], Session] | None = None,
+    playback_options: dict[str, Any] | None = None,
   ) -> dict[str, Any]:
     """Execute training asynchronously, delegating to a thread pool if needed."""
 
     config_copy = dict(config)
-    env_factory = self._resolve_env_factory(config_copy)
+    playback_config = dict(config_copy.pop('playback', {}) or {})
+    if playback_options:
+      playback_config.update(playback_options)
+    effective_session_id = session_id or config_copy.get('session_id')
+    env_factory = self._resolve_env_factory(
+      config_copy,
+      session_id=int(effective_session_id) if effective_session_id is not None else None,
+      session_factory=db_session_factory,
+      playback_options=playback_config,
+    )
     config_copy.pop('env_factory', None)
 
     loop = asyncio.get_running_loop()
