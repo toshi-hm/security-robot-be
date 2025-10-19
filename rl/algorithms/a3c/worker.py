@@ -223,6 +223,10 @@ class A3CWorker:
           else:
             global_param.grad = local_param.grad.detach().clone()
 
+        for global_param in self._global_network.parameters():
+          if global_param.grad is None:
+            global_param.grad = torch.zeros_like(global_param)
+
       self._optimizer.step()
 
     if self._grad_lock is None:
