@@ -59,8 +59,8 @@ async def list_playback_sessions(
   )
 
 
-@router.get('/{session_id}/data', response_model=PlaybackFramesListResponse)
-async def get_playback_data(
+@router.get('/{session_id}/frames', response_model=PlaybackFramesListResponse)
+async def get_playback_frames(
   session_id: int,
   page: int = Query(1, ge=1, description='Page number (1-indexed)'),
   page_size: int = Query(200, ge=1, le=1000, description='Number of frames per page'),
