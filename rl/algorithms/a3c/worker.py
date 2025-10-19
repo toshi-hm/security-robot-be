@@ -216,7 +216,9 @@ class A3CWorker:
     def _apply_gradients() -> None:
       with torch.no_grad():
         for global_param, local_param in zip(
-          self._global_network.parameters(), self._local_network.parameters()
+          self._global_network.parameters(),
+          self._local_network.parameters(),
+          strict=True,
         ):
           if local_param.grad is None:
             global_param.grad = torch.zeros_like(global_param)

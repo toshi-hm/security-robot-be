@@ -531,12 +531,56 @@ def test_jobs_endpoints_expose_queue_metadata(
 
     assert list_response.status_code == 200
     jobs_payload = list_response.json()
-    assert jobs_payload["jobs"]
-    assert jobs_payload["jobs"][0]["session_id"] == session_id
+    assert isinstance(jobs_payload["jobs"], list)
+    assert len(jobs_payload["jobs"]) == 1
+    queue_entry = jobs_payload["jobs"][0]
+    assert queue_entry["session_id"] == session_id
+    assert queue_entry["status"] == "queued"
+    assert queue_entry["forced"] is False
+    assert queue_entry["payload"]["config"]["name"] == payload["name"]
+    assert queue_entry["task_id"] == dispatcher.dispatched[0]["task_id"]
+    assert "enqueued_at" in queue_entry
 
     assert detail_response.status_code == 200
     detail_payload = detail_response.json()
-    assert detail_payload["job"]["session_id"] == session_id
-    assert detail_payload["job"]["task_id"] == dispatcher.dispatched[0]["task_id"]
+    job_entry = detail_payload["job"]
+    assert job_entry["session_id"] == session_id
+    assert job_entry["task_id"] == dispatcher.dispatched[0]["task_id"]
+    assert job_entry["payload"]["config"]["total_timesteps"] == payload["total_timesteps"]
+    assert job_entry["enqueued_at"] == queue_entry["enqueued_at"]
 
+    assert missing_response.status_code == 404
+
+
+def test_jobs_endpoint_allows_removing_queue_entries(
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+) -> None:
+    app, _, job_manager, _dispatcher = training_api_app
+
+    payload = {
+        "name": "Queue job",  # reused payload is acceptable
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "total_timesteps": 90,
+        "env_width": 5,
+        "env_height": 5,
+        "coverage_weight": 1.0,
+        "exploration_weight": 2.0,
+        "diversity_weight": 1.0,
+        "learning_rate": 0.0003,
+        "batch_size": 16,
+        "num_workers": 1,
+        "config": None,
+    }
+
+    with TestClient(app) as client:
+        start_response = client.post("/api/v1/training/start", json=payload)
+        assert start_response.status_code == 202
+        session_id = start_response.json()["id"]
+
+        delete_response = client.delete(f"/api/v1/jobs/{session_id}")
+        missing_response = client.delete("/api/v1/jobs/9999")
+
+    assert delete_response.status_code == 204
+    assert job_manager.get(session_id) is None
     assert missing_response.status_code == 404

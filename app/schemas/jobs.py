@@ -1,45 +1,44 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
-
-
-# Celery Job Status Schemas
-
-class JobStatusResponse(BaseModel):
-  """Response schema for Celery job status."""
-  job_id: str = Field(..., description="Celery task ID")
-  status: str = Field(..., description="Job status: PENDING, STARTED, SUCCESS, FAILURE, RETRY")
-  result: Optional[dict] = Field(default=None, description="Job result if completed")
-  error: Optional[str] = Field(default=None, description="Error message if failed")
-  progress: Optional[dict] = Field(default=None, description="Progress information")
-  created_at: Optional[datetime] = None
-  started_at: Optional[datetime] = None
-  completed_at: Optional[datetime] = None
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class JobListResponse(BaseModel):
-  """Response schema for list of jobs."""
-  total: int
-  jobs: list[JobStatusResponse]
+class JobQueueEntry(BaseModel):
+    """Queue metadata captured for a submitted training job."""
+
+    session_id: int = Field(..., description="Training session identifier associated with the job.")
+    task_id: str = Field(..., description="Celery task identifier for the job.")
+    status: str = Field(..., description="Current queue status for the job (queued, paused, stopped, revoked).")
+    forced: bool = Field(
+        default=False,
+        description="Whether the most recent transition was triggered forcefully (e.g. Celery revoke).",
+    )
+    enqueued_at: datetime = Field(..., description="Timestamp when the job was enqueued.")
+    updated_at: Optional[datetime] = Field(
+        default=None, description="Timestamp of the latest metadata update, if any."
+    )
+    paused_at: Optional[datetime] = Field(default=None, description="Time when the job was paused.")
+    resumed_at: Optional[datetime] = Field(default=None, description="Time when the job was resumed.")
+    stopped_at: Optional[datetime] = Field(default=None, description="Time when the job was stopped cooperatively.")
+    revoked_at: Optional[datetime] = Field(default=None, description="Time when the job was forcefully revoked.")
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Original payload submitted when the job was created.",
+    )
+
+    model_config = ConfigDict(extra="ignore")
 
 
-class JobCancelRequest(BaseModel):
-  """Request schema for canceling a job."""
-  job_id: str = Field(..., description="Celery task ID to cancel")
-  terminate: bool = Field(default=False, description="Whether to terminate forcefully")
+class JobQueueListResponse(BaseModel):
+    """Response envelope for job queue listing requests."""
+
+    jobs: list[JobQueueEntry] = Field(default_factory=list, description="Queued training jobs.")
 
 
-class JobCancelResponse(BaseModel):
-  """Response schema for job cancellation."""
-  job_id: str
-  status: str
-  message: str
+class JobQueueDetailResponse(BaseModel):
+    """Response envelope for retrieving a single job queue entry."""
 
-
-# Legacy schema for backward compatibility
-
-class JobStatus(BaseModel):
-  """Legacy job status schema."""
-  job_id: str
-  status: str
+    job: JobQueueEntry
