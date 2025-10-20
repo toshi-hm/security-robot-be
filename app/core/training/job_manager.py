@@ -13,6 +13,8 @@ StopReason = Literal["stopped", "paused", "revoked"]
 class JobManager:
     """Lightweight in-memory queue manager used for API integration tests."""
 
+    _STOP_REASON_KEYS = ("stopped_at", "paused_at", "revoked_at")
+
     def __init__(self) -> None:
         self._jobs: dict[int, dict[str, Any]] = {}
 
@@ -42,8 +44,11 @@ class JobManager:
     ) -> dict[str, Any] | None:
         """Update the queue entry to reflect a paused or stopped state.
 
-        Only the timestamp associated with the latest ``reason`` is retained so the
-        metadata mirrors the current queue state rather than the full history.
+        Stop-reason timestamps from earlier transitions are cleared while the most
+        recent ``resumed_at`` value (when present) is preserved so downstream
+        consumers can still observe the resume→stop timeline. The resume timestamp
+        is stashed before metadata cleanup to ensure it survives even if the
+        cleanup routine expands to cover additional fields.
         """
 
         entry = self._jobs.get(session_id)
@@ -54,9 +59,13 @@ class JobManager:
         entry["status"] = reason
         entry["updated_at"] = timestamp
 
+        resume_timestamp = entry.pop("resumed_at", None)
+
         # Remove stale stop-state timestamps before recording the latest reason.
-        for key in ("stopped_at", "paused_at", "revoked_at"):
-            entry.pop(key, None)
+        self._clear_stop_timestamps(entry)
+
+        if resume_timestamp is not None:
+            entry["resumed_at"] = resume_timestamp
 
         if reason == "stopped":
             entry["stopped_at"] = timestamp
@@ -84,7 +93,14 @@ class JobManager:
         entry["resumed_at"] = timestamp
         entry["updated_at"] = timestamp
         entry["forced"] = False
+        self._clear_stop_timestamps(entry)
         return entry
+
+    def _clear_stop_timestamps(self, entry: dict[str, Any]) -> None:
+        """Remove all stop-reason timestamps from the entry."""
+
+        for key in self._STOP_REASON_KEYS:
+            entry.pop(key, None)
 
     async def discard(self, session_id: int) -> None:
         """Remove a session from the queue manager."""

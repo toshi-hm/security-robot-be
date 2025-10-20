@@ -113,6 +113,9 @@ async def test_resume_updates_status(monkeypatch: pytest.MonkeyPatch) -> None:
     assert entry["resumed_at"] == resumed_at
     assert entry["updated_at"] == resumed_at
     assert entry["forced"] is False
+    # Stop-state timestamps should be cleared once the session has been
+    # re-queued to avoid leaking stale metadata to API consumers.
+    assert "paused_at" not in entry
 
 
 @pytest.mark.asyncio
@@ -125,6 +128,69 @@ async def test_resume_missing_entry_returns_none(monkeypatch: pytest.MonkeyPatch
     result = await manager.resume(9999)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resume_after_revoked_clears_forced_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+    revoked_at = enqueued_at + timedelta(minutes=2)
+    resumed_at = revoked_at + timedelta(minutes=5)
+
+    set_time_sequence(
+        monkeypatch, job_manager_module, enqueued_at, revoked_at, resumed_at
+    )
+    _freeze_uuid(monkeypatch, "52345678-1234-5678-1234-567812345678")
+
+    await manager.enqueue({"session_id": 84})
+    await manager.stop(84, reason="revoked")
+
+    entry = await manager.resume(84)
+
+    assert entry is not None
+    assert entry["status"] == "queued"
+    assert entry["forced"] is False
+    assert entry["resumed_at"] == resumed_at
+    assert entry["updated_at"] == resumed_at
+    assert "revoked_at" not in entry
+
+
+@pytest.mark.asyncio
+async def test_stop_after_resume_preserves_resumed_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+    paused_at = enqueued_at + timedelta(minutes=2)
+    resumed_at = paused_at + timedelta(minutes=4)
+    stopped_again_at = resumed_at + timedelta(minutes=1)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        enqueued_at,
+        paused_at,
+        resumed_at,
+        stopped_again_at,
+    )
+    _freeze_uuid(monkeypatch, "62345678-1234-5678-1234-567812345678")
+
+    await manager.enqueue({"session_id": 128})
+    await manager.stop(128, reason="paused")
+    await manager.resume(128)
+
+    entry = await manager.stop(128, reason="stopped")
+
+    assert entry is not None
+    assert entry["status"] == "stopped"
+    assert entry["stopped_at"] == stopped_again_at
+    assert entry["updated_at"] == stopped_again_at
+    # The resume timestamp should remain to highlight the most recent resume
+    # even after the session transitions into a terminal state.
+    assert entry["resumed_at"] == resumed_at
+    assert entry["forced"] is False
 
 
 @pytest.mark.asyncio
@@ -203,3 +269,13 @@ async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.Mon
     assert entry is not None
     assert entry.get("stopped_at") == stopped_at
     assert "paused_at" not in entry
+
+
+@pytest.mark.asyncio
+async def test_stop_missing_entry_returns_none() -> None:
+    manager = JobManager()
+
+    result = await manager.stop(2024)
+
+    assert result is None
+    assert manager.snapshot() == []
