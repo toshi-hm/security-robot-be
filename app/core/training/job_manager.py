@@ -84,6 +84,8 @@ class JobManager:
         entry["resumed_at"] = timestamp
         entry["updated_at"] = timestamp
         entry["forced"] = False
+        for key in ("stopped_at", "paused_at", "revoked_at"):
+            entry.pop(key, None)
         return entry
 
     async def discard(self, session_id: int) -> None:
