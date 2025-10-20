@@ -54,8 +54,7 @@ class JobManager:
         entry["status"] = reason
         entry["updated_at"] = timestamp
 
-        # Remove stale stop/resume timestamps before recording the latest reason.
-        entry.pop("resumed_at", None)
+        # Remove stale stop-state timestamps before recording the latest reason.
         for key in ("stopped_at", "paused_at", "revoked_at"):
             entry.pop(key, None)
 

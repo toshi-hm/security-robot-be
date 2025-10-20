@@ -158,7 +158,7 @@ async def test_resume_after_revoked_clears_forced_state(
 
 
 @pytest.mark.asyncio
-async def test_stop_after_resume_clears_resumed_timestamp(
+async def test_stop_after_resume_preserves_resumed_timestamp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manager = JobManager()
@@ -187,7 +187,9 @@ async def test_stop_after_resume_clears_resumed_timestamp(
     assert entry["status"] == "stopped"
     assert entry["stopped_at"] == stopped_again_at
     assert entry["updated_at"] == stopped_again_at
-    assert "resumed_at" not in entry
+    # The resume timestamp should remain to highlight the most recent resume
+    # even after the session transitions into a terminal state.
+    assert entry["resumed_at"] == resumed_at
     assert entry["forced"] is False
 
 
