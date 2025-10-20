@@ -44,8 +44,9 @@ class JobManager:
     ) -> dict[str, Any] | None:
         """Update the queue entry to reflect a paused or stopped state.
 
-        Only the timestamp associated with the latest ``reason`` is retained so the
-        metadata mirrors the current queue state rather than the full history.
+        Stop-reason timestamps from earlier transitions are cleared while the most
+        recent ``resumed_at`` value (when present) is preserved so downstream
+        consumers can still observe the resume→stop timeline.
         """
 
         entry = self._jobs.get(session_id)
@@ -56,8 +57,13 @@ class JobManager:
         entry["status"] = reason
         entry["updated_at"] = timestamp
 
+        resume_timestamp = entry.get("resumed_at")
+
         # Remove stale stop-state timestamps before recording the latest reason.
         self._clear_stop_timestamps(entry)
+
+        if resume_timestamp is not None:
+            entry["resumed_at"] = resume_timestamp
 
         if reason == "stopped":
             entry["stopped_at"] = timestamp
