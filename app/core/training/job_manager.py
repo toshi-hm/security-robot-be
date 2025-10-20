@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from uuid import uuid4
 
 from app.utils.datetime import utcnow
+
+
+StopReason = Literal["stopped", "paused", "revoked"]
 
 
 class JobManager:
@@ -34,8 +37,14 @@ class JobManager:
         self._jobs[session_id] = metadata
         return metadata
 
-    async def stop(self, session_id: int, *, reason: str = "stopped") -> dict[str, Any] | None:
-        """Update the queue entry to reflect a paused or stopped state."""
+    async def stop(
+        self, session_id: int, *, reason: StopReason | str = "stopped"
+    ) -> dict[str, Any] | None:
+        """Update the queue entry to reflect a paused or stopped state.
+
+        Only the timestamp associated with the latest ``reason`` is retained so the
+        metadata mirrors the current queue state rather than the full history.
+        """
 
         entry = self._jobs.get(session_id)
         if entry is None:
@@ -44,6 +53,10 @@ class JobManager:
         timestamp = utcnow()
         entry["status"] = reason
         entry["updated_at"] = timestamp
+
+        # Remove stale stop-state timestamps before recording the latest reason.
+        for key in ("stopped_at", "paused_at", "revoked_at"):
+            entry.pop(key, None)
 
         if reason == "stopped":
             entry["stopped_at"] = timestamp

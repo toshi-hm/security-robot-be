@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.api.v1.endpoints import jobs as jobs_module
 from app.core.training import job_manager as job_manager_module
 from app.core.training.job_manager import JobManager
+from tests.utils.time import set_time_sequence
 
 
 @pytest.fixture
@@ -21,27 +22,14 @@ def job_manager_stub(monkeypatch: pytest.MonkeyPatch) -> JobManager:
     return manager
 
 
-def _set_time_sequence(monkeypatch: pytest.MonkeyPatch, *timestamps: datetime) -> None:
-    """Override the queue manager clock for deterministic results."""
-
-    values = list(timestamps)
-
-    def _utcnow() -> datetime:
-        if not values:
-            raise AssertionError("utcnow called unexpectedly")
-        if len(values) == 1:
-            return values[0]
-        return values.pop(0)
-
-    monkeypatch.setattr(job_manager_module, "utcnow", _utcnow)
-
-
 @pytest.mark.asyncio
 async def test_list_jobs_returns_queue_entries(
     job_manager_stub: JobManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     base = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
-    _set_time_sequence(monkeypatch, base, base + timedelta(minutes=1))
+    set_time_sequence(
+        monkeypatch, job_manager_module, base, base + timedelta(minutes=1)
+    )
 
     await job_manager_stub.enqueue({"session_id": 10, "task_id": "task-10"})
     await job_manager_stub.enqueue({"session_id": 11, "task_id": "task-11"})

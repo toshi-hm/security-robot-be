@@ -1,8 +1,6 @@
 """Unit tests for the in-memory job queue manager."""
-
 from __future__ import annotations
 
-from collections import deque
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -10,21 +8,7 @@ import pytest
 
 from app.core.training import job_manager as job_manager_module
 from app.core.training.job_manager import JobManager
-
-
-def _set_time_sequence(monkeypatch: pytest.MonkeyPatch, *timestamps: datetime) -> None:
-    """Override ``utcnow`` so successive calls return predictable values."""
-
-    values = deque(timestamps)
-
-    def _utcnow() -> datetime:
-        if not values:
-            raise AssertionError("utcnow called more times than expected")
-        if len(values) == 1:
-            return values[0]
-        return values.popleft()
-
-    monkeypatch.setattr(job_manager_module, "utcnow", _utcnow)
+from tests.utils.time import set_time_sequence
 
 
 def _freeze_uuid(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
@@ -38,7 +22,7 @@ async def test_enqueue_records_metadata(monkeypatch: pytest.MonkeyPatch) -> None
     manager = JobManager()
     enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
-    _set_time_sequence(monkeypatch, enqueued_at)
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
     _freeze_uuid(monkeypatch, "12345678-1234-5678-1234-567812345678")
 
     entry = await manager.enqueue({"session_id": 1})
@@ -57,7 +41,7 @@ async def test_stop_stopped_updates_timestamp(monkeypatch: pytest.MonkeyPatch) -
     enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     stopped_at = enqueued_at + timedelta(minutes=5)
 
-    _set_time_sequence(monkeypatch, enqueued_at, stopped_at)
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, stopped_at)
     _freeze_uuid(monkeypatch, "12345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 7})
@@ -76,7 +60,7 @@ async def test_stop_paused_tracks_metadata(monkeypatch: pytest.MonkeyPatch) -> N
     enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=2)
 
-    _set_time_sequence(monkeypatch, enqueued_at, paused_at)
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, paused_at)
     _freeze_uuid(monkeypatch, "22345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 11})
@@ -95,7 +79,7 @@ async def test_stop_revoked_marks_forced(monkeypatch: pytest.MonkeyPatch) -> Non
     enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     revoked_at = enqueued_at + timedelta(minutes=3)
 
-    _set_time_sequence(monkeypatch, enqueued_at, revoked_at)
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, revoked_at)
     _freeze_uuid(monkeypatch, "32345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 21})
@@ -115,7 +99,9 @@ async def test_resume_updates_status(monkeypatch: pytest.MonkeyPatch) -> None:
     paused_at = enqueued_at + timedelta(minutes=4)
     resumed_at = paused_at + timedelta(minutes=6)
 
-    _set_time_sequence(monkeypatch, enqueued_at, paused_at, resumed_at)
+    set_time_sequence(
+        monkeypatch, job_manager_module, enqueued_at, paused_at, resumed_at
+    )
     _freeze_uuid(monkeypatch, "42345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 42})
@@ -134,6 +120,56 @@ async def test_resume_missing_entry_returns_none(monkeypatch: pytest.MonkeyPatch
     manager = JobManager()
     resumed_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
-    _set_time_sequence(monkeypatch, resumed_at)
+    set_time_sequence(monkeypatch, job_manager_module, resumed_at)
+
+
+@pytest.mark.asyncio
+async def test_enqueue_missing_session_id_raises() -> None:
+    manager = JobManager()
+
+    with pytest.raises(ValueError, match="session_id"):
+        await manager.enqueue({"task_id": "task-1"})
+
+
+@pytest.mark.asyncio
+async def test_stop_unknown_reason_preserves_forced(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+    paused_at = enqueued_at + timedelta(minutes=1)
+    updated_at = paused_at + timedelta(minutes=1)
+
+    set_time_sequence(
+        monkeypatch, job_manager_module, enqueued_at, paused_at, updated_at
+    )
+    await manager.enqueue({"session_id": 55})
+    await manager.stop(55, reason="revoked")
+
+    entry = await manager.stop(55, reason="unknown_reason")
+
+    assert entry is not None
+    assert entry["status"] == "unknown_reason"
+    assert entry["forced"] is True
+    assert "revoked_at" not in entry
+    assert entry["updated_at"] == updated_at
+
+
+@pytest.mark.asyncio
+async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+    paused_at = enqueued_at + timedelta(minutes=2)
+    stopped_at = paused_at + timedelta(minutes=3)
+
+    set_time_sequence(
+        monkeypatch, job_manager_module, enqueued_at, paused_at, stopped_at
+    )
+    await manager.enqueue({"session_id": 77})
+    await manager.stop(77, reason="paused")
+
+    entry = await manager.stop(77, reason="stopped")
+
+    assert entry is not None
+    assert entry.get("stopped_at") == stopped_at
+    assert "paused_at" not in entry
 
     assert await manager.resume(9999) is None
