@@ -210,7 +210,7 @@
 - [x] tests/integration/test_training_control_endpoints.py - ジョブキューAPIの検証を拡充し、削除操作の統合テストを追加 (2025-10-20追加)
 - [x] app/services/training_service.py - サービス層の新規実装
 - [x] app/core/training/job_manager.py - ジョブ管理スタブの拡張
-- [x] app/core/training/job_manager.py - resume時に停止状態のタイムスタンプをクリアし、再キュー後のメタデータ整合性を維持 (2024-10-21更新)
+- [x] app/core/training/job_manager.py - resume時に停止状態のタイムスタンプをクリアし、再キュー後のメタデータ整合性を維持 (2025-10-21更新)
 - [x] app/schemas/training.py - 制御レスポンス・リストレスポンスの追加
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
 - [x] app/api/v1/endpoints/environment.py - 環境セッション作成/リセット/アクション/終了APIを追加
