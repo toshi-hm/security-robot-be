@@ -122,6 +122,38 @@ async def test_resume_missing_entry_returns_none(monkeypatch: pytest.MonkeyPatch
 
     set_time_sequence(monkeypatch, job_manager_module, resumed_at)
 
+    result = await manager.resume(9999)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_discard_removes_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
+
+    await manager.enqueue({"session_id": 555})
+
+    await manager.discard(555)
+
+    assert manager.get(555) is None
+
+
+@pytest.mark.asyncio
+async def test_discard_nonexistent_entry_is_noop(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager()
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
+
+    # Ensure discard does not raise and leaves the queue unchanged when the
+    # session was never enqueued.
+    await manager.discard(404)
+
+    assert manager.snapshot() == []
+
 
 @pytest.mark.asyncio
 async def test_enqueue_missing_session_id_raises() -> None:
@@ -171,5 +203,3 @@ async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.Mon
     assert entry is not None
     assert entry.get("stopped_at") == stopped_at
     assert "paused_at" not in entry
-
-    assert await manager.resume(9999) is None

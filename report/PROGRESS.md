@@ -314,6 +314,7 @@
     - [x] start/pause/resume/stop/status/list/delete のユニットテスト追加 (JobManagerスタブ利用)
 - [x] ジョブキューAPIテスト - 一覧/詳細/削除レスポンスを検証 (2025-10-21追加)
 - [x] JobManager停止処理の異常系テスト（session_id欠落・未知理由時のforced保持）を追加し、停止理由タイムスタンプの整合性を担保 (2025-10-21追加)
+- [x] JobManagerの`resume`未登録ケースと`discard`挙動をユニットテストで補完し、レビュー指摘へ対応 (2025-10-21追加)
   - [x] FastAPIファイルアップロード依存 (`python-multipart`) と asyncioテスト依存 (`pytest-asyncio`) の不足を解消
   - [x] 環境セッションAPIテスト（作成/リセット/アクション/終了）
   - [x] 環境サービスのセッション管理ユニットテスト
