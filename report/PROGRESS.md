@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-20 Session 54
+**最終更新:** 2024-10-21 Session 58
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -210,7 +210,7 @@
 - [x] tests/integration/test_training_control_endpoints.py - ジョブキューAPIの検証を拡充し、削除操作の統合テストを追加 (2025-10-20追加)
 - [x] app/services/training_service.py - サービス層の新規実装
 - [x] app/core/training/job_manager.py - ジョブ管理スタブの拡張
-- [x] app/core/training/job_manager.py - resume時に停止状態のタイムスタンプをクリアし、再キュー後のメタデータ整合性を維持 (2025-10-22追加)
+- [x] app/core/training/job_manager.py - resume時に停止状態のタイムスタンプをクリアし、再キュー後のメタデータ整合性を維持 (2024-10-21更新)
 - [x] app/schemas/training.py - 制御レスポンス・リストレスポンスの追加
 - [x] app/api/v1/endpoints/environment.py - 環境制御API
 - [x] app/api/v1/endpoints/environment.py - 環境セッション作成/リセット/アクション/終了APIを追加
@@ -387,7 +387,7 @@
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度
-1. **Phase 4/6フォロー**: CeleryリボークAPIなど強制停止パスの実証と、再開/再キューイング時の状態遷移設計（停止後の再キュー時メタデータは整備済み、Celery revoke統合テストが未着手）
+1. **Phase 4/6フォロー**: CeleryリボークAPIなど強制停止パスの実証と、再開/再キューイング時の状態遷移設計（停止後の再キュー時メタデータは整備済み、再停止時の`resumed_at`除去も完了。Celery revoke統合テストが未着手）
 2. **Phase 5→6連携**: Redis転送とジョブマネージャー状態を同期させ、WebSocketブリッジの自動監視まで仕上げる
 3. **Phase 8継続**: Celeryタスクとジョブキューのエラー時ロールバックシナリオを設計し、バックプレッシャー制御を検討
    - A3Cタスクの並列実行と一時停止再開フローでRedis/DB/WS通知が整合するか統合テストを追加検討
