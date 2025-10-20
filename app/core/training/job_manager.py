@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from uuid import uuid4
 
 from app.utils.datetime import utcnow
+
+
+StopReason = Literal["stopped", "paused", "revoked"]
 
 
 class JobManager:
@@ -21,19 +24,27 @@ class JobManager:
             raise ValueError("payload must include a session_id")
 
         task_id = payload.get("task_id") or str(uuid4())
+        timestamp = utcnow()
         metadata = {
             "session_id": session_id,
             "task_id": task_id,
             "status": "queued",
             "payload": payload,
-            "enqueued_at": utcnow(),
+            "enqueued_at": timestamp,
+            "updated_at": timestamp,
             "forced": False,
         }
         self._jobs[session_id] = metadata
         return metadata
 
-    async def stop(self, session_id: int, *, reason: str = "stopped") -> dict[str, Any] | None:
-        """Update the queue entry to reflect a paused or stopped state."""
+    async def stop(
+        self, session_id: int, *, reason: StopReason | str = "stopped"
+    ) -> dict[str, Any] | None:
+        """Update the queue entry to reflect a paused or stopped state.
+
+        Only the timestamp associated with the latest ``reason`` is retained so the
+        metadata mirrors the current queue state rather than the full history.
+        """
 
         entry = self._jobs.get(session_id)
         if entry is None:
@@ -41,6 +52,12 @@ class JobManager:
 
         timestamp = utcnow()
         entry["status"] = reason
+        entry["updated_at"] = timestamp
+
+        # Remove stale stop-state timestamps before recording the latest reason.
+        for key in ("stopped_at", "paused_at", "revoked_at"):
+            entry.pop(key, None)
+
         if reason == "stopped":
             entry["stopped_at"] = timestamp
             entry["forced"] = False
@@ -50,9 +67,7 @@ class JobManager:
         elif reason == "revoked":
             entry["revoked_at"] = timestamp
             entry["forced"] = True
-            entry["updated_at"] = timestamp
         else:
-            entry["updated_at"] = timestamp
             entry["forced"] = entry.get("forced", False)
 
         return entry
@@ -64,8 +79,10 @@ class JobManager:
         if entry is None:
             return None
 
+        timestamp = utcnow()
         entry["status"] = "queued"
-        entry["resumed_at"] = utcnow()
+        entry["resumed_at"] = timestamp
+        entry["updated_at"] = timestamp
         entry["forced"] = False
         return entry
 
