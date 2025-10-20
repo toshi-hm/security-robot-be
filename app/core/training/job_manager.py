@@ -46,7 +46,9 @@ class JobManager:
 
         Stop-reason timestamps from earlier transitions are cleared while the most
         recent ``resumed_at`` value (when present) is preserved so downstream
-        consumers can still observe the resume→stop timeline.
+        consumers can still observe the resume→stop timeline. The resume timestamp
+        is stashed before metadata cleanup to ensure it survives even if the
+        cleanup routine expands to cover additional fields.
         """
 
         entry = self._jobs.get(session_id)
@@ -57,7 +59,7 @@ class JobManager:
         entry["status"] = reason
         entry["updated_at"] = timestamp
 
-        resume_timestamp = entry.get("resumed_at")
+        resume_timestamp = entry.pop("resumed_at", None)
 
         # Remove stale stop-state timestamps before recording the latest reason.
         self._clear_stop_timestamps(entry)

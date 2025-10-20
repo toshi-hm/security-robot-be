@@ -20,7 +20,7 @@ def _freeze_uuid(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
 @pytest.mark.asyncio
 async def test_enqueue_records_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
     _freeze_uuid(monkeypatch, "12345678-1234-5678-1234-567812345678")
@@ -38,7 +38,7 @@ async def test_enqueue_records_metadata(monkeypatch: pytest.MonkeyPatch) -> None
 @pytest.mark.asyncio
 async def test_stop_stopped_updates_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     stopped_at = enqueued_at + timedelta(minutes=5)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at, stopped_at)
@@ -57,7 +57,7 @@ async def test_stop_stopped_updates_timestamp(monkeypatch: pytest.MonkeyPatch) -
 @pytest.mark.asyncio
 async def test_stop_paused_tracks_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=2)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at, paused_at)
@@ -76,7 +76,7 @@ async def test_stop_paused_tracks_metadata(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.mark.asyncio
 async def test_stop_revoked_marks_forced(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     revoked_at = enqueued_at + timedelta(minutes=3)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at, revoked_at)
@@ -95,7 +95,7 @@ async def test_stop_revoked_marks_forced(monkeypatch: pytest.MonkeyPatch) -> Non
 @pytest.mark.asyncio
 async def test_resume_updates_status(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=4)
     resumed_at = paused_at + timedelta(minutes=6)
 
@@ -121,7 +121,7 @@ async def test_resume_updates_status(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_resume_missing_entry_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    resumed_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    resumed_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
     set_time_sequence(monkeypatch, job_manager_module, resumed_at)
 
@@ -135,7 +135,7 @@ async def test_resume_after_revoked_clears_forced_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     revoked_at = enqueued_at + timedelta(minutes=2)
     resumed_at = revoked_at + timedelta(minutes=5)
 
@@ -162,7 +162,7 @@ async def test_stop_after_resume_preserves_resumed_timestamp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=2)
     resumed_at = paused_at + timedelta(minutes=4)
     stopped_again_at = resumed_at + timedelta(minutes=1)
@@ -196,7 +196,7 @@ async def test_stop_after_resume_preserves_resumed_timestamp(
 @pytest.mark.asyncio
 async def test_discard_removes_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
 
@@ -210,7 +210,7 @@ async def test_discard_removes_entry(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_discard_nonexistent_entry_is_noop(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
 
     set_time_sequence(monkeypatch, job_manager_module, enqueued_at)
 
@@ -232,7 +232,7 @@ async def test_enqueue_missing_session_id_raises() -> None:
 @pytest.mark.asyncio
 async def test_stop_unknown_reason_preserves_forced(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=1)
     updated_at = paused_at + timedelta(minutes=1)
 
@@ -254,7 +254,7 @@ async def test_stop_unknown_reason_preserves_forced(monkeypatch: pytest.MonkeyPa
 @pytest.mark.asyncio
 async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
     manager = JobManager()
-    enqueued_at = datetime(2024, 10, 21, 12, 0, tzinfo=UTC)
+    enqueued_at = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
     paused_at = enqueued_at + timedelta(minutes=2)
     stopped_at = paused_at + timedelta(minutes=3)
 
