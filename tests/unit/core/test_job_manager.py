@@ -267,3 +267,13 @@ async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.Mon
     assert entry is not None
     assert entry.get("stopped_at") == stopped_at
     assert "paused_at" not in entry
+
+
+@pytest.mark.asyncio
+async def test_stop_missing_entry_returns_none() -> None:
+    manager = JobManager()
+
+    result = await manager.stop(2024)
+
+    assert result is None
+    assert manager.snapshot() == []
