@@ -88,32 +88,48 @@ class JobManager:
             return (updated_at, enqueued_at)
 
         active, history = _partition()
+        if not active and not history:
+            return
+
+        sorted_active: list[tuple[int, dict[str, Any]]] | None = None
+        sorted_history: list[tuple[int, dict[str, Any]]] | None = None
 
         if len(active) > self._max_active_entries:
+            sorted_active = sorted(active, key=_sort_key)
             excess = len(active) - self._max_active_entries
-            for session_id, _ in sorted(active, key=_sort_key)[:excess]:
+            to_remove = sorted_active[:excess]
+            for session_id, _ in to_remove:
                 self._jobs.pop(session_id, None)
-            active, history = _partition()
+            active = sorted_active[excess:]
+            sorted_active = active
 
-        if len(self._jobs) <= self._max_total_entries:
+        total = len(active) + len(history)
+        if total <= self._max_total_entries:
             return
+
+        excess_total = total - self._max_total_entries
 
         if history:
-            for session_id, _ in sorted(history, key=_sort_key):
-                if len(self._jobs) <= self._max_total_entries:
-                    break
+            if sorted_history is None:
+                sorted_history = sorted(history, key=_sort_key)
+            remove_count = min(excess_total, len(sorted_history))
+            for session_id, _ in sorted_history[:remove_count]:
                 self._jobs.pop(session_id, None)
+            history = sorted_history[remove_count:]
+            sorted_history = history
+            excess_total -= remove_count
 
-            active, history = _partition()
-
-        if len(self._jobs) <= self._max_total_entries:
+        if excess_total <= 0:
             return
 
-        if active:
-            for session_id, _ in sorted(active, key=_sort_key):
-                if len(self._jobs) <= self._max_total_entries:
-                    break
-                self._jobs.pop(session_id, None)
+        if not active:
+            return
+
+        if sorted_active is None:
+            sorted_active = sorted(active, key=_sort_key)
+
+        for session_id, _ in sorted_active[:excess_total]:
+            self._jobs.pop(session_id, None)
 
     def _is_active(self, entry: dict[str, Any]) -> bool:
         """Return whether a job entry represents an active session."""
