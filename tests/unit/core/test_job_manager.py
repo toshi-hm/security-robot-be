@@ -279,3 +279,179 @@ async def test_stop_missing_entry_returns_none() -> None:
 
     assert result is None
     assert manager.snapshot() == []
+
+
+@pytest.mark.asyncio
+async def test_total_limit_prefers_purging_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager(max_active_entries=4, max_total_entries=5)
+    base = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        base,
+        base + timedelta(minutes=1),
+        base + timedelta(minutes=2),
+        base + timedelta(minutes=3),
+        base + timedelta(minutes=4),
+        base + timedelta(minutes=5),
+        base + timedelta(minutes=6),
+        base + timedelta(minutes=7),
+        base + timedelta(minutes=8),
+    )
+
+    await manager.enqueue({"session_id": 1})
+    await manager.enqueue({"session_id": 2})
+    await manager.enqueue({"session_id": 3})
+    await manager.enqueue({"session_id": 4})
+    await manager.stop(4, reason="stopped")
+    await manager.enqueue({"session_id": 5})
+    await manager.stop(5, reason="stopped")
+
+    # Exceed the total limit by adding another history entry. The manager
+    # should remove the oldest completed job (session 4) while keeping newer
+    # history and all active entries intact.
+    await manager.enqueue({"session_id": 6})
+    await manager.stop(6, reason="stopped")
+
+    assert manager.get(1) is not None
+    assert manager.get(4) is None
+    assert manager.get(5) is not None
+    assert manager.get(6) is not None
+    assert len(manager.snapshot()) == 5
+
+
+@pytest.mark.asyncio
+async def test_total_limit_purges_active_when_history_insufficient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = JobManager(max_active_entries=10, max_total_entries=5)
+    base = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+
+    timestamps = [base + timedelta(minutes=i) for i in range(6)]
+    set_time_sequence(monkeypatch, job_manager_module, *timestamps)
+
+    for session_id in range(1, 7):
+        await manager.enqueue({"session_id": session_id})
+
+    assert manager.get(1) is None
+    assert manager.get(2) is not None
+    assert len(manager.snapshot()) == 5
+
+
+@pytest.mark.asyncio
+async def test_active_limit_drops_oldest_active(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager(max_active_entries=2, max_total_entries=5)
+    base = datetime(2025, 10, 21, 13, 0, tzinfo=UTC)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        base,
+        base + timedelta(minutes=1),
+        base + timedelta(minutes=2),
+    )
+
+    await manager.enqueue({"session_id": 10})
+    await manager.enqueue({"session_id": 11})
+
+    # Adding a third active session should prune the oldest active entry to
+    # keep the queue within the configured active limit.
+    await manager.enqueue({"session_id": 12})
+
+    assert manager.get(10) is None
+    assert manager.get(11) is not None
+    assert manager.get(12) is not None
+    assert len(manager.snapshot()) == 2
+
+
+@pytest.mark.asyncio
+async def test_history_ttl_sweep_removes_stale_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = JobManager(
+        max_active_entries=3,
+        max_total_entries=4,
+        history_ttl=timedelta(minutes=30),
+        sweep_interval=timedelta(minutes=5),
+    )
+    base = datetime(2025, 10, 21, 14, 0, tzinfo=UTC)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        base,
+        base + timedelta(minutes=10),
+        base + timedelta(minutes=46),
+    )
+
+    await manager.enqueue({"session_id": 20})
+    await manager.stop(20, reason="stopped")
+
+    # Trigger retention checks long after the TTL has elapsed to sweep the
+    # stale history entry.
+    await manager.enqueue({"session_id": 21})
+
+    assert manager.get(20) is None
+    assert manager.get(21) is not None
+    assert len(manager.snapshot()) == 1
+
+
+@pytest.mark.asyncio
+async def test_sweep_respects_interval(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = JobManager(
+        max_active_entries=3,
+        max_total_entries=4,
+        history_ttl=timedelta(minutes=10),
+        sweep_interval=timedelta(minutes=5),
+    )
+    base = datetime(2025, 10, 21, 14, 0, tzinfo=UTC)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        base,
+        base + timedelta(minutes=1),
+        base + timedelta(minutes=10),
+        base + timedelta(minutes=14),
+    )
+
+    await manager.enqueue({"session_id": 1})
+    await manager.stop(1, reason="stopped")
+
+    # Refresh the sweep timestamp shortly before the TTL would expire so the
+    # next operation occurs within the sweep interval window.
+    await manager.enqueue({"session_id": 2})
+
+    await manager.enqueue({"session_id": 3})
+
+    assert manager.get(1) is not None
+
+
+@pytest.mark.asyncio
+async def test_sweep_disabled_when_ttl_non_positive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = JobManager(
+        max_active_entries=3,
+        max_total_entries=4,
+        history_ttl=timedelta(0),
+        sweep_interval=timedelta(minutes=5),
+    )
+    base = datetime(2025, 10, 21, 15, 0, tzinfo=UTC)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        base,
+        base + timedelta(minutes=1),
+        base + timedelta(minutes=30),
+    )
+
+    await manager.enqueue({"session_id": 1})
+    await manager.stop(1, reason="stopped")
+
+    await manager.enqueue({"session_id": 2})
+
+    assert manager.get(1) is not None
+    assert len(manager.snapshot()) == 2

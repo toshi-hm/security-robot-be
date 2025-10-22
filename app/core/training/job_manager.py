@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from uuid import uuid4
@@ -14,9 +15,126 @@ class JobManager:
     """Lightweight in-memory queue manager used for API integration tests."""
 
     _STOP_REASON_KEYS = ("stopped_at", "paused_at", "revoked_at")
+    _DEFAULT_TIMESTAMP = datetime.min.replace(tzinfo=UTC)
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_active_entries: int = 200,
+        max_total_entries: int = 500,
+        history_ttl: timedelta = timedelta(minutes=30),
+        sweep_interval: timedelta = timedelta(minutes=5),
+    ) -> None:
         self._jobs: dict[int, dict[str, Any]] = {}
+        self._max_active_entries = max_active_entries
+        self._max_total_entries = max_total_entries
+        self._history_ttl = history_ttl
+        self._sweep_interval = sweep_interval
+        self._last_sweep_at: datetime | None = None
+
+    def _enforce_limits(self, now: datetime) -> None:
+        """Run retention checks to keep the queue within memory bounds."""
+
+        self._maybe_sweep_expired(now)
+        self._prune_counts()
+
+    def _maybe_sweep_expired(self, now: datetime) -> None:
+        """Drop history entries that exceeded their TTL on the configured cadence."""
+
+        if self._history_ttl <= timedelta(0):
+            return
+
+        if (
+            self._last_sweep_at is not None
+            and now - self._last_sweep_at < self._sweep_interval
+        ):
+            return
+
+        cutoff = now - self._history_ttl
+        for session_id, entry in list(self._jobs.items()):
+            if self._is_active(entry):
+                continue
+
+            updated_at = entry.get("updated_at")
+            if updated_at is None:
+                continue
+
+            if updated_at <= cutoff:
+                self._jobs.pop(session_id, None)
+
+        self._last_sweep_at = now
+
+    def _prune_counts(self) -> None:
+        """Ensure active and total queue sizes stay within configured limits."""
+
+        def _partition() -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]]:
+            active: list[tuple[int, dict[str, Any]]] = []
+            history: list[tuple[int, dict[str, Any]]] = []
+
+            for session_id, entry in self._jobs.items():
+                if self._is_active(entry):
+                    active.append((session_id, entry))
+                else:
+                    history.append((session_id, entry))
+
+            return active, history
+
+        def _sort_key(item: tuple[int, dict[str, Any]]) -> tuple[datetime, datetime]:
+            entry = item[1]
+            updated_at = entry.get("updated_at") or entry.get("enqueued_at")
+            if updated_at is None:
+                updated_at = self._DEFAULT_TIMESTAMP
+            enqueued_at = entry.get("enqueued_at") or updated_at
+            return (updated_at, enqueued_at)
+
+        active, history = _partition()
+        if not active and not history:
+            return
+
+        sorted_active: list[tuple[int, dict[str, Any]]] | None = None
+        sorted_history: list[tuple[int, dict[str, Any]]] | None = None
+
+        if len(active) > self._max_active_entries:
+            sorted_active = sorted(active, key=_sort_key)
+            excess = len(active) - self._max_active_entries
+            to_remove = sorted_active[:excess]
+            for session_id, _ in to_remove:
+                self._jobs.pop(session_id, None)
+            active = sorted_active[excess:]
+            sorted_active = active
+
+        total = len(active) + len(history)
+        if total <= self._max_total_entries:
+            return
+
+        excess_total = total - self._max_total_entries
+
+        if history:
+            if sorted_history is None:
+                sorted_history = sorted(history, key=_sort_key)
+            remove_count = min(excess_total, len(sorted_history))
+            for session_id, _ in sorted_history[:remove_count]:
+                self._jobs.pop(session_id, None)
+            history = sorted_history[remove_count:]
+            sorted_history = history
+            excess_total -= remove_count
+
+        if excess_total <= 0:
+            return
+
+        if not active:
+            return
+
+        if sorted_active is None:
+            sorted_active = sorted(active, key=_sort_key)
+
+        for session_id, _ in sorted_active[:excess_total]:
+            self._jobs.pop(session_id, None)
+
+    def _is_active(self, entry: dict[str, Any]) -> bool:
+        """Return whether a job entry represents an active session."""
+
+        return entry.get("status") in {"queued", "running", "paused"}
 
     async def enqueue(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Register a training job request and return queue metadata."""
@@ -37,6 +155,7 @@ class JobManager:
             "forced": False,
         }
         self._jobs[session_id] = metadata
+        self._enforce_limits(timestamp)
         return metadata
 
     async def stop(
@@ -79,6 +198,7 @@ class JobManager:
         else:
             entry["forced"] = entry.get("forced", False)
 
+        self._enforce_limits(timestamp)
         return entry
 
     async def resume(self, session_id: int) -> dict[str, Any] | None:
@@ -94,6 +214,7 @@ class JobManager:
         entry["updated_at"] = timestamp
         entry["forced"] = False
         self._clear_stop_timestamps(entry)
+        self._enforce_limits(timestamp)
         return entry
 
     def _clear_stop_timestamps(self, entry: dict[str, Any]) -> None:
