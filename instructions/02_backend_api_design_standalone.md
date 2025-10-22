@@ -670,8 +670,20 @@ Content-Type: application/json
 **POST /api/v1/training/{session_id}/resume - 学習再開**
 
 - 応答は`TrainingSessionResponse`で、最新のDB状態を返す。ジョブキュー側では`job_manager.resume(session_id)`で`resumed_at`と`status="queued"`を設定し、既存エントリがない場合は`enqueue`で新規作成する。
+- `/resume`が`TrainingActionResponse`ではなく`TrainingSessionResponse`を返すのは、再キューイング直後にクライアントが進捗バーや構成表示を更新できるよう、永続化された全フィールド(`status`/`current_timestep`/`config`など)を即時取得させるためである。`stop`/`pause`は既存セッションのサマリのみが必要なため簡易レスポンスを採用するが、再開時は最新構成と再キュー後の`queued`状態を描画するユースケースが想定される。
 - `JobManager`の保持戦略により履歴エントリが削除された場合でも、`resume`時に`payload`を最新構成で上書きするためAPI利用者は常に新しい`task_id`・`algorithm`・`config`にアクセスできる。
 - セッションロックシナリオでは、`resume`完了後に同一イベントループ上で`stop`が実行されても、`resumed_at`がクリアされないことをユニットテストで担保する。
+
+**キュー状態と永続ステータスの対応**
+
+| JobManager `status` | API停止理由 | 永続化される`TrainingJob.status` |
+|---------------------|--------------|-------------------------------|
+| `queued`            | `resume`/`enqueue` | `queued` |
+| `paused`            | `reason="paused"` | `paused` |
+| `stopped`           | `reason="stopped"` | `failed` (完了フラグON) |
+| `revoked`           | `reason="revoked"` | `failed` (強制停止扱い) |
+
+テストやQAでは、ジョブキュー上のステータスとDBステータスの双方を確認し、`stop`後に`failed`へ遷移する一方で`JobManager`には停止理由が保持されていることを検証する。
 
 **GET /api/v1/training/{session_id}/status - 状態取得**
 
@@ -781,7 +793,7 @@ Content-Type: application/json
 - 各エントリのフィールド:
   - `session_id` / `task_id` / `status` / `forced`
   - タイムライン: `enqueued_at` / `updated_at` / `paused_at` / `resumed_at` / `stopped_at` / `revoked_at`
-  - `payload`: 学習開始・再開時の構成(JSON)
+  - `payload`: 学習開始・再開時の構成(JSON)。`TrainingService.build_training_config()`で生成した辞書が保存され、`TrainingSessionCreate`入力の主要フィールド(名前/アルゴリズム/環境設定/学習パラメータ)と復元済み`config`差分、`task_id`が含まれる。
 - 保持実装により`history_ttl`超過エントリは一覧から除外される。セッションロックの影響で同一セッションが直列化されても、別セッションのエントリは並列に更新されるため一覧応答の順序に影響はない。
 
 ```json
@@ -800,11 +812,25 @@ Content-Type: application/json
       "revoked_at": null,
       "payload": {
         "session_id": 42,
+        "name": "nightly-guard-run",
         "algorithm": "ppo",
         "environment_type": "standard",
         "config": {
-          "total_timesteps": 10000
-        }
+          "session_id": 42,
+          "name": "nightly-guard-run",
+          "algorithm": "ppo",
+          "environment_type": "standard",
+          "total_timesteps": 10000,
+          "env_width": 8,
+          "env_height": 8,
+          "coverage_weight": 1.5,
+          "exploration_weight": 3.0,
+          "diversity_weight": 2.0,
+          "learning_rate": 0.0003,
+          "batch_size": 64,
+          "num_workers": 1
+        },
+        "task_id": "queue-task-42"
       }
     }
   ]
