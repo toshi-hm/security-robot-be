@@ -536,6 +536,35 @@ def test_environment_different_sizes(width, height):
     assert observation.shape == (height, width, 3)
 ```
 
+### 2.5 ジョブマネージャーのセッションロック並行制御テスト
+
+セッション粒度ロック導入後は、同一`session_id`に対する`stop`/`resume`呼び出しが厳密に直列化されることをユニットテストで担保する。ロック導入前は状態更新が辞書操作のみで原子的に近かったが、保持件数制御やTTLクリーンアップの追加で処理時間が伸びるため、テストで**順序保証**と**タイムスタンプ整合性**を明確にする。
+
+#### フィクスチャ・計測戦略
+
+- `JobManager`インスタンスをテストごとに生成し、`job_manager_module.utcnow`を`set_time_sequence`で制御してタイムスタンプ比較を容易にする。ロック計測用のイベントを待機するたびに`set_time_sequence`へ次のタイムスタンプを登録し、`utcnow()`呼び出しとロック解放順序が乖離しないよう同期をとる。
+- セッションロック導入後は、`JobManager`内部で使用する`asyncio.Lock`をモンキーパッチして、`acquire`前後で`asyncio.Event`を発火させられる`InstrumentedLock`に差し替える。これにより、テスト側で`stop`/`resume`の同期待ち合わせポイントを制御し、意図した順序でタスクを実行できる。イベント解放のたびに`set_time_sequence`へ予定したタイムスタンプを積み増しし、非決定的な`utcnow()`順序を回避する。
+- それぞれのAPI呼び出しは`asyncio.create_task`で並列起動し、`asyncio.wait_for`でタイムアウトを掛けることでデッドロックを検知する。
+
+#### 並行シナリオと期待結果
+
+| ケース | 制御した順序 | 期待する最終状態<br>(`JobManager.get` / `TrainingJob.status`) | 追加で確認するポイント |
+|--------|---------------|------------------------------------------------------------|-------------------------|
+| A | `stop`がロック取得 → メタデータ更新 → `resume`が待機後に実行 | `status="queued"` / `queued`、`resumed_at > stopped_at`、`forced is False` | `stop`呼び出しが返す辞書には`stopped_at`が含まれ、`resume`後に`stopped_at`がクリアされていること |
+| B | `resume`が先にロック取得 → 待機中の`stop`が順次実行 | `status="stopped"` / `failed`、`resumed_at`が保持され`stopped_at > resumed_at`、`forced is False` | `stop`完了後でも`resume`で設定した`resumed_at`が消えず、`updated_at`が`stopped_at`と同一であること |
+| C | `resume`完了後に`reason="revoked"`の`stop`が実行 | `status="revoked"` / `failed`、`resumed_at`保持、`revoked_at > resumed_at`、`forced is True` | `stop`戻り値に`forced=True`が反映され、履歴クリーンアップ後も`resumed_at`が失われないこと |
+
+> **補足:** テーブルの`status`欄は左側がジョブキュー(`JobManager`)のステータス、右側がDBに永続化される`TrainingJob.status`を表す。`reason="stopped"`/`"revoked"`はキューメタデータへ直接書き込まれる一方、APIレイヤーでは停止後に`TrainingJobStatus.failed`を保存するため、テストでは両者の整合確認が必要になる。
+
+- いずれのケースも`await asyncio.gather(stop_task, resume_task)`で両タスク完了を待ち、`JobManager.snapshot()`を用いて履歴エントリが一件のみであること、`updated_at`が最後に実行された操作のタイムスタンプと一致することを検証する。
+- 追加で、異なる`session_id`に対する`stop`と`resume`を同時に起動し、両者が互いに待機しない(完了までの経過時間がロック待ちを伴わない)ことを`time.monotonic()`で測定し、セッション粒度ロックによって全体がシリアライズされていないことを確認する。
+
+#### 実装メモ
+
+- ロックのインスツルメンテーションは `asyncio.Lock` のサブクラスで `acquire()` をオーバーライドし、テストコードに渡された`before_acquire`/`after_release`イベントを操作する。
+- タイムスタンプ検証は`set_time_sequence`で`stop`/`resume`ごとに異なる`utcnow()`値を供給し、比較のために`datetime`を固定する。
+- 将来的に保持件数制御がエントリ削除を伴う場合に備え、ケースCでは`stop`完了直後に`job_manager.snapshot()`へ`len == 1`をアサートし、クリーンアップが並行実行でもエントリを誤削除しないことを保証する。
+
 ## 3. フロントエンド単体テスト設計
 
 ### 3.1 Vitest設定 (vitest.config.ts)

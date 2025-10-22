@@ -612,41 +612,78 @@ Content-Type: application/json
 
 **POST /api/v1/training/{session_id}/stop - 学習停止**
 
-```python
-@router.post("/{session_id}/stop", status_code=200)
-async def stop_training(
-    session_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    実行中の学習セッションを停止
+- 応答スキーマは`TrainingActionResponse`。ジョブキュー(`JobManager`)の停止メタデータとCelery停止結果をまとめて返す。
+- フロー:
+  1. `TrainingService.get_session()`で存在確認し、見つからなければ404。
+  2. `job_manager.stop(session_id, reason="stopped"|"revoked")`でキューエントリを更新し、`queue_task_id`や停止タイムスタンプを取得。
+  3. 学習タスクを`training_dispatcher.stop()`経由で停止し、`force=true`の場合は`training_dispatcher.revoke()`を追加実行して強制終了させる。
+  4. セッション状態を`failed`で永続化し、レスポンスに`celery_task_id`・`queue_task_id`・`revoked_task_id`・`forced`を含めて返却。
+- セッション粒度ロック導入時も`JobManager`側で直列化されるため、`stop`レスポンスは常に停止時点のタイムライン(`stopped_at` or `revoked_at`)を保持する。
 
-    Args:
-        session_id: セッションID
-        db: データベースセッション
+**レスポンス例 (force=false):**
+```json
+HTTP/1.1 200 OK
+Content-Type: application/json
 
-    Returns:
-        停止結果メッセージ
-
-    Raises:
-        HTTPException: セッションが見つからない、または停止できない場合
-    """
-    service = TrainingService(db)
-
-    success = await service.stop_training(session_id)
-
-    if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Training session {session_id} not found or cannot be stopped"
-        )
-
-    return {
-        "message": f"Training session {session_id} stopped successfully",
-        "session_id": session_id,
-        "timestamp": datetime.utcnow().isoformat()
-    }
+{
+  "session_id": 42,
+  "status": "failed",
+  "message": "Training session 42 stopped successfully",
+  "celery_task_id": "async-result-42",
+  "queue_task_id": "queue-task-42",
+  "revoked_task_id": null,
+  "forced": false
+}
 ```
+
+**レスポンス例 (force=true):**
+```json
+{
+  "session_id": 42,
+  "status": "failed",
+  "message": "Training session 42 forcefully stopped",
+  "celery_task_id": "async-result-42",
+  "queue_task_id": "queue-task-42",
+  "revoked_task_id": "queue-task-42",
+  "forced": true
+}
+```
+
+**POST /api/v1/training/{session_id}/pause - 学習一時停止**
+
+- `TrainingActionResponse`で`queue_task_id`を返し、APIクライアントが停止対象タスクを特定できるようにする。`celery_task_id`と`revoked_task_id`は`null`。
+- `job_manager.stop(session_id, reason="paused")`を呼び出して`paused_at`を記録し、`forced`は常に`false`。
+- セッションロック適用後は、同一セッションに対する他の`stop`/`resume`呼び出しが完了するまで待機するため、レスポンス時点で`paused_at`と`updated_at`の一貫性が保証される。
+
+```json
+{
+  "session_id": 42,
+  "status": "paused",
+  "message": "Training session 42 paused successfully",
+  "celery_task_id": null,
+  "queue_task_id": "queue-task-42",
+  "revoked_task_id": null,
+  "forced": false
+}
+```
+
+**POST /api/v1/training/{session_id}/resume - 学習再開**
+
+- 応答は`TrainingSessionResponse`で、最新のDB状態を返す。ジョブキュー側では`job_manager.resume(session_id)`で`resumed_at`と`status="queued"`を設定し、既存エントリがない場合は`enqueue`で新規作成する。
+- `/resume`が`TrainingActionResponse`ではなく`TrainingSessionResponse`を返すのは、再キューイング直後にクライアントが進捗バーや構成表示を更新できるよう、永続化された全フィールド(`status`/`current_timestep`/`config`など)を即時取得させるためである。`stop`/`pause`は既存セッションのサマリのみが必要なため簡易レスポンスを採用するが、再開時は最新構成と再キュー後の`queued`状態を描画するユースケースが想定される。
+- `JobManager`の保持戦略により履歴エントリが削除された場合でも、`resume`時に`payload`を最新構成で上書きするためAPI利用者は常に新しい`task_id`・`algorithm`・`config`にアクセスできる。
+- セッションロックシナリオでは、`resume`完了後に同一イベントループ上で`stop`が実行されても、`resumed_at`がクリアされないことをユニットテストで担保する。
+
+**キュー状態と永続ステータスの対応**
+
+| JobManager `status` | API停止理由 | 永続化される`TrainingJob.status` |
+|---------------------|--------------|-------------------------------|
+| `queued`            | `resume`/`enqueue` | `queued` |
+| `paused`            | `reason="paused"` | `paused` |
+| `stopped`           | `reason="stopped"` | `failed` (完了フラグON) |
+| `revoked`           | `reason="revoked"` | `failed` (強制停止扱い) |
+
+テストやQAでは、ジョブキュー上のステータスとDBステータスの双方を確認し、`stop`後に`failed`へ遷移する一方で`JobManager`には停止理由が保持されていることを検証する。
 
 **GET /api/v1/training/{session_id}/status - 状態取得**
 
@@ -749,6 +786,66 @@ Content-Type: application/json
   }
 ]
 ```
+
+**GET /api/v1/jobs/ - ジョブキュー一覧**
+
+- `JobQueueListResponse`で、`jobs`配列には`JobManager.snapshot()`から取得した最新メタデータが含まれる。
+- 各エントリのフィールド:
+  - `session_id` / `task_id` / `status` / `forced`
+  - タイムライン: `enqueued_at` / `updated_at` / `paused_at` / `resumed_at` / `stopped_at` / `revoked_at`
+  - `payload`: 学習開始・再開時の構成(JSON)。`TrainingService.build_training_config()`で生成した辞書が保存され、`TrainingSessionCreate`入力の主要フィールド(名前/アルゴリズム/環境設定/学習パラメータ)と復元済み`config`差分、`task_id`が含まれる。
+- 保持実装により`history_ttl`超過エントリは一覧から除外される。セッションロックの影響で同一セッションが直列化されても、別セッションのエントリは並列に更新されるため一覧応答の順序に影響はない。
+
+```json
+{
+  "jobs": [
+    {
+      "session_id": 42,
+      "task_id": "queue-task-42",
+      "status": "queued",
+      "forced": false,
+      "enqueued_at": "2025-10-21T12:00:00Z",
+      "updated_at": "2025-10-21T12:05:00Z",
+      "paused_at": "2025-10-21T12:03:00Z",
+      "resumed_at": "2025-10-21T12:05:00Z",
+      "stopped_at": null,
+      "revoked_at": null,
+      "payload": {
+        "session_id": 42,
+        "name": "nightly-guard-run",
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "config": {
+          "session_id": 42,
+          "name": "nightly-guard-run",
+          "algorithm": "ppo",
+          "environment_type": "standard",
+          "total_timesteps": 10000,
+          "env_width": 8,
+          "env_height": 8,
+          "coverage_weight": 1.5,
+          "exploration_weight": 3.0,
+          "diversity_weight": 2.0,
+          "learning_rate": 0.0003,
+          "batch_size": 64,
+          "num_workers": 1
+        },
+        "task_id": "queue-task-42"
+      }
+    }
+  ]
+}
+```
+
+**GET /api/v1/jobs/{session_id} - キュー詳細取得**
+
+- 応答は`JobQueueDetailResponse`。指定セッションが保持対象外になっている場合は404を返す。
+- `forced`や各タイムスタンプを参照することで、API利用者は停止理由や最新の再開時刻を判別できる。
+
+**DELETE /api/v1/jobs/{session_id} - キューエントリ削除**
+
+- `job_manager.discard(session_id)`を呼び出して手動パージを行う。学習セッション削除API(`DELETE /api/v1/training/{id}`)でも同操作を実行する。
+- ロック導入後も削除操作は対象セッションのロック取得後に行われるため、並行`stop`/`resume`で中間状態が残らない。
 
 ### 4.2 WebSocket通信実装
 
