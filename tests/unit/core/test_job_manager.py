@@ -1,7 +1,10 @@
 """Unit tests for the in-memory job queue manager."""
 from __future__ import annotations
 
+import asyncio
+from collections import deque
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -9,6 +12,85 @@ import pytest
 from app.core.training import job_manager as job_manager_module
 from app.core.training.job_manager import JobManager
 from tests.utils.time import set_time_sequence
+
+
+class InstrumentedLock(asyncio.Lock):
+    """Lock that allows tests to choreograph acquire/release order."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._acquire_plan: deque[
+            tuple[asyncio.Event | None, asyncio.Event | None]
+        ] = deque()
+        self._release_plan: deque[
+            tuple[asyncio.Event | None, asyncio.Event | None]
+        ] = deque()
+
+    def plan_acquire(
+        self,
+        *,
+        notify: asyncio.Event | None = None,
+        gate: asyncio.Event | None = None,
+    ) -> None:
+        """Schedule hooks for the next ``acquire`` call."""
+
+        self._acquire_plan.append((notify, gate))
+
+    def plan_release(
+        self,
+        *,
+        notify: asyncio.Event | None = None,
+        signal: asyncio.Event | None = None,
+    ) -> None:
+        """Schedule hooks for the next ``release`` call."""
+
+        self._release_plan.append((notify, signal))
+
+    async def acquire(self) -> bool:  # type: ignore[override]
+        notify, gate = self._acquire_plan.popleft() if self._acquire_plan else (None, None)
+
+        if notify is not None:
+            notify.set()
+
+        if gate is not None:
+            await gate.wait()
+
+        await super().acquire()
+        return True
+
+    def release(self) -> None:  # type: ignore[override]
+        notify, signal = self._release_plan.popleft() if self._release_plan else (None, None)
+
+        if notify is not None:
+            notify.set()
+
+        super().release()
+
+        if signal is not None:
+            signal.set()
+
+
+class LockController:
+    """Factory used to capture instrumented locks created by the manager."""
+
+    def __init__(self) -> None:
+        self.locks: list[InstrumentedLock] = []
+
+    def create_lock(self, *args: Any, **kwargs: Any) -> InstrumentedLock:
+        lock = InstrumentedLock()
+        self.locks.append(lock)
+        return lock
+
+
+@pytest.fixture
+def instrumented_lock_controller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> LockController:
+    """Replace ``asyncio.Lock`` with ``InstrumentedLock`` for the module under test."""
+
+    controller = LockController()
+    monkeypatch.setattr(job_manager_module.asyncio, "Lock", controller.create_lock)
+    return controller
 
 
 def _freeze_uuid(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
@@ -191,6 +273,247 @@ async def test_stop_after_resume_preserves_resumed_timestamp(
     # even after the session transitions into a terminal state.
     assert entry["resumed_at"] == resumed_at
     assert entry["forced"] is False
+
+
+@pytest.mark.asyncio
+async def test_stop_then_resume_serializes_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    instrumented_lock_controller: LockController,
+) -> None:
+    manager = JobManager()
+    session_id = 256
+    enqueued_at = datetime(2025, 10, 21, 9, 0, tzinfo=UTC)
+    stopped_at = enqueued_at + timedelta(minutes=5)
+    resumed_at = stopped_at + timedelta(minutes=2)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        enqueued_at,
+        stopped_at,
+        resumed_at,
+    )
+
+    await manager.enqueue({"session_id": session_id})
+    lock = instrumented_lock_controller.locks[0]
+
+    stop_started = asyncio.Event()
+    stop_released = asyncio.Event()
+    resume_started = asyncio.Event()
+    allow_resume = asyncio.Event()
+
+    lock.plan_acquire(notify=stop_started)
+    lock.plan_release(signal=stop_released)
+    lock.plan_acquire(notify=resume_started, gate=allow_resume)
+
+    stop_task = asyncio.create_task(manager.stop(session_id, reason="stopped"))
+    resume_task = asyncio.create_task(manager.resume(session_id))
+
+    await stop_started.wait()
+    await resume_started.wait()
+
+    stop_result = await stop_task
+    stop_snapshot = dict(stop_result)
+
+    assert stop_released.is_set()
+    assert stop_snapshot["status"] == "stopped"
+    assert stop_snapshot["stopped_at"] == stopped_at
+    assert stop_snapshot["updated_at"] == stopped_at
+    assert stop_snapshot["forced"] is False
+
+    allow_resume.set()
+
+    resume_result = await resume_task
+
+    assert resume_result is not None
+    assert resume_result["status"] == "queued"
+    assert resume_result["resumed_at"] == resumed_at
+    assert resume_result["updated_at"] == resumed_at
+    assert resume_result["forced"] is False
+    assert "stopped_at" not in resume_result
+
+    snapshot = manager.snapshot()
+    assert len(snapshot) == 1
+    assert snapshot[0]["status"] == "queued"
+    assert snapshot[0]["resumed_at"] == resumed_at
+
+
+@pytest.mark.asyncio
+async def test_resume_then_stop_preserves_resume_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+    instrumented_lock_controller: LockController,
+) -> None:
+    manager = JobManager()
+    session_id = 257
+    enqueued_at = datetime(2025, 10, 21, 10, 0, tzinfo=UTC)
+    resumed_at = enqueued_at + timedelta(minutes=3)
+    stopped_at = resumed_at + timedelta(minutes=4)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        enqueued_at,
+        resumed_at,
+        stopped_at,
+    )
+
+    await manager.enqueue({"session_id": session_id})
+    lock = instrumented_lock_controller.locks[0]
+
+    resume_started = asyncio.Event()
+    resume_finished = asyncio.Event()
+    stop_started = asyncio.Event()
+    allow_stop = asyncio.Event()
+
+    lock.plan_acquire(notify=resume_started)
+    lock.plan_release(signal=resume_finished)
+    lock.plan_acquire(notify=stop_started, gate=allow_stop)
+
+    resume_task = asyncio.create_task(manager.resume(session_id))
+    stop_task = asyncio.create_task(manager.stop(session_id, reason="stopped"))
+
+    await resume_started.wait()
+    resume_result = await resume_task
+    resume_snapshot = dict(resume_result)
+
+    assert resume_finished.is_set()
+    assert resume_snapshot["status"] == "queued"
+    assert resume_snapshot["resumed_at"] == resumed_at
+    assert resume_snapshot["updated_at"] == resumed_at
+
+    allow_stop.set()
+
+    stop_result = await stop_task
+
+    assert stop_result is not None
+    assert stop_result["status"] == "stopped"
+    assert stop_result["stopped_at"] == stopped_at
+    assert stop_result["updated_at"] == stopped_at
+    assert stop_result["resumed_at"] == resumed_at
+    assert stop_result["forced"] is False
+
+    entry = manager.get(session_id)
+    assert entry is not None
+    assert entry["status"] == "stopped"
+    assert entry["stopped_at"] == stopped_at
+    assert entry["resumed_at"] == resumed_at
+
+
+@pytest.mark.asyncio
+async def test_resume_then_revoke_marks_forced(
+    monkeypatch: pytest.MonkeyPatch,
+    instrumented_lock_controller: LockController,
+) -> None:
+    manager = JobManager()
+    session_id = 258
+    enqueued_at = datetime(2025, 10, 21, 11, 0, tzinfo=UTC)
+    resumed_at = enqueued_at + timedelta(minutes=2)
+    revoked_at = resumed_at + timedelta(minutes=3)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        enqueued_at,
+        resumed_at,
+        revoked_at,
+    )
+
+    await manager.enqueue({"session_id": session_id})
+    lock = instrumented_lock_controller.locks[0]
+
+    resume_started = asyncio.Event()
+    resume_finished = asyncio.Event()
+    allow_stop = asyncio.Event()
+
+    lock.plan_acquire(notify=resume_started)
+    lock.plan_release(signal=resume_finished)
+    lock.plan_acquire(gate=allow_stop)
+
+    resume_task = asyncio.create_task(manager.resume(session_id))
+    stop_task = asyncio.create_task(manager.stop(session_id, reason="revoked"))
+
+    await resume_started.wait()
+    resume_result = await resume_task
+    resume_snapshot = dict(resume_result)
+
+    assert resume_finished.is_set()
+    assert resume_snapshot["status"] == "queued"
+    assert resume_snapshot["resumed_at"] == resumed_at
+    assert resume_snapshot["updated_at"] == resumed_at
+
+    allow_stop.set()
+
+    stop_result = await stop_task
+
+    assert stop_result is not None
+    assert stop_result["status"] == "revoked"
+    assert stop_result["revoked_at"] == revoked_at
+    assert stop_result["updated_at"] == revoked_at
+    assert stop_result["resumed_at"] == resumed_at
+    assert stop_result["forced"] is True
+
+    snapshot = manager.snapshot()
+    assert len(snapshot) == 1
+    assert snapshot[0]["status"] == "revoked"
+    assert snapshot[0]["resumed_at"] == resumed_at
+    assert snapshot[0]["revoked_at"] == revoked_at
+
+
+@pytest.mark.asyncio
+async def test_distinct_sessions_do_not_block_each_other(
+    monkeypatch: pytest.MonkeyPatch,
+    instrumented_lock_controller: LockController,
+) -> None:
+    manager = JobManager()
+    enqueue_base = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
+    stop_time = enqueue_base + timedelta(minutes=5)
+    resume_time = stop_time + timedelta(minutes=1)
+    final_stop_time = resume_time + timedelta(minutes=1)
+
+    set_time_sequence(
+        monkeypatch,
+        job_manager_module,
+        enqueue_base,
+        enqueue_base + timedelta(minutes=1),
+        stop_time,
+        resume_time,
+        final_stop_time,
+    )
+
+    await manager.enqueue({"session_id": 1})
+    await manager.enqueue({"session_id": 2})
+
+    lock_one, lock_two = instrumented_lock_controller.locks[:2]
+
+    # Prepare session 2 to be resumed during the concurrent phase.
+    await manager.stop(2, reason="paused")
+
+    allow_session_one = asyncio.Event()
+    session_two_started = asyncio.Event()
+
+    lock_one.plan_acquire(gate=allow_session_one)
+    lock_two.plan_acquire(notify=session_two_started)
+
+    stop_task = asyncio.create_task(manager.stop(1, reason="stopped"))
+    resume_task = asyncio.create_task(manager.resume(2))
+
+    await session_two_started.wait()
+
+    # Session 2 should complete while session 1 is still waiting on its gate.
+    await resume_task
+    assert not stop_task.done()
+
+    allow_session_one.set()
+
+    await stop_task
+
+    entry_one = manager.get(1)
+    entry_two = manager.get(2)
+
+    assert entry_one is not None
+    assert entry_one["status"] == "stopped"
+    assert entry_two is not None
+    assert entry_two["status"] == "queued"
 
 
 @pytest.mark.asyncio

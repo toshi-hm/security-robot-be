@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from uuid import uuid4
 
@@ -24,6 +25,7 @@ class JobManager:
         max_total_entries: int = 500,
         history_ttl: timedelta = timedelta(minutes=30),
         sweep_interval: timedelta = timedelta(minutes=5),
+        lock_factory: Callable[[], asyncio.Lock] | None = None,
     ) -> None:
         self._jobs: dict[int, dict[str, Any]] = {}
         self._max_active_entries = max_active_entries
@@ -31,6 +33,32 @@ class JobManager:
         self._history_ttl = history_ttl
         self._sweep_interval = sweep_interval
         self._last_sweep_at: datetime | None = None
+        self._lock_factory = lock_factory or asyncio.Lock
+        self._locks: dict[int, asyncio.Lock] = {}
+
+    def _get_lock(self, session_id: int) -> asyncio.Lock:
+        """Return the session-scoped lock creating it on first access."""
+
+        lock = self._locks.get(session_id)
+        if lock is None:
+            lock = self._lock_factory()
+            self._locks[session_id] = lock
+        return lock
+
+    def _cleanup_lock_if_unused(self, session_id: int) -> None:
+        """Remove the session lock when no entry remains and it's unlocked."""
+
+        if session_id in self._jobs:
+            return
+
+        lock = self._locks.get(session_id)
+        if lock is None:
+            return
+
+        if lock.locked():
+            return
+
+        self._locks.pop(session_id, None)
 
     def _enforce_limits(self, now: datetime) -> None:
         """Run retention checks to keep the queue within memory bounds."""
@@ -61,6 +89,7 @@ class JobManager:
 
             if updated_at <= cutoff:
                 self._jobs.pop(session_id, None)
+                self._cleanup_lock_if_unused(session_id)
 
         self._last_sweep_at = now
 
@@ -100,6 +129,7 @@ class JobManager:
             to_remove = sorted_active[:excess]
             for session_id, _ in to_remove:
                 self._jobs.pop(session_id, None)
+                self._cleanup_lock_if_unused(session_id)
             active = sorted_active[excess:]
             sorted_active = active
 
@@ -115,6 +145,7 @@ class JobManager:
             remove_count = min(excess_total, len(sorted_history))
             for session_id, _ in sorted_history[:remove_count]:
                 self._jobs.pop(session_id, None)
+                self._cleanup_lock_if_unused(session_id)
             history = sorted_history[remove_count:]
             sorted_history = history
             excess_total -= remove_count
@@ -130,6 +161,7 @@ class JobManager:
 
         for session_id, _ in sorted_active[:excess_total]:
             self._jobs.pop(session_id, None)
+            self._cleanup_lock_if_unused(session_id)
 
     def _is_active(self, entry: dict[str, Any]) -> bool:
         """Return whether a job entry represents an active session."""
@@ -143,20 +175,22 @@ class JobManager:
         if session_id is None:
             raise ValueError("payload must include a session_id")
 
-        task_id = payload.get("task_id") or str(uuid4())
-        timestamp = utcnow()
-        metadata = {
-            "session_id": session_id,
-            "task_id": task_id,
-            "status": "queued",
-            "payload": payload,
-            "enqueued_at": timestamp,
-            "updated_at": timestamp,
-            "forced": False,
-        }
-        self._jobs[session_id] = metadata
-        self._enforce_limits(timestamp)
-        return metadata
+        lock = self._get_lock(session_id)
+        async with lock:
+            task_id = payload.get("task_id") or str(uuid4())
+            timestamp = utcnow()
+            metadata = {
+                "session_id": session_id,
+                "task_id": task_id,
+                "status": "queued",
+                "payload": payload,
+                "enqueued_at": timestamp,
+                "updated_at": timestamp,
+                "forced": False,
+            }
+            self._jobs[session_id] = metadata
+            self._enforce_limits(timestamp)
+            return metadata
 
     async def stop(
         self, session_id: int, *, reason: StopReason | str = "stopped"
@@ -170,52 +204,63 @@ class JobManager:
         cleanup routine expands to cover additional fields.
         """
 
-        entry = self._jobs.get(session_id)
-        if entry is None:
-            return None
+        lock = self._get_lock(session_id)
+        async with lock:
+            entry = self._jobs.get(session_id)
+            if entry is None:
+                result: dict[str, Any] | None = None
+            else:
+                timestamp = utcnow()
+                entry["status"] = reason
+                entry["updated_at"] = timestamp
 
-        timestamp = utcnow()
-        entry["status"] = reason
-        entry["updated_at"] = timestamp
+                resume_timestamp = entry.pop("resumed_at", None)
 
-        resume_timestamp = entry.pop("resumed_at", None)
+                # Remove stale stop-state timestamps before recording the latest
+                # reason.
+                self._clear_stop_timestamps(entry)
 
-        # Remove stale stop-state timestamps before recording the latest reason.
-        self._clear_stop_timestamps(entry)
+                if resume_timestamp is not None:
+                    entry["resumed_at"] = resume_timestamp
 
-        if resume_timestamp is not None:
-            entry["resumed_at"] = resume_timestamp
+                if reason == "stopped":
+                    entry["stopped_at"] = timestamp
+                    entry["forced"] = False
+                elif reason == "paused":
+                    entry["paused_at"] = timestamp
+                    entry["forced"] = False
+                elif reason == "revoked":
+                    entry["revoked_at"] = timestamp
+                    entry["forced"] = True
+                else:
+                    entry["forced"] = entry.get("forced", False)
 
-        if reason == "stopped":
-            entry["stopped_at"] = timestamp
-            entry["forced"] = False
-        elif reason == "paused":
-            entry["paused_at"] = timestamp
-            entry["forced"] = False
-        elif reason == "revoked":
-            entry["revoked_at"] = timestamp
-            entry["forced"] = True
-        else:
-            entry["forced"] = entry.get("forced", False)
+                self._enforce_limits(timestamp)
+                result = entry
 
-        self._enforce_limits(timestamp)
-        return entry
+        self._cleanup_lock_if_unused(session_id)
+        return result
 
     async def resume(self, session_id: int) -> dict[str, Any] | None:
         """Resume a paused session by marking it as queued again."""
 
-        entry = self._jobs.get(session_id)
-        if entry is None:
-            return None
+        lock = self._get_lock(session_id)
+        async with lock:
+            entry = self._jobs.get(session_id)
+            if entry is None:
+                result: dict[str, Any] | None = None
+            else:
+                timestamp = utcnow()
+                entry["status"] = "queued"
+                entry["resumed_at"] = timestamp
+                entry["updated_at"] = timestamp
+                entry["forced"] = False
+                self._clear_stop_timestamps(entry)
+                self._enforce_limits(timestamp)
+                result = entry
 
-        timestamp = utcnow()
-        entry["status"] = "queued"
-        entry["resumed_at"] = timestamp
-        entry["updated_at"] = timestamp
-        entry["forced"] = False
-        self._clear_stop_timestamps(entry)
-        self._enforce_limits(timestamp)
-        return entry
+        self._cleanup_lock_if_unused(session_id)
+        return result
 
     def _clear_stop_timestamps(self, entry: dict[str, Any]) -> None:
         """Remove all stop-reason timestamps from the entry."""
@@ -226,7 +271,11 @@ class JobManager:
     async def discard(self, session_id: int) -> None:
         """Remove a session from the queue manager."""
 
-        self._jobs.pop(session_id, None)
+        lock = self._get_lock(session_id)
+        async with lock:
+            self._jobs.pop(session_id, None)
+
+        self._cleanup_lock_if_unused(session_id)
 
     def get(self, session_id: int) -> dict[str, Any] | None:
         """Return the queue entry for a specific session."""
