@@ -289,9 +289,9 @@ async def test_stop_then_resume_serializes_updates(
     set_time_sequence(
         monkeypatch,
         job_manager_module,
-        enqueued_at,
-        stopped_at,
-        resumed_at,
+        enqueued_at,  # 1: enqueue
+        stopped_at,  # 2: stop
+        resumed_at,  # 3: resume
     )
 
     await manager.enqueue({"session_id": session_id})
@@ -352,9 +352,9 @@ async def test_resume_then_stop_preserves_resume_timestamp(
     set_time_sequence(
         monkeypatch,
         job_manager_module,
-        enqueued_at,
-        resumed_at,
-        stopped_at,
+        enqueued_at,  # 1: enqueue
+        resumed_at,  # 2: resume
+        stopped_at,  # 3: stop
     )
 
     await manager.enqueue({"session_id": session_id})
@@ -413,9 +413,9 @@ async def test_resume_then_revoke_marks_forced(
     set_time_sequence(
         monkeypatch,
         job_manager_module,
-        enqueued_at,
-        resumed_at,
-        revoked_at,
+        enqueued_at,  # 1: enqueue
+        resumed_at,  # 2: resume
+        revoked_at,  # 3: stop with revoke
     )
 
     await manager.enqueue({"session_id": session_id})
@@ -473,11 +473,11 @@ async def test_distinct_sessions_do_not_block_each_other(
     set_time_sequence(
         monkeypatch,
         job_manager_module,
-        enqueue_base,
-        enqueue_base + timedelta(minutes=1),
-        stop_time,
-        resume_time,
-        final_stop_time,
+        enqueue_base,  # 1: session 1 enqueue
+        enqueue_base + timedelta(minutes=1),  # 2: session 2 enqueue
+        stop_time,  # 3: session 1 stop request
+        resume_time,  # 4: session 2 resume request
+        final_stop_time,  # 5: session 1 final stop
     )
 
     await manager.enqueue({"session_id": 1})

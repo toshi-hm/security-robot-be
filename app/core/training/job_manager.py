@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable, Literal
+from typing import Any, AsyncIterator, Callable, Literal
 
 from uuid import uuid4
 
@@ -10,6 +12,14 @@ from app.utils.datetime import utcnow
 
 
 StopReason = Literal["stopped", "paused", "revoked"]
+
+
+@dataclass
+class _SessionLock:
+    """Container that tracks per-session lock usage."""
+
+    lock: asyncio.Lock
+    users: int = 0
 
 
 class JobManager:
@@ -34,28 +44,45 @@ class JobManager:
         self._sweep_interval = sweep_interval
         self._last_sweep_at: datetime | None = None
         self._lock_factory = lock_factory or asyncio.Lock
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks: dict[int, _SessionLock] = {}
 
-    def _get_lock(self, session_id: int) -> asyncio.Lock:
+    def _get_lock(self, session_id: int) -> _SessionLock:
         """Return the session-scoped lock creating it on first access."""
 
-        lock = self._locks.get(session_id)
-        if lock is None:
-            lock = self._lock_factory()
-            self._locks[session_id] = lock
-        return lock
+        return self._locks.setdefault(
+            session_id, _SessionLock(lock=self._lock_factory())
+        )
+
+    @asynccontextmanager
+    async def _session_guard(self, session_id: int) -> AsyncIterator[None]:
+        """Acquire the per-session lock while tracking active waiters."""
+
+        lock_entry = self._get_lock(session_id)
+        lock_entry.users += 1
+        try:
+            async with lock_entry.lock:
+                yield
+        finally:
+            lock_entry.users -= 1
+            if lock_entry.users < 0:
+                lock_entry.users = 0
+                raise RuntimeError("Session lock usage counter underflow")
+            self._cleanup_lock_if_unused(session_id)
 
     def _cleanup_lock_if_unused(self, session_id: int) -> None:
-        """Remove the session lock when no entry remains and it's unlocked."""
+        """Remove the session lock once no jobs or waiters remain for it."""
+
+        lock_entry = self._locks.get(session_id)
+        if lock_entry is None:
+            return
 
         if session_id in self._jobs:
             return
 
-        lock = self._locks.get(session_id)
-        if lock is None:
+        if lock_entry.users > 0:
             return
 
-        if lock.locked():
+        if lock_entry.lock.locked():
             return
 
         self._locks.pop(session_id, None)
@@ -175,8 +202,7 @@ class JobManager:
         if session_id is None:
             raise ValueError("payload must include a session_id")
 
-        lock = self._get_lock(session_id)
-        async with lock:
+        async with self._session_guard(session_id):
             task_id = payload.get("task_id") or str(uuid4())
             timestamp = utcnow()
             metadata = {
@@ -204,8 +230,7 @@ class JobManager:
         cleanup routine expands to cover additional fields.
         """
 
-        lock = self._get_lock(session_id)
-        async with lock:
+        async with self._session_guard(session_id):
             entry = self._jobs.get(session_id)
             if entry is None:
                 result: dict[str, Any] | None = None
@@ -238,14 +263,12 @@ class JobManager:
                 self._enforce_limits(timestamp)
                 result = entry
 
-        self._cleanup_lock_if_unused(session_id)
         return result
 
     async def resume(self, session_id: int) -> dict[str, Any] | None:
         """Resume a paused session by marking it as queued again."""
 
-        lock = self._get_lock(session_id)
-        async with lock:
+        async with self._session_guard(session_id):
             entry = self._jobs.get(session_id)
             if entry is None:
                 result: dict[str, Any] | None = None
@@ -259,7 +282,6 @@ class JobManager:
                 self._enforce_limits(timestamp)
                 result = entry
 
-        self._cleanup_lock_if_unused(session_id)
         return result
 
     def _clear_stop_timestamps(self, entry: dict[str, Any]) -> None:
@@ -271,11 +293,8 @@ class JobManager:
     async def discard(self, session_id: int) -> None:
         """Remove a session from the queue manager."""
 
-        lock = self._get_lock(session_id)
-        async with lock:
+        async with self._session_guard(session_id):
             self._jobs.pop(session_id, None)
-
-        self._cleanup_lock_if_unused(session_id)
 
     def get(self, session_id: int) -> dict[str, Any] | None:
         """Return the queue entry for a specific session."""
