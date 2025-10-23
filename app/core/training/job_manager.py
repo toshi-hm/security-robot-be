@@ -16,14 +16,23 @@ StopReason = Literal["stopped", "paused", "revoked"]
 
 @dataclass
 class _SessionLock:
-    """Container that tracks per-session lock usage."""
+    """Track a session-specific ``asyncio.Lock`` and its active users."""
 
     lock: asyncio.Lock
     users: int = 0
 
 
 class JobManager:
-    """Lightweight in-memory queue manager used for API integration tests."""
+    """In-memory queue with per-session locking and bounded history retention.
+
+    Session scoped ``asyncio.Lock`` instances are reference-counted so that all
+    queue mutations (`enqueue`, `stop`, `resume`, etc.) serialize only against
+    operations for the same ``session_id`` while allowing independent sessions
+    to progress concurrently. Locks are created on-demand, reused via
+    ``dict.setdefault`` to avoid duplicate instantiation, and discarded once no
+    jobs, waiters, or active acquisitions remain. Retention limits enforce both
+    maximum active sessions and total history footprint.
+    """
 
     _STOP_REASON_KEYS = ("stopped_at", "paused_at", "revoked_at")
     _DEFAULT_TIMESTAMP = datetime.min.replace(tzinfo=UTC)
@@ -49,9 +58,15 @@ class JobManager:
     def _get_lock(self, session_id: int) -> _SessionLock:
         """Return the session-scoped lock creating it on first access."""
 
-        return self._locks.setdefault(
-            session_id, _SessionLock(lock=self._lock_factory())
-        )
+        lock_entry = self._locks.get(session_id)
+        if lock_entry is not None:
+            return lock_entry
+
+        new_entry = _SessionLock(lock=self._lock_factory())
+        existing = self._locks.setdefault(session_id, new_entry)
+        if existing is not new_entry:
+            return existing
+        return new_entry
 
     @asynccontextmanager
     async def _session_guard(self, session_id: int) -> AsyncIterator[None]:
@@ -63,10 +78,14 @@ class JobManager:
             async with lock_entry.lock:
                 yield
         finally:
+            previous_users = lock_entry.users
             lock_entry.users -= 1
             if lock_entry.users < 0:
                 lock_entry.users = 0
-                raise RuntimeError("Session lock usage counter underflow")
+                raise RuntimeError(
+                    "Session lock usage counter underflow for session "
+                    f"{session_id} (previous_users={previous_users})"
+                )
             self._cleanup_lock_if_unused(session_id)
 
     def _cleanup_lock_if_unused(self, session_id: int) -> None:

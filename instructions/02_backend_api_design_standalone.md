@@ -619,6 +619,12 @@ Content-Type: application/json
   3. 学習タスクを`training_dispatcher.stop()`経由で停止し、`force=true`の場合は`training_dispatcher.revoke()`を追加実行して強制終了させる。
   4. セッション状態を`failed`で永続化し、レスポンスに`celery_task_id`・`queue_task_id`・`revoked_task_id`・`forced`を含めて返却。
 - セッション粒度ロック導入時も`JobManager`側で直列化されるため、`stop`レスポンスは常に停止時点のタイムライン(`stopped_at` or `revoked_at`)を保持する。
+- JobManagerの停止系レスポンスでは以下のメタデータを保持し、API応答にも同名フィールドとして組み込む:
+  - `stopped_at`: 正常停止(`reason="stopped"`)の完了時刻。
+  - `revoked_at`: Celeryタスクを強制停止(`reason="revoked"`)した時刻。`forced=true`と連動。
+  - `paused_at`: 一時停止(`reason="paused"`)で付与されるタイムスタンプ。
+  - `resumed_at`: 直近の`resume`処理でキューに戻した時刻。停止処理後も履歴として保持される。
+  - `forced`: 強制停止または手動停止かを示すブール値。`revoked`時は`true`、`stopped`/`paused`は`false`。
 
 **レスポンス例 (force=false):**
 ```json
@@ -654,6 +660,7 @@ Content-Type: application/json
 - `TrainingActionResponse`で`queue_task_id`を返し、APIクライアントが停止対象タスクを特定できるようにする。`celery_task_id`と`revoked_task_id`は`null`。
 - `job_manager.stop(session_id, reason="paused")`を呼び出して`paused_at`を記録し、`forced`は常に`false`。
 - セッションロック適用後は、同一セッションに対する他の`stop`/`resume`呼び出しが完了するまで待機するため、レスポンス時点で`paused_at`と`updated_at`の一貫性が保証される。
+- 一時停止から再開した場合でも、`resumed_at`は最後に再開した時刻を保持し、タイムラインの追跡に利用できる。
 
 ```json
 {
@@ -673,6 +680,7 @@ Content-Type: application/json
 - `/resume`が`TrainingActionResponse`ではなく`TrainingSessionResponse`を返すのは、再キューイング直後にクライアントが進捗バーや構成表示を更新できるよう、永続化された全フィールド(`status`/`current_timestep`/`config`など)を即時取得させるためである。`stop`/`pause`は既存セッションのサマリのみが必要なため簡易レスポンスを採用するが、再開時は最新構成と再キュー後の`queued`状態を描画するユースケースが想定される。
 - `JobManager`の保持戦略により履歴エントリが削除された場合でも、`resume`時に`payload`を最新構成で上書きするためAPI利用者は常に新しい`task_id`・`algorithm`・`config`にアクセスできる。
 - セッションロックシナリオでは、`resume`完了後に同一イベントループ上で`stop`が実行されても、`resumed_at`がクリアされないことをユニットテストで担保する。
+- `resumed_at`は停止レスポンスにも引き継がれ、停止理由ごとのタイムラインを後追いできるようにする。
 
 **キュー状態と永続ステータスの対応**
 
