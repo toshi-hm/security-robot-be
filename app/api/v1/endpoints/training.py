@@ -129,7 +129,9 @@ async def stop_training(
     if force_flag:
         message = "Training session {session_id} forcefully stopped"
 
-    metadata = target_entry or {}
+    metadata = target_entry or None
+    metadata_dict = metadata or {}
+    forced = metadata_dict.get("forced", False) if metadata else force_flag
 
     return TrainingActionResponse(
         session_id=updated_job.id,
@@ -138,11 +140,11 @@ async def stop_training(
         celery_task_id=celery_task_id,
         queue_task_id=queue_task_id,
         revoked_task_id=revoke_task_id,
-        forced=metadata.get("forced", force_flag),
-        stopped_at=metadata.get("stopped_at"),
-        paused_at=metadata.get("paused_at"),
-        revoked_at=metadata.get("revoked_at"),
-        resumed_at=metadata.get("resumed_at"),
+        forced=forced,
+        stopped_at=metadata_dict.get("stopped_at"),
+        paused_at=metadata_dict.get("paused_at"),
+        revoked_at=metadata_dict.get("revoked_at"),
+        resumed_at=metadata_dict.get("resumed_at"),
     )
 
 
@@ -164,20 +166,22 @@ async def pause_training(
     queue_entry = await job_manager.stop(session_id, reason="paused")
     paused_job = await service.update_status(job, TrainingJobStatus.paused)
 
-    metadata = queue_entry or {}
+    metadata = queue_entry or None
+    metadata_dict = metadata or {}
+    revoke_task_id = None
 
     return TrainingActionResponse(
         session_id=paused_job.id,
         status=paused_job.status,
         message=f"Training session {session_id} paused successfully",
         celery_task_id=None,
-        queue_task_id=metadata.get("task_id"),
-        revoked_task_id=None,
-        forced=metadata.get("forced", False),
-        stopped_at=metadata.get("stopped_at"),
-        paused_at=metadata.get("paused_at"),
-        revoked_at=metadata.get("revoked_at"),
-        resumed_at=metadata.get("resumed_at"),
+        queue_task_id=metadata_dict.get("task_id"),
+        revoked_task_id=revoke_task_id,
+        forced=metadata_dict.get("forced", False),
+        stopped_at=metadata_dict.get("stopped_at"),
+        paused_at=metadata_dict.get("paused_at"),
+        revoked_at=metadata_dict.get("revoked_at"),
+        resumed_at=metadata_dict.get("resumed_at"),
     )
 
 

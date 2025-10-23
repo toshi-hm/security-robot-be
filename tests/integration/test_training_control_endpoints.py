@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import AsyncGenerator
 
@@ -58,6 +58,15 @@ class _DispatcherStub:
             }
         )
         return SimpleNamespace(id=task_id)
+
+
+def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
+    """Assert that a timestamp is within ``window_seconds`` of now."""
+
+    delta = abs((datetime.now(UTC) - timestamp).total_seconds())
+    assert (
+        delta < window_seconds
+    ), f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
 
 
 @pytest.fixture()
@@ -289,6 +298,7 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     assert body["revoked_at"] is None
     assert body["resumed_at"] is None
     stopped_at = datetime.fromisoformat(body["stopped_at"])
+    _assert_recent(stopped_at)
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -346,6 +356,7 @@ def test_force_stop_training_revokes_celery_task(
     assert body["stopped_at"] is None
     assert body["paused_at"] is None
     revoked_at = datetime.fromisoformat(body["revoked_at"])
+    _assert_recent(revoked_at)
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -400,6 +411,7 @@ def test_pause_training_updates_queue_entry_and_response_task_ids(
     assert body["stopped_at"] is None
     assert body["revoked_at"] is None
     paused_at = datetime.fromisoformat(body["paused_at"])
+    _assert_recent(paused_at)
     assert body["resumed_at"] is None
 
     entry = job_manager.get(session_id)
@@ -451,6 +463,8 @@ def test_stop_response_includes_resumed_timestamp(
     assert body["revoked_at"] is None
     stopped_at = datetime.fromisoformat(body["stopped_at"])
     resumed_at = datetime.fromisoformat(body["resumed_at"])
+    _assert_recent(stopped_at)
+    _assert_recent(resumed_at)
 
     queue_entries = job_manager.snapshot()
     assert len(queue_entries) == 1
