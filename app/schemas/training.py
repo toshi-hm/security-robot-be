@@ -179,6 +179,10 @@ class TrainingActionResponse(BaseModel):
     queue_task_id: Optional[str] = None
     revoked_task_id: Optional[str] = None
     forced: bool = False
+    stopped_at: Optional[datetime] = None
+    paused_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    resumed_at: Optional[datetime] = None
 
 
 # Legacy schemas for backward compatibility
