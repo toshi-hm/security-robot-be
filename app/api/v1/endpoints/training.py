@@ -129,6 +129,10 @@ async def stop_training(
     if force_flag:
         message = "Training session {session_id} forcefully stopped"
 
+    metadata = target_entry or None
+    metadata_dict = metadata or {}
+    forced = metadata_dict.get("forced", False) if metadata else force_flag
+
     return TrainingActionResponse(
         session_id=updated_job.id,
         status=updated_job.status,
@@ -136,7 +140,11 @@ async def stop_training(
         celery_task_id=celery_task_id,
         queue_task_id=queue_task_id,
         revoked_task_id=revoke_task_id,
-        forced=force_flag,
+        forced=forced,
+        stopped_at=metadata_dict.get("stopped_at"),
+        paused_at=metadata_dict.get("paused_at"),
+        revoked_at=metadata_dict.get("revoked_at"),
+        resumed_at=metadata_dict.get("resumed_at"),
     )
 
 
@@ -158,12 +166,22 @@ async def pause_training(
     queue_entry = await job_manager.stop(session_id, reason="paused")
     paused_job = await service.update_status(job, TrainingJobStatus.paused)
 
+    metadata = queue_entry or None
+    metadata_dict = metadata or {}
+    revoke_task_id = None
+
     return TrainingActionResponse(
         session_id=paused_job.id,
         status=paused_job.status,
         message=f"Training session {session_id} paused successfully",
         celery_task_id=None,
-        queue_task_id=queue_entry.get("task_id") if queue_entry else None,
+        queue_task_id=metadata_dict.get("task_id"),
+        revoked_task_id=revoke_task_id,
+        forced=metadata_dict.get("forced", False),
+        stopped_at=metadata_dict.get("stopped_at"),
+        paused_at=metadata_dict.get("paused_at"),
+        revoked_at=metadata_dict.get("revoked_at"),
+        resumed_at=metadata_dict.get("resumed_at"),
     )
 
 

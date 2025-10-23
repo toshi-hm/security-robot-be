@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import AsyncGenerator
 
@@ -57,6 +58,15 @@ class _DispatcherStub:
             }
         )
         return SimpleNamespace(id=task_id)
+
+
+def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
+    """Assert that a timestamp is within ``window_seconds`` of now."""
+
+    delta = abs((datetime.now(UTC) - timestamp).total_seconds())
+    assert (
+        delta < window_seconds
+    ), f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
 
 
 @pytest.fixture()
@@ -284,6 +294,11 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
     assert body["queue_task_id"] == dispatcher.dispatched[0]["task_id"]
     assert body["revoked_task_id"] is None
     assert body["forced"] is False
+    assert body["paused_at"] is None
+    assert body["revoked_at"] is None
+    assert body["resumed_at"] is None
+    stopped_at = datetime.fromisoformat(body["stopped_at"])
+    _assert_recent(stopped_at)
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -292,8 +307,10 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
 
     queue_entries = job_manager.snapshot()
     assert len(queue_entries) == 1
-    assert queue_entries[0]["status"] == "stopped"
-    assert queue_entries[0]["forced"] is False
+    queue_entry = queue_entries[0]
+    assert queue_entry["status"] == "stopped"
+    assert queue_entry["forced"] is False
+    assert queue_entry["stopped_at"] == stopped_at
 
     assert dispatcher.stopped == [session_id]
     assert dispatcher.revoked == []
@@ -336,6 +353,10 @@ def test_force_stop_training_revokes_celery_task(
     assert body["forced"] is True
     assert body["revoked_task_id"] == dispatcher.dispatched[0]["task_id"]
     assert "forcefully" in body["message"].lower()
+    assert body["stopped_at"] is None
+    assert body["paused_at"] is None
+    revoked_at = datetime.fromisoformat(body["revoked_at"])
+    _assert_recent(revoked_at)
 
     job = _load_job(session_maker, session_id)
     assert job is not None
@@ -346,6 +367,7 @@ def test_force_stop_training_revokes_celery_task(
     queue_entry = queue_entries[0]
     assert queue_entry["status"] == "revoked"
     assert queue_entry["forced"] is True
+    assert queue_entry["revoked_at"] == revoked_at
 
     assert dispatcher.stopped[-1] == session_id
     assert dispatcher.revoked[-1]["task_id"] == dispatcher.dispatched[0]["task_id"]
@@ -385,12 +407,78 @@ def test_pause_training_updates_queue_entry_and_response_task_ids(
     assert body["status"] == TrainingJobStatus.paused.value
     assert body["celery_task_id"] is None
     queue_task_id = body["queue_task_id"]
+    assert body["forced"] is False
+    assert body["stopped_at"] is None
+    assert body["revoked_at"] is None
+    paused_at = datetime.fromisoformat(body["paused_at"])
+    _assert_recent(paused_at)
+    assert body["resumed_at"] is None
 
     entry = job_manager.get(session_id)
     assert entry is not None
     assert entry["status"] == "paused"
     assert entry["task_id"] == queue_task_id == dispatcher.dispatched[0]["task_id"]
-    assert "paused_at" in entry
+    assert entry["paused_at"] == paused_at
+
+
+def test_stop_response_includes_resumed_timestamp(
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+) -> None:
+    app, session_maker, job_manager, dispatcher = training_api_app
+
+    payload = {
+        "name": "Resume metadata job",
+        "algorithm": "ppo",
+        "environment_type": "standard",
+        "total_timesteps": 200,
+        "env_width": 6,
+        "env_height": 6,
+        "coverage_weight": 1.1,
+        "exploration_weight": 2.1,
+        "diversity_weight": 1.3,
+        "learning_rate": 0.0003,
+        "batch_size": 32,
+        "num_workers": 1,
+        "config": None,
+    }
+
+    with TestClient(app) as client:
+        start_response = client.post("/api/v1/training/start", json=payload)
+        assert start_response.status_code == 202
+        session_id = start_response.json()["id"]
+
+        pause_response = client.post(f"/api/v1/training/{session_id}/pause")
+        assert pause_response.status_code == 200
+
+        resume_response = client.post(f"/api/v1/training/{session_id}/resume")
+        assert resume_response.status_code == 200
+
+        stop_response = client.post(f"/api/v1/training/{session_id}/stop")
+
+    assert stop_response.status_code == 200
+    body = stop_response.json()
+    assert body["status"] == TrainingJobStatus.failed.value
+    assert body["forced"] is False
+    assert body["paused_at"] is None
+    assert body["revoked_at"] is None
+    stopped_at = datetime.fromisoformat(body["stopped_at"])
+    resumed_at = datetime.fromisoformat(body["resumed_at"])
+    _assert_recent(stopped_at)
+    _assert_recent(resumed_at)
+
+    queue_entries = job_manager.snapshot()
+    assert len(queue_entries) == 1
+    queue_entry = queue_entries[0]
+    assert queue_entry["status"] == "stopped"
+    assert queue_entry["forced"] is False
+    assert queue_entry["stopped_at"] == stopped_at
+    assert queue_entry["resumed_at"] == resumed_at
+
+    job = _load_job(session_maker, session_id)
+    assert job is not None
+    assert job.status is TrainingJobStatus.failed
+
+    assert dispatcher.stopped[-1] == session_id
 
 
 def test_status_endpoint_returns_persisted_job_state(
