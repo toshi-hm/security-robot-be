@@ -11,7 +11,8 @@ Guidance for the gpt-5-codex agent when contributing to this repository.
 - [Progress tracker](report/PROGRESS.md)
 - [Development diary summary 01](report/summary/DIARY01.md)
 - [Development diary summary 02](report/summary/DIARY02.md)
-- [Current development diary](report/DIARY03.md)
+- [Development diary summary 03](report/summary/DIARY03.md)
+- [Current development diary](report/DIARY04.md)
 
 ## 🛠️ Environment & setup
 - Manage the Python environment with `uv`: create a venv via `uv venv`, then install dependencies with `uv pip install -r requirements.txt`.
@@ -19,10 +20,11 @@ Guidance for the gpt-5-codex agent when contributing to this repository.
 - For tasks that depend on Redis, Celery, or other services, follow the guidance in `README.md`.
 
 ## ✅ Workflow expectations
-1. At the start of each session, review `report/PROGRESS.md`, `report/summary/DIARY01.md`, `report/summary/DIARY02.md`, and `report/DIARY03.md` to understand outstanding work and prior notes.
+1. At the start of each session, review `report/PROGRESS.md`, `report/summary/DIARY01.md`, `report/summary/DIARY02.md`, `report/summary/DIARY03.md`, and `report/DIARY04.md` to understand outstanding work and prior notes.
+   - Use the dedicated summaries (`report/summary/DIARY0X.md`) to grasp historical context quickly before diving into the full diaries.
 2. Read the relevant design documents and prompts before making changes so that acceptance criteria are clear.
 3. Practice strict test-driven development: add or update tests first when implementing behavior, and run `pytest` after every coding session until all tests pass.
-4. When the session ends, update `report/PROGRESS.md` and append a new entry to `report/DIARY03.md` summarizing the work.
+4. When the session ends, update `report/PROGRESS.md` and append a new entry to `report/DIARY04.md` summarizing the work.
 
 ## 🔍 Review & prompt usage
 - For Pull Request reviews, follow [`instructions/prompts/02_codex_review_prompt.md`](instructions/prompts/02_codex_review_prompt.md) and provide the requested Japanese-language feedback.
