@@ -819,6 +819,23 @@ describe('TrainingControl Component', () => {
   3. **欠損バイナリの検出**: アップロード後に保存ファイルを削除し、ダウンロード時に404と「missing」系メッセージが返ることを確認。ファイル整合性チェックの回帰テストとして扱う。
 - **拡張予定:** 将来的にプレイバックアーカイブZIPを扱う際は、`playback_data/archives/`に生成されたファイルの登録・削除フロー、メタデータの暗号化/署名検証を統合テストでカバーする。
 
+#### 2.4.3 環境セッション操作API
+
+- **対象モジュール:** `app/api/v1/endpoints/environment.py`, `app/core/environment/service.py`
+- **テストファイル(新規):** `tests/integration/test_environment_session_endpoints.py`
+- **フィクスチャ構成:**
+  - `create_app()`でFastAPIアプリを生成し、依存性の`environment_service`をテスト専用インスタンスへ差し替えるための`dependency_overrides`を用意。
+  - `EnvironmentService(session_timeout_seconds=2)`のように短いタイムアウトを設定し、`asyncio.sleep`で期限切れ検証が可能なよう制御。
+- **主要シナリオ:**
+  1. **セッション生成〜操作のハッピーパス:** `POST /api/v1/environment/sessions`で生成したIDを用い、`/reset`・`/action`・`DELETE`が200/204で応答すること、レスポンスの`state.environment_id`と`session_id`が一致することを確認。
+  2. **セッションロック直列化:** 同一`session_id`に対する`/reset`と`/action`を`asyncio.gather`で並列送信し、内部ロックにより1件ずつ処理されること(ステップ番号が単調増加、例外が発生しない)を検証。ログを`caplog`で確認し、ロック取得順序(グローバル→セッション)が崩れていないことをアサート。
+  3. **タイムアウト自動クリーンアップ:** `session_timeout_seconds=1`でセッション生成後、`asyncio.sleep(1.5)`を挟んで`/action`にアクセスし404となることを確認。`EnvironmentService`の内部辞書からセッションが除去されているかも検証。
+  4. **キャパシティ超過エラー:** `max_sessions=1`で2件同時作成を試み、2件目が503(`detail="Environment session capacity exceeded. Please try again later."`)になること、既存セッションが影響を受けないことを確認。
+- **補強ポイント:**
+  - 期限切れセッションに対する`/reset`/`/action`/`/delete`の404応答を統合テストで共通化し、JobManagerロック戦略との整合性(セッションIDごとの直列化)を設計書へ反映。
+  - `EnvironmentService._cleanup_expired_sessions`のデッドロック防止策(グローバルロック→セッションロック順)を回帰テストに含めるため、テスト中に`caplog`や`asyncio.current_task()`を利用してロック順序の逆転が無いことを確認する。
+  - 将来的にJobManagerと連携して環境セッションを強制終了するAPIが追加された際のテストテンプレートを流用できるよう、ヘルパー関数でセッション生成と破棄を共通化する。
+
 ## 4. E2Eテスト設計 (Playwright)
 
 ### 4.1 Playwright設定 (playwright.config.ts)
