@@ -14,6 +14,7 @@ from uuid import uuid4
 from sqlalchemy import exc as sa_exc, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.files import storage
 from app.db.session import SessionLocal
 from app.models.environment import EnvironmentState
@@ -29,9 +30,6 @@ ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
 
 PLAYBACK_ARCHIVE_ROOT = (storage.STORAGE_ROOT / 'playback_archives').resolve()
 PLAYBACK_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
-
-CHUNK_SIZE = 1000
-
 
 def _validate_source(path: str) -> Path:
   source = Path(path).expanduser()
@@ -138,6 +136,9 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
   archive_path: Path | None = None
   db: Session = SessionLocal()
   try:
+    chunk_size = settings.playback_archive_chunk_size
+    max_archive_size = settings.playback_archive_max_bytes
+
     if not isinstance(session_id, int) or session_id <= 0:
       raise ValueError(f'Invalid session_id: {session_id}')
 
@@ -153,6 +154,8 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
     if frame_count == 0:
       raise ValueError(f'No playback frames recorded for session {session_id}')
 
+    transaction_id = getattr(archive_playback_session.request, 'id', None) or uuid4().hex
+
     logger.info('Exporting %d frames for playback session %s', frame_count, session_id)
 
     states_stmt = (
@@ -163,7 +166,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         EnvironmentState.step.asc(),
         EnvironmentState.id.asc(),
       )
-      .execution_options(yield_per=CHUNK_SIZE, stream_results=True)
+      .execution_options(yield_per=chunk_size, stream_results=True)
     )
 
     archive_path = _build_playback_archive_path(session_id)
@@ -175,7 +178,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         for idx, state in enumerate(db.execute(states_stmt).scalars(), start=1):
           json.dump(_serialize_environment_state(state), buffer, ensure_ascii=False, separators=(',', ':'))
           buffer.write('\n')
-          if idx % CHUNK_SIZE == 0 or idx == frame_count:
+          if idx % chunk_size == 0 or idx == frame_count:
             logger.debug('Exported %d/%d frames for session %s', idx, frame_count, session_id)
 
       try:
@@ -191,12 +194,25 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         )
         raise
 
+    archive_size = archive_path.stat().st_size
+    if archive_size > max_archive_size:
+      logger.error(
+        'Archive %s for session %s exceeds max size %d bytes (actual: %d)',
+        archive_path,
+        session_id,
+        max_archive_size,
+        archive_size,
+      )
+      raise ValueError(
+        f'Archive for session {session_id} exceeds maximum size of {max_archive_size} bytes'
+      )
+
     relative_path = archive_path.resolve().relative_to(storage.STORAGE_ROOT.resolve())
     file_record = FileMetadata(
       filename=archive_path.name,
       original_filename=archive_path.name,
       file_path=relative_path.as_posix(),
-      file_size=archive_path.stat().st_size,
+      file_size=archive_size,
       file_type='archives',
       content_type='application/zip',
       training_job_id=session_id,
@@ -205,6 +221,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         'session_id': session_id,
         'frame_count': frame_count,
         'format': 'jsonl',
+        'transaction_id': transaction_id,
       },
     )
 
@@ -221,6 +238,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         'file_id': file_record.id,
         'file_path': file_record.file_path,
         'frame_count': frame_count,
+        'transaction_id': transaction_id,
       },
       critical=True,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -181,16 +182,101 @@ def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: py
         metadata = files[0].metadata_ or {}
         assert metadata.get("session_id") == job_id
         assert metadata.get("frame_count") == 2
+        assert isinstance(metadata.get("transaction_id"), str)
+        assert metadata.get("transaction_id")
+        transaction_id = metadata.get("transaction_id")
 
     assert published["client"] is redis_stub
     assert published["session_id"] == job_id
     assert published["critical"] is True
-    assert published["payload"] == {
-        "event": "playback_archived",
-        "file_id": result["file_id"],
-        "file_path": result["file_path"],
-        "frame_count": 2,
-    }
+    payload = published["payload"]
+    assert payload["event"] == "playback_archived"
+    assert payload["file_id"] == result["file_id"]
+    assert payload["file_path"] == result["file_path"]
+    assert payload["frame_count"] == 2
+    assert isinstance(payload["transaction_id"], str)
+    assert payload["transaction_id"]
+    assert payload["transaction_id"] == transaction_id
+
+
+def test_archive_playback_session_respects_chunk_size_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
+    playback_root = storage_root / "playback_archives"
+    playback_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks, "PLAYBACK_ARCHIVE_ROOT", playback_root)
+
+    Session = _configure_in_memory_db(monkeypatch)
+
+    monkeypatch.setattr(file_tasks, "_create_redis_client", lambda: object())
+    monkeypatch.setattr(
+        file_tasks,
+        "_publish_training_event",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(file_tasks.settings, "playback_archive_chunk_size", 1)
+
+    job = TrainingJob(
+        name="chunk-size",
+        algorithm=TrainingAlgorithm.ppo,
+        environment_type="standard",
+        status=TrainingJobStatus.created,
+        total_timesteps=10,
+    )
+    job_id = _seed_playback_states(Session, job)
+
+    caplog.set_level(logging.DEBUG, logger=file_tasks.logger.name)
+
+    file_tasks.archive_playback_session.run(job_id)
+
+    debug_exports = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.DEBUG and "Exported" in record.getMessage()
+    ]
+    assert len(debug_exports) == 2
+
+
+def test_archive_playback_session_enforces_archive_size_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
+    playback_root = storage_root / "playback_archives"
+    playback_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks, "PLAYBACK_ARCHIVE_ROOT", playback_root)
+
+    Session = _configure_in_memory_db(monkeypatch)
+
+    monkeypatch.setattr(file_tasks, "_create_redis_client", lambda: object())
+    monkeypatch.setattr(
+        file_tasks,
+        "_publish_training_event",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(file_tasks.settings, "playback_archive_max_bytes", 1)
+
+    job = TrainingJob(
+        name="oversize",
+        algorithm=TrainingAlgorithm.ppo,
+        environment_type="standard",
+        status=TrainingJobStatus.created,
+        total_timesteps=10,
+    )
+    job_id = _seed_playback_states(Session, job)
+
+    with pytest.raises(ValueError) as excinfo:
+        file_tasks.archive_playback_session.run(job_id)
+
+    assert "exceeds maximum size" in str(excinfo.value)
+    assert not list(playback_root.rglob("*.zip"))
 
 
 def test_archive_playback_session_without_frames_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
