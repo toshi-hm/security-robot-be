@@ -788,6 +788,37 @@ describe('TrainingControl Component', () => {
 })
 ```
 
+### 2.4 バックエンド統合テスト方針
+
+バックエンド統合テストではFastAPIアプリをインメモリSQLiteと一時ストレージで起動し、HTTP層・DB層・ファイルシステムを横断した振る舞いを検証する。`pytest`マーカーは`@pytest.mark.integration`を付与し、CIでは統合テストステージで実行する。
+
+#### 2.4.1 プレイバックAPI
+
+- **対象モジュール:** `app/api/v1/endpoints/playback.py`, `app/services/playback_service.py`, `app/models/environment.py`
+- **テストファイル:** `tests/integration/test_playback_endpoints_integration.py`
+- **フィクスチャ構成:**
+  - `create_app()`で本番と同じルーター構成を生成。
+  - `create_async_engine('sqlite+aiosqlite:///:memory:')`でインメモリDBを作成し、`Base.metadata.create_all`を事前実行。
+  - `app.dependency_overrides[get_db]`で`AsyncSession`を差し替え、テスト終了時にクリーンアップ。
+- **主要シナリオ:**
+  1. **セッション一覧のソートとページング**: 異なる`last_recorded_at`を持つジョブとフレームを投入し、`GET /api/v1/playback/sessions?page=1&page_size=10`が最新順(`last_recorded_at DESC`)に並ぶこと、合計件数と`frame_count`が正しいことを検証。
+  2. **フレーム取得の順序と分割**: 同一セッションに複数エピソード/ステップを追加し、`GET /api/v1/playback/{session_id}/frames`が`episode ASC, step ASC, id ASC`で整列して返却されること、ページサイズ変更時(`page_size=5`)も空配列を返すことを確認。
+  3. **存在しないセッションの404**: `session_id`に存在しない値を指定して404レスポンスとエラーメッセージ(`Training session {id} not found`)を検証。
+- **拡張予定:** 録画保持ポリシー実装後は、保持閾値超過時のアーカイブ連携(例: 30日超過フレーム非表示、アーカイブ済みセッションIDの404応答)を追加予定。
+
+#### 2.4.2 ファイル管理API
+
+- **対象モジュール:** `app/api/v1/endpoints/files.py`, `app/core/files/storage.py`, `app/services/files_service.py`
+- **テストファイル:** `tests/integration/test_file_management_endpoints.py`
+- **フィクスチャ構成:**
+  - プレイバックAPIと同様に`create_app()`でアプリを生成し、DBはインメモリSQLiteを使用。
+  - `tmp_path`を`storage.STORAGE_ROOT`へモンキーパッチし、アップロードファイルをテスト専用ディレクトリに保存。
+- **主要シナリオ:**
+  1. **アップロード/ダウンロードの往復確認**: `POST /api/v1/files/`でバイナリデータをアップロードし、DBレコード・保存先パス・レスポンスのメタデータを検証した後、`GET /api/v1/files/{id}/download`で同一バイナリが取得できることを確認。
+  2. **存在しないレコードの404**: 未登録IDでダウンロードを要求し、404と`detail`メッセージを検証。
+  3. **欠損バイナリの検出**: アップロード後に保存ファイルを削除し、ダウンロード時に404と「missing」系メッセージが返ることを確認。ファイル整合性チェックの回帰テストとして扱う。
+- **拡張予定:** 将来的にプレイバックアーカイブZIPを扱う際は、`playback_data/archives/`に生成されたファイルの登録・削除フロー、メタデータの暗号化/署名検証を統合テストでカバーする。
+
 ## 4. E2Eテスト設計 (Playwright)
 
 ### 4.1 Playwright設定 (playwright.config.ts)

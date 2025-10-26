@@ -855,7 +855,148 @@ Content-Type: application/json
 - `job_manager.discard(session_id)`を呼び出して手動パージを行う。学習セッション削除API(`DELETE /api/v1/training/{id}`)でも同操作を実行する。
 - ロック導入後も削除操作は対象セッションのロック取得後に行われるため、並行`stop`/`resume`で中間状態が残らない。
 
-### 4.2 WebSocket通信実装
+### 4.2 プレイバックAPI
+
+プレイバックAPIは学習セッション中に収集した環境スナップショット(`EnvironmentState`)を一覧・取得するための読み取り専用エンドポイント群である。レスポンスはページネーション済みのPydanticスキーマ(`PlaybackSessionListResponse`/`PlaybackFramesListResponse`)で返却し、フロントエンドのタイムライン描画や回帰テストが参照する。
+
+**GET /api/v1/playback/sessions - 録画済みセッション一覧**
+
+- `page`: 1始まりのページ番号。既定値1。
+- `page_size`: 1〜100。既定値20。`last_recorded_at DESC, session_id DESC`順に並べ替えた集計結果を返す。
+- セッション情報は`TrainingJob`のメタデータとフレーム統計(総件数/最初・最後のエピソード/記録時刻/最後のステップ)を統合して返却する。
+
+**レスポンス例:**
+```json
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "total": 2,
+  "page": 1,
+  "page_size": 20,
+  "sessions": [
+    {
+      "session_id": 42,
+      "name": "night-watch-ppo",
+      "algorithm": "ppo",
+      "environment_type": "standard",
+      "status": "completed",
+      "total_timesteps": 100000,
+      "current_timestep": 100000,
+      "episodes_completed": 180,
+      "frame_count": 5400,
+      "first_episode": 0,
+      "last_episode": 12,
+      "first_recorded_at": "2025-10-18T02:40:00Z",
+      "last_recorded_at": "2025-10-18T03:15:00Z",
+      "last_step": 8500,
+      "created_at": "2025-10-17T22:15:00Z",
+      "started_at": "2025-10-17T22:20:12Z",
+      "completed_at": "2025-10-18T03:18:04Z"
+    },
+    {
+      "session_id": 41,
+      "name": "baseline-a3c",
+      "algorithm": "a3c",
+      "environment_type": "enhanced",
+      "status": "running",
+      "total_timesteps": 75000,
+      "current_timestep": 32000,
+      "episodes_completed": 96,
+      "frame_count": 2400,
+      "first_episode": 0,
+      "last_episode": 6,
+      "first_recorded_at": "2025-10-17T21:05:00Z",
+      "last_recorded_at": "2025-10-17T23:42:00Z",
+      "last_step": 4200,
+      "created_at": "2025-10-17T20:58:30Z",
+      "started_at": "2025-10-17T21:00:00Z",
+      "completed_at": null
+    }
+  ]
+}
+```
+
+**GET /api/v1/playback/{session_id}/frames - フレームデータ取得**
+
+- `session_id`: 録画対象の学習セッションID。`PlaybackService.get_job`で存在確認を行い、存在しない場合は404。
+- `page`: 1始まりのページ番号。既定値1。
+- `page_size`: 1〜1000。既定値200。`episode ASC, step ASC, id ASC`でソート済みのフレームを返す。
+- フレーム要素は`EnvironmentStateResponse`に準拠し、脅威マップ(`threat_grid`)、訪問回数(`coverage_map`)、検知オブジェクト(`suspicious_objects`)、実行アクション(`action_taken`)などを含む。
+
+**レスポンス例:**
+```json
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "total": 3,
+  "page": 1,
+  "page_size": 200,
+  "frames": [
+    {
+      "id": 1001,
+      "session_id": 42,
+      "episode": 0,
+      "step": 0,
+      "robot_x": 4,
+      "robot_y": 4,
+      "robot_orientation": 0,
+      "threat_grid": {"levels": [[0.1, 0.3], [0.0, 0.7]]},
+      "coverage_map": {"counts": [[1, 0], [0, 0]]},
+      "suspicious_objects": {"items": []},
+      "action_taken": null,
+      "reward_received": 0.0,
+      "created_at": "2025-10-18T02:40:00Z",
+      "updated_at": "2025-10-18T02:40:00Z"
+    },
+    {
+      "id": 1002,
+      "session_id": 42,
+      "episode": 0,
+      "step": 32,
+      "robot_x": 5,
+      "robot_y": 3,
+      "robot_orientation": 1,
+      "threat_grid": {"levels": [[0.1, 0.2], [0.2, 0.5]]},
+      "coverage_map": {"counts": [[2, 1], [0, 0]]},
+      "suspicious_objects": {"items": ["suspicious-box"]},
+      "action_taken": 1,
+      "reward_received": 0.4,
+      "created_at": "2025-10-18T02:41:20Z",
+      "updated_at": "2025-10-18T02:41:20Z"
+    },
+    {
+      "id": 1003,
+      "session_id": 42,
+      "episode": 1,
+      "step": 12,
+      "robot_x": 2,
+      "robot_y": 6,
+      "robot_orientation": 2,
+      "threat_grid": {"levels": [[0.0, 0.0], [0.3, 0.4]]},
+      "coverage_map": {"counts": [[3, 1], [1, 0]]},
+      "suspicious_objects": {"items": []},
+      "action_taken": 2,
+      "reward_received": 0.8,
+      "created_at": "2025-10-18T02:44:05Z",
+      "updated_at": "2025-10-18T02:44:05Z"
+    }
+  ]
+}
+```
+
+**エラーハンドリング:**
+- 未知の`session_id`を指定した場合は404(JSON: `{ "detail": "Training session {id} not found" }`)。
+- クエリパラメータのバリデーションエラーは422でFastAPI標準のエラーペイロードを返却。
+
+#### 録画保持ポリシー
+- **ホットストレージ:** `EnvironmentState`テーブルに格納したフレームを「直近30日」もしくは「1セッションあたり最大50,000フレーム」の範囲で保持する。閾値を超えた場合は最古のフレームから順にアーカイブ対象へ移行する。(閾値は`PLAYBACK_RETENTION_DAYS`・`PLAYBACK_MAX_FRAMES_PER_SESSION`環境変数で調整可能にする計画。)
+- **アーカイブ:** 完了済みセッションについてはCeleryタスクでJSON Linesへエクスポートし、`playback_data/archives/{session_id}/`配下にZIP保管する。アーカイブ完了後、ホットストレージから該当フレームを削除し、ファイル管理API(`GET /api/v1/files/{id}/download`)経由でダウンロードできるようメタデータを登録する。
+- **クリーンアップ頻度:** 1日1回の定期Celeryタスクで保持期間と上限をチェックし、保留フレームが残っている進行中セッションは最新72時間分を必ず残す。アーカイブ実行ログはJobManagerの監査テーブルに記録する。
+- **参照整合性:** プレイバックAPIはホットストレージのみを対象とする。アーカイブ済みセッションを再生する場合はファイル管理APIでZIPを取得し、フロントエンドはオフライン再生コンポーネントで読み込む想定。
+
+### 4.3 WebSocket通信実装
 
 **接続マネージャー実装:**
 
