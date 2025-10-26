@@ -262,6 +262,7 @@ def test_archive_playback_session_enforces_archive_size_limit(
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(file_tasks.settings, "playback_archive_max_bytes", 1)
+    monkeypatch.setattr(file_tasks.settings, "playback_archive_max_expansion_ratio", 1_000)
 
     job = TrainingJob(
         name="oversize",
@@ -276,6 +277,44 @@ def test_archive_playback_session_enforces_archive_size_limit(
         file_tasks.archive_playback_session.run(job_id)
 
     assert "exceeds maximum size" in str(excinfo.value)
+    assert not list(playback_root.rglob("*.zip"))
+
+
+def test_archive_playback_session_enforces_expansion_ratio_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
+    playback_root = storage_root / "playback_archives"
+    playback_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks, "PLAYBACK_ARCHIVE_ROOT", playback_root)
+
+    Session = _configure_in_memory_db(monkeypatch)
+
+    monkeypatch.setattr(file_tasks, "_create_redis_client", lambda: object())
+    monkeypatch.setattr(
+        file_tasks,
+        "_publish_training_event",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(file_tasks.settings, "playback_archive_max_bytes", 1)
+    monkeypatch.setattr(file_tasks.settings, "playback_archive_max_expansion_ratio", 1)
+
+    job = TrainingJob(
+        name="oversize-expansion",
+        algorithm=TrainingAlgorithm.ppo,
+        environment_type="standard",
+        status=TrainingJobStatus.created,
+        total_timesteps=10,
+    )
+    job_id = _seed_playback_states(Session, job)
+
+    with pytest.raises(ValueError) as excinfo:
+        file_tasks.archive_playback_session.run(job_id)
+
+    assert "expansion ratio" in str(excinfo.value)
     assert not list(playback_root.rglob("*.zip"))
 
 

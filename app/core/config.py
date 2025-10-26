@@ -11,7 +11,9 @@ class Settings(BaseSettings):
   environment_session_timeout_seconds: int = 1800
   max_a3c_workers: int = 16
   playback_archive_chunk_size: int = 1000
-  playback_archive_max_bytes: int = 524_288_000  # 500 MiB
+  playback_archive_delete_batch_size: int = 1000
+  playback_archive_max_bytes: int = 524_288_000  # 500 MiB default chosen to fit under typical object storage limits
+  playback_archive_max_expansion_ratio: int = 10  # Guard against archives expanding beyond 10x the compressed size
 
   @field_validator('allowed_origins', mode='before')
   @classmethod
@@ -34,11 +36,25 @@ class Settings(BaseSettings):
       raise ValueError('playback_archive_chunk_size must be a positive integer')
     return value
 
+  @field_validator('playback_archive_delete_batch_size')
+  @classmethod
+  def validate_playback_archive_delete_batch_size(cls, value: int) -> int:
+    if value < 1:
+      raise ValueError('playback_archive_delete_batch_size must be a positive integer')
+    return value
+
   @field_validator('playback_archive_max_bytes')
   @classmethod
   def validate_playback_archive_max_bytes(cls, value: int) -> int:
     if value < 1:
       raise ValueError('playback_archive_max_bytes must be a positive integer')
+    return value
+
+  @field_validator('playback_archive_max_expansion_ratio')
+  @classmethod
+  def validate_playback_archive_max_expansion_ratio(cls, value: int) -> int:
+    if value < 1:
+      raise ValueError('playback_archive_max_expansion_ratio must be a positive integer')
     return value
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from redis import Redis
 from redis.exceptions import RedisError
@@ -47,14 +47,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_PROGRESS_INTERVAL = 250
 
 
-class _NoOpRedis:
+class RedisPublisher(Protocol):
+  """Minimal Redis publisher protocol used for type checking."""
+
+  def publish(self, channel: str, message: str) -> Any:
+    """Publish a message to the given channel."""
+
+
+class _NoOpRedis(RedisPublisher):
   """Fallback Redis client used when no broker is available."""
 
   def publish(self, channel: str, message: str) -> None:  # pragma: no cover - debug helper
     logger.debug("Redis unavailable, dropping message for channel %s", channel)
 
 
-def _create_redis_client() -> Redis | _NoOpRedis:
+def _create_redis_client() -> RedisPublisher:
   try:
     return Redis.from_url(settings.redis_url, decode_responses=False)
   except Exception as exc:  # pragma: no cover - connection errors logged
@@ -63,7 +70,7 @@ def _create_redis_client() -> Redis | _NoOpRedis:
 
 
 def _publish_training_event(
-  redis_client: Redis | _NoOpRedis,
+  redis_client: RedisPublisher,
   session_id: int,
   payload: dict[str, Any],
   *,

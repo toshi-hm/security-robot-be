@@ -98,6 +98,35 @@ def _serialize_environment_state(state: EnvironmentState) -> dict[str, Any]:
   }
 
 
+def _purge_environment_states(db: Session, session_id: int, *, batch_size: int) -> int:
+  """Delete environment state records in batches to avoid long-running locks."""
+
+  total_deleted = 0
+  while True:
+    id_batch = (
+      db.execute(
+        select(EnvironmentState.id)
+        .where(EnvironmentState.session_id == session_id)
+        .order_by(EnvironmentState.id.asc())
+        .limit(batch_size)
+      )
+      .scalars()
+      .all()
+    )
+    if not id_batch:
+      break
+
+    deleted = (
+      db.query(EnvironmentState)
+      .filter(EnvironmentState.id.in_(id_batch))
+      .delete(synchronize_session=False)
+    )
+    total_deleted += deleted
+    db.flush()
+
+  return total_deleted
+
+
 @celery_app.task(name='files.archive_logs')
 def archive_logs(path: str) -> str:
   """Archive a log file or directory into a ZIP bundle.
@@ -137,7 +166,9 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
   db: Session = SessionLocal()
   try:
     chunk_size = settings.playback_archive_chunk_size
+    delete_batch_size = settings.playback_archive_delete_batch_size
     max_archive_size = settings.playback_archive_max_bytes
+    max_expansion_ratio = settings.playback_archive_max_expansion_ratio
 
     if not isinstance(session_id, int) or session_id <= 0:
       raise ValueError(f'Invalid session_id: {session_id}')
@@ -181,16 +212,31 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
           if idx % chunk_size == 0 or idx == frame_count:
             logger.debug('Exported %d/%d frames for session %s', idx, frame_count, session_id)
 
+      uncompressed_size = jsonl_path.stat().st_size
+      max_expanded_bytes = max_archive_size * max_expansion_ratio
+      if uncompressed_size > max_expanded_bytes:
+        logger.error(
+          'Playback archive payload for session %s exceeds expansion limit (%d > %d bytes)',
+          session_id,
+          uncompressed_size,
+          max_expanded_bytes,
+        )
+        raise ValueError(
+          'Playback archive payload exceeds allowable expansion ratio and was not created'
+        )
+
       try:
         with zipfile.ZipFile(archive_path, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
           archive.write(jsonl_path, arcname='frames.jsonl')
       except (OSError, zipfile.BadZipFile) as exc:
+        safe_label = archive_path.name
+        exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
         logger.error(
-          'Failed to create archive for session %s at %s: %s',
+          'Failed to create archive for session %s (%s): %s',
           session_id,
-          archive_path,
+          safe_label,
           exc,
-          exc_info=True,
+          exc_info=exc_info,
         )
         raise
 
@@ -226,7 +272,16 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
     )
 
     db.add(file_record)
-    db.query(EnvironmentState).where(EnvironmentState.session_id == session_id).delete(synchronize_session=False)
+    deleted_states = _purge_environment_states(
+      db,
+      session_id,
+      batch_size=delete_batch_size,
+    )
+    logger.debug(
+      'Deleted %d environment states for session %s after archiving playback data',
+      deleted_states,
+      session_id,
+    )
     db.commit()
 
     redis_client = _create_redis_client()
