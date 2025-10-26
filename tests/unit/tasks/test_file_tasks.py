@@ -129,6 +129,21 @@ def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: py
 
     Session = _configure_in_memory_db(monkeypatch)
 
+    redis_stub = object()
+    published: dict[str, object] = {}
+
+    def fake_create() -> object:
+        return redis_stub
+
+    def fake_publish(client: object, session_id: int, payload: dict[str, object], *, critical: bool, max_retries: int = 3) -> None:
+        published["client"] = client
+        published["session_id"] = session_id
+        published["payload"] = payload
+        published["critical"] = critical
+
+    monkeypatch.setattr(file_tasks, "_create_redis_client", fake_create)
+    monkeypatch.setattr(file_tasks, "_publish_training_event", fake_publish)
+
     job = TrainingJob(
         name="demo",
         algorithm=TrainingAlgorithm.ppo,
@@ -167,6 +182,16 @@ def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: py
         assert metadata.get("session_id") == job_id
         assert metadata.get("frame_count") == 2
 
+    assert published["client"] is redis_stub
+    assert published["session_id"] == job_id
+    assert published["critical"] is True
+    assert published["payload"] == {
+        "event": "playback_archived",
+        "file_id": result["file_id"],
+        "file_path": result["file_path"],
+        "frame_count": 2,
+    }
+
 
 def test_archive_playback_session_without_frames_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     storage_root = tmp_path / "storage"
@@ -194,3 +219,23 @@ def test_archive_playback_session_without_frames_raises(tmp_path: Path, monkeypa
         file_tasks.archive_playback_session.run(job_id)
 
     assert not any(playback_root.iterdir())
+
+
+def test_archive_playback_session_validates_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummySession:
+        def rollback(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(file_tasks, "SessionLocal", lambda: DummySession())
+
+    with pytest.raises(ValueError):
+        file_tasks.archive_playback_session.run(0)
+
+    with pytest.raises(ValueError):
+        file_tasks.archive_playback_session.run(-1)
+
+    with pytest.raises(ValueError):
+        file_tasks.archive_playback_session.run("abc")  # type: ignore[arg-type]

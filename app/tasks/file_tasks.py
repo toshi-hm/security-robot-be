@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import exc as sa_exc, select
 from sqlalchemy.orm import Session
 
 from app.core.files import storage
@@ -20,6 +20,7 @@ from app.models.environment import EnvironmentState
 from app.models.files import FileMetadata
 from app.models.training import TrainingJob
 from app.tasks.celery_app import celery_app
+from app.tasks.training_tasks import _create_redis_client, _publish_training_event
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
 
 PLAYBACK_ARCHIVE_ROOT = (storage.STORAGE_ROOT / 'playback_archives').resolve()
 PLAYBACK_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
+
+CHUNK_SIZE = 1000
 
 
 def _validate_source(path: str) -> Path:
@@ -123,16 +126,34 @@ def archive_logs(path: str) -> str:
   return archive_path.as_posix()
 
 
-@celery_app.task(name='playback.archive_session')
+@celery_app.task(
+  name='playback.archive_session',
+  autoretry_for=(OSError, sa_exc.OperationalError),
+  retry_kwargs={'max_retries': 3, 'countdown': 60},
+  retry_backoff=True,
+)
 def archive_playback_session(session_id: int) -> dict[str, Any]:
   """Export playback frames for a session and register the archive."""
 
   archive_path: Path | None = None
   db: Session = SessionLocal()
   try:
+    if not isinstance(session_id, int) or session_id <= 0:
+      raise ValueError(f'Invalid session_id: {session_id}')
+
     job = db.get(TrainingJob, session_id)
     if job is None:
       raise ValueError(f'Training session {session_id} not found')
+
+    frame_count = (
+      db.query(EnvironmentState)
+      .filter(EnvironmentState.session_id == session_id)
+      .count()
+    )
+    if frame_count == 0:
+      raise ValueError(f'No playback frames recorded for session {session_id}')
+
+    logger.info('Exporting %d frames for playback session %s', frame_count, session_id)
 
     states_stmt = (
       select(EnvironmentState)
@@ -142,10 +163,8 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
         EnvironmentState.step.asc(),
         EnvironmentState.id.asc(),
       )
+      .execution_options(yield_per=CHUNK_SIZE, stream_results=True)
     )
-    states = list(db.execute(states_stmt).scalars().all())
-    if not states:
-      raise ValueError(f'No playback frames recorded for session {session_id}')
 
     archive_path = _build_playback_archive_path(session_id)
     archive_path.parent.mkdir(parents=True, exist_ok=True)
@@ -153,12 +172,24 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
     with TemporaryDirectory() as tmpdir:
       jsonl_path = Path(tmpdir) / 'frames.jsonl'
       with jsonl_path.open('w', encoding='utf-8') as buffer:
-        for state in states:
+        for idx, state in enumerate(db.execute(states_stmt).scalars(), start=1):
           json.dump(_serialize_environment_state(state), buffer, ensure_ascii=False, separators=(',', ':'))
           buffer.write('\n')
+          if idx % CHUNK_SIZE == 0 or idx == frame_count:
+            logger.debug('Exported %d/%d frames for session %s', idx, frame_count, session_id)
 
-      with zipfile.ZipFile(archive_path, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.write(jsonl_path, arcname='frames.jsonl')
+      try:
+        with zipfile.ZipFile(archive_path, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+          archive.write(jsonl_path, arcname='frames.jsonl')
+      except (OSError, zipfile.BadZipFile) as exc:
+        logger.error(
+          'Failed to create archive for session %s at %s: %s',
+          session_id,
+          archive_path,
+          exc,
+          exc_info=True,
+        )
+        raise
 
     relative_path = archive_path.resolve().relative_to(storage.STORAGE_ROOT.resolve())
     file_record = FileMetadata(
@@ -172,7 +203,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
       description=f'Playback archive for session {session_id}',
       metadata_={
         'session_id': session_id,
-        'frame_count': len(states),
+        'frame_count': frame_count,
         'format': 'jsonl',
       },
     )
@@ -181,11 +212,24 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
     db.query(EnvironmentState).where(EnvironmentState.session_id == session_id).delete(synchronize_session=False)
     db.commit()
 
+    redis_client = _create_redis_client()
+    _publish_training_event(
+      redis_client,
+      session_id,
+      {
+        'event': 'playback_archived',
+        'file_id': file_record.id,
+        'file_path': file_record.file_path,
+        'frame_count': frame_count,
+      },
+      critical=True,
+    )
+
     logger.info('Archived playback session %s to %s', session_id, archive_path)
     return {
       'file_id': file_record.id,
       'file_path': file_record.file_path,
-      'frame_count': len(states),
+      'frame_count': frame_count,
     }
   except Exception:
     db.rollback()
