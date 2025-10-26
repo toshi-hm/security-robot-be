@@ -2,19 +2,32 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.files import storage
+from app.db.session import SessionLocal
+from app.models.environment import EnvironmentState
+from app.models.files import FileMetadata
+from app.models.training import TrainingJob
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
 ARCHIVE_ROOT = (storage.STORAGE_ROOT / 'archives').resolve()
 ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
+
+PLAYBACK_ARCHIVE_ROOT = (storage.STORAGE_ROOT / 'playback_archives').resolve()
+PLAYBACK_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def _validate_source(path: str) -> Path:
@@ -43,6 +56,16 @@ def _build_archive_path(source: Path) -> Path:
   return archive_dir / archive_name
 
 
+def _build_playback_archive_path(session_id: int) -> Path:
+  safe_segment = _sanitize_segment(f'session_{session_id}', fallback='session')
+  timestamp = datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')
+  unique = uuid4().hex
+  archive_dir = PLAYBACK_ARCHIVE_ROOT / safe_segment
+  archive_dir.mkdir(parents=True, exist_ok=True)
+  archive_name = f'{safe_segment}_{timestamp}_{unique}.zip'
+  return archive_dir / archive_name
+
+
 def _add_directory_contents(archive: zipfile.ZipFile, root: Path) -> None:
   for item in root.rglob('*'):
     if item.is_dir():
@@ -53,6 +76,25 @@ def _add_directory_contents(archive: zipfile.ZipFile, root: Path) -> None:
 
 def _add_file(archive: zipfile.ZipFile, file_path: Path) -> None:
   archive.write(file_path, arcname=file_path.name)
+
+
+def _serialize_environment_state(state: EnvironmentState) -> dict[str, Any]:
+  return {
+    'id': state.id,
+    'session_id': state.session_id,
+    'episode': state.episode,
+    'step': state.step,
+    'robot_x': state.robot_x,
+    'robot_y': state.robot_y,
+    'robot_orientation': state.robot_orientation,
+    'threat_grid': state.threat_grid,
+    'coverage_map': state.coverage_map,
+    'suspicious_objects': state.suspicious_objects,
+    'action_taken': state.action_taken,
+    'reward_received': state.reward_received,
+    'created_at': state.created_at.isoformat() if state.created_at else None,
+    'updated_at': state.updated_at.isoformat() if state.updated_at else None,
+  }
 
 
 @celery_app.task(name='files.archive_logs')
@@ -81,4 +123,77 @@ def archive_logs(path: str) -> str:
   return archive_path.as_posix()
 
 
-__all__ = ['archive_logs']
+@celery_app.task(name='playback.archive_session')
+def archive_playback_session(session_id: int) -> dict[str, Any]:
+  """Export playback frames for a session and register the archive."""
+
+  archive_path: Path | None = None
+  db: Session = SessionLocal()
+  try:
+    job = db.get(TrainingJob, session_id)
+    if job is None:
+      raise ValueError(f'Training session {session_id} not found')
+
+    states_stmt = (
+      select(EnvironmentState)
+      .where(EnvironmentState.session_id == session_id)
+      .order_by(
+        EnvironmentState.episode.asc(),
+        EnvironmentState.step.asc(),
+        EnvironmentState.id.asc(),
+      )
+    )
+    states = list(db.execute(states_stmt).scalars().all())
+    if not states:
+      raise ValueError(f'No playback frames recorded for session {session_id}')
+
+    archive_path = _build_playback_archive_path(session_id)
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with TemporaryDirectory() as tmpdir:
+      jsonl_path = Path(tmpdir) / 'frames.jsonl'
+      with jsonl_path.open('w', encoding='utf-8') as buffer:
+        for state in states:
+          json.dump(_serialize_environment_state(state), buffer, ensure_ascii=False, separators=(',', ':'))
+          buffer.write('\n')
+
+      with zipfile.ZipFile(archive_path, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(jsonl_path, arcname='frames.jsonl')
+
+    relative_path = archive_path.resolve().relative_to(storage.STORAGE_ROOT.resolve())
+    file_record = FileMetadata(
+      filename=archive_path.name,
+      original_filename=archive_path.name,
+      file_path=relative_path.as_posix(),
+      file_size=archive_path.stat().st_size,
+      file_type='archives',
+      content_type='application/zip',
+      training_job_id=session_id,
+      description=f'Playback archive for session {session_id}',
+      metadata_={
+        'session_id': session_id,
+        'frame_count': len(states),
+        'format': 'jsonl',
+      },
+    )
+
+    db.add(file_record)
+    db.query(EnvironmentState).where(EnvironmentState.session_id == session_id).delete(synchronize_session=False)
+    db.commit()
+
+    logger.info('Archived playback session %s to %s', session_id, archive_path)
+    return {
+      'file_id': file_record.id,
+      'file_path': file_record.file_path,
+      'frame_count': len(states),
+    }
+  except Exception:
+    db.rollback()
+    if archive_path is not None and archive_path.exists():
+      archive_path.unlink(missing_ok=True)
+    raise
+  finally:
+    db.close()
+
+
+__all__ = ['archive_logs', 'archive_playback_session']

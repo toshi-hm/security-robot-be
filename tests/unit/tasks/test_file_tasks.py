@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from app.models.base import Base
+from app.models.environment import EnvironmentState
+from app.models.files import FileMetadata
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
 from app.tasks import file_tasks
 
 
@@ -64,3 +71,126 @@ def test_archive_logs_missing_path_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         file_tasks.archive_logs.run(str(missing))
+
+
+def _configure_in_memory_db(monkeypatch: pytest.MonkeyPatch) -> sessionmaker:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, future=True)
+    monkeypatch.setattr(file_tasks, "SessionLocal", Session)
+    return Session
+
+
+def _seed_playback_states(session: sessionmaker, job: TrainingJob) -> int:
+    with session() as db:
+        db.add(job)
+        db.commit()
+        job_id = job.id
+        states = [
+            EnvironmentState(
+                session_id=job_id,
+                episode=0,
+                step=0,
+                robot_x=1,
+                robot_y=2,
+                robot_orientation=0,
+                threat_grid={"levels": [[0.1, 0.2], [0.3, 0.4]]},
+                coverage_map={"counts": [[1, 0], [0, 0]]},
+                suspicious_objects=None,
+                action_taken=1,
+                reward_received=0.5,
+            ),
+            EnvironmentState(
+                session_id=job_id,
+                episode=0,
+                step=1,
+                robot_x=2,
+                robot_y=3,
+                robot_orientation=1,
+                threat_grid={"levels": [[0.2, 0.3], [0.4, 0.5]]},
+                coverage_map=None,
+                suspicious_objects={"items": ["box"]},
+                action_taken=2,
+                reward_received=0.8,
+            ),
+        ]
+        db.add_all(states)
+        db.commit()
+        return job_id
+
+
+def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
+    playback_root = storage_root / "playback_archives"
+    playback_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks, "PLAYBACK_ARCHIVE_ROOT", playback_root)
+
+    Session = _configure_in_memory_db(monkeypatch)
+
+    job = TrainingJob(
+        name="demo",
+        algorithm=TrainingAlgorithm.ppo,
+        environment_type="standard",
+        status=TrainingJobStatus.created,
+        total_timesteps=10,
+    )
+    job_id = _seed_playback_states(Session, job)
+
+    result = file_tasks.archive_playback_session.run(job_id)
+
+    archive_path = storage_root / Path(result["file_path"])
+    assert archive_path.exists()
+    assert result["frame_count"] == 2
+
+    with ZipFile(archive_path) as archive:
+        entries = archive.namelist()
+        assert entries == ["frames.jsonl"]
+        lines = archive.read("frames.jsonl").decode("utf-8").strip().splitlines()
+        assert len(lines) == 2
+        first_record = json.loads(lines[0])
+        assert first_record["episode"] == 0
+        assert first_record["step"] == 0
+
+    with Session() as db:
+        remaining = (
+            db.query(EnvironmentState)
+            .filter(EnvironmentState.session_id == job_id)
+            .count()
+        )
+        assert remaining == 0
+
+        files = db.query(FileMetadata).all()
+        assert len(files) == 1
+        metadata = files[0].metadata_ or {}
+        assert metadata.get("session_id") == job_id
+        assert metadata.get("frame_count") == 2
+
+
+def test_archive_playback_session_without_frames_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
+    playback_root = storage_root / "playback_archives"
+    playback_root.mkdir(parents=True)
+    monkeypatch.setattr(file_tasks, "PLAYBACK_ARCHIVE_ROOT", playback_root)
+
+    Session = _configure_in_memory_db(monkeypatch)
+
+    job = TrainingJob(
+        name="empty",
+        algorithm=TrainingAlgorithm.ppo,
+        environment_type="standard",
+        status=TrainingJobStatus.created,
+        total_timesteps=5,
+    )
+    with Session() as db:
+        db.add(job)
+        db.commit()
+        job_id = job.id
+
+    with pytest.raises(ValueError):
+        file_tasks.archive_playback_session.run(job_id)
+
+    assert not any(playback_root.iterdir())
