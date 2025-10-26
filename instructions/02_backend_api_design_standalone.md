@@ -1189,6 +1189,133 @@ async def training_websocket(
         manager.disconnect(websocket, session_id)
 ```
 
+### 4.4 ファイル管理API
+
+ファイル管理APIは、学習成果物(モデル、ログ、設定、プレイバックアーカイブ等)を安全に保管し、メタデータと実ファイルの整合性を維持しながらダウンロード配信する役割を担う。Celeryベースの成果物アーカイブタスクと連携し、ホットストレージから長期保管領域への移行を自動化する。
+
+#### 4.4.1 役割と責務
+- 学習ジョブや録画フローが生成する成果物を一元的に登録し、`FileMetadata`テーブルでメタデータを追跡する。
+- ストレージルート(`app/core/files/storage.py`の`STORAGE_ROOT`)配下に論理種別ディレクトリ(`model/`, `log/`, `config/`, `archives/`など)を作成し、外部からのパス走査を防ぐ。
+- Celeryタスク`files.archive_logs`が生成するZIP成果物を含め、アーカイブ登録時にプレイバックAPIと整合するファイルタイプ(`archives`)を付与してダウンロード経路を提供する。
+- APIレイヤーでバイナリ配信とメタデータ閲覧・削除を提供し、欠損ファイル検出時は404で通知する。
+
+#### 4.4.2 ストレージ構成とメタデータモデル
+- **ディレクトリ構造:**
+  - ルート: `${STORAGE_ROOT}` (既定は`storage/`)
+  - ファイルタイプ別サブディレクトリ: `model/`, `log/`, `config/`, `archives/`, `playback/` 等。タイプはフォーム入力の`file_type`をサニタイズして決定。未指定や未知タイプは`misc/`にフォールバック。
+  - プレイバックアーカイブは `archives/{playback_segment}/` 以下にZIPとして保存し、学習セッションIDやプレイバックバンドル名を`metadata`に保持する。
+- **メタデータテーブル(`app/models/files.py::FileMetadata`)主なカラム:**
+  - `filename`: ストレージ上のファイル名(UUID付与済み)
+  - `original_filename`: アップロード時のファイル名
+  - `file_path`: ルートからの相対パス(例: `model/abcd1234_weights.zip`)
+  - `file_size`: バイト単位サイズ
+  - `file_type`: 論理種別(ディレクトリ第1階層)
+  - `content_type`: MIMEタイプ
+  - `training_job_id`: 任意のジョブ関連付け
+  - `description`: 任意説明
+  - `metadata`: 任意JSON(アーカイブ対象、セッションID、ハッシュ値等)
+- `FileStorageService` がファイル保存・削除・パス解決を担当し、ルート外パス参照は`ValueError`で遮断する。
+
+#### 4.4.3 アーカイブ成果物との連携
+1. Celeryタスク`app/tasks/file_tasks.py::archive_logs`がログ/録画ディレクトリをZIP化し、`STORAGE_ROOT/archives/{stem}/{stem}_{timestamp}_{uuid}.zip`へ保存する。
+2. アーカイブ完了後、タスクまたは呼び出し元サービスが`FileService.save_upload`へ`UploadFile`互換オブジェクトを渡し、`file_type='archives'`か`'playback'`を指定してメタデータを登録する。
+3. プレイバック保持ポリシーによりホットストレージから削除されたフレームは、登録済みアーカイブの`metadata.session_id`を参照してファイル管理API経由で再取得できる。
+4. 将来的にジョブ完了時の成果物アーカイブ(Celery連鎖タスク)では、トレーニングAPIから返却される`task_id`を使い、アーカイブ完了時にファイルIDをJobManager監査ログへ記録して監査トレースを維持する計画。
+
+#### 4.4.4 エンドポイント仕様
+
+**POST /api/v1/files/** – ファイルアップロード
+
+- **入力:** `multipart/form-data`
+  - `file` (UploadFile): 必須。任意バイナリ。
+  - `file_type` (Form[str]): 必須。`model`/`log`/`config`/`archives` 等。サニタイズ後ディレクトリ名となる。
+  - `training_job_id` (Form[int|None]): 任意。関連ジョブID。
+  - `description` (Form[str|None]): 任意説明文(500文字以内を推奨)。
+  - `metadata` (Form[str|None]): 任意JSON文字列。パース失敗時は400(`{"detail": "metadata must be valid JSON"}`)。
+- **処理:**
+  1. `FileStorageService.save_upload`でファイルを保存し、サイズとMIMEタイプを取得。
+  2. `FileMetadata`レコードを作成・コミットし、`created_at`/`updated_at`を自動付与。
+- **レスポンス (201 Created):**
+```json
+{
+  "id": 142,
+  "filename": "archives/inspection_20251021T120102Z_abcd1234.zip",
+  "original_filename": "session42_logs.zip",
+  "file_type": "archives",
+  "file_size": 983040,
+  "content_type": "application/zip",
+  "training_job_id": 42,
+  "description": "Session 42 playback archive",
+  "metadata": {
+    "session_id": 42,
+    "checksum": "sha256:..."
+  },
+  "created_at": "2025-10-22T09:15:00Z",
+  "updated_at": "2025-10-22T09:15:00Z"
+}
+```
+
+**GET /api/v1/files/list** – ページング一覧
+
+- **クエリ:** `page`(>=1, 既定1), `page_size`(1〜100, 既定20)。
+- **並び順:** `created_at DESC`。最新登録順で返却。
+- **レスポンス (200 OK):**
+```json
+{
+  "total": 54,
+  "page": 1,
+  "page_size": 20,
+  "files": [
+    {
+      "id": 142,
+      "filename": "archives/inspection_20251021T120102Z_abcd1234.zip",
+      "original_filename": "session42_logs.zip",
+      "file_type": "archives",
+      "file_size": 983040,
+      "content_type": "application/zip",
+      "training_job_id": 42,
+      "description": "Session 42 playback archive",
+      "metadata": {
+        "session_id": 42
+      },
+      "created_at": "2025-10-22T09:15:00Z",
+      "updated_at": "2025-10-22T09:15:00Z"
+    }
+  ]
+}
+```
+
+**GET /api/v1/files/{file_id}** – メタデータ取得
+
+- **処理:** `FileService.get_file`でID検索。未登録IDは404(`{"detail": "File {id} not found"}`)。
+- **レスポンス:** `FileMetadataResponse`と同構造。
+
+**DELETE /api/v1/files/{file_id}** – ファイル削除
+
+- **処理:**
+  1. 対象レコードが存在しない場合は404。
+  2. `FileStorageService.delete`で実ファイル削除(存在しなくてもエラーにしない)後、レコード削除・コミット。
+- **レスポンス (200 OK):**
+```json
+{
+  "id": 142,
+  "filename": "session42_logs.zip",
+  "message": "File deleted successfully"
+}
+```
+
+**GET /api/v1/files/{file_id}/download** – バイナリ配信
+
+- **処理:**
+  - `FileService.get_file`でメタデータ取得。
+  - `FileStorageService.resolve`で実パス確認。パスがルート外/欠損時は404(`{"detail": "Stored file is missing"}`)。
+  - `FileResponse`で`content_type`と`original_filename`を設定して返却。
+- **利用例:** プレイバックアーカイブをダウンロードし、オフライン再生UIで読み込む。
+
+- **エラーハンドリング共通:**
+  - 予期しないストレージ例外は500。ログへ格納。
+  - 大容量ファイル配信時は今後`StreamingResponse`への移行を検討し、進捗メトリクスやチェックサム検証を`metadata`に保持する。
+
 ## 5. サービス層実装
 
 ### 5.1 TrainingService詳細
