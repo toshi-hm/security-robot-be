@@ -228,9 +228,9 @@
 - [x] app/schemas/playback.py - プレイバックレスポンススキーマを追加 (2025-10-18)
 
 #### ドキュメント整備TODO (優先度順)
-1. `instructions/02_backend_api_design_standalone.md` にプレイバックAPI群(`/playback/sessions`, `/playback/{session_id}/frames`)と録画保持ポリシーの仕様を追記し、フロントエンドとテストが参照できる形でレスポンス例・エラーハンドリングを整理する。
-2. 同ドキュメントへファイル管理API(`/files/upload`/`list`/`download`/`delete`)の入出力仕様とストレージ配置ルール、Celeryアーカイブタスクとの関係を記述する。
-3. 環境セッション操作API(`/environment/sessions` 系)のリクエスト/レスポンスとセッション上限・タイムアウト・ロック方針を文書化し、現行実装の並行アクセス制御を設計書へ反映する。
+- [x] `instructions/02_backend_api_design_standalone.md` にプレイバックAPI群(`/playback/sessions`, `/playback/{session_id}/frames`)と録画保持ポリシーの仕様を追記し、フロントエンドとテストが参照できる形でレスポンス例・エラーハンドリングを整理する。(2025-10-22完了)
+- [ ] 同ドキュメントへファイル管理API(`/files/upload`/`list`/`download`/`delete`)の入出力仕様とストレージ配置ルール、Celeryアーカイブタスクとの関係を記述する。
+- [ ] 環境セッション操作API(`/environment/sessions` 系)のリクエスト/レスポンスとセッション上限・タイムアウト・ロック方針を文書化し、現行実装の並行アクセス制御を設計書へ反映する。
 
 ### Phase 5: WebSocket・リアルタイム通信
 **進捗:** 100%
