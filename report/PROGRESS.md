@@ -70,6 +70,11 @@
 - [x] ルートに `.gitignore` を追加し、バイナリ・ビルド成果物・IDE設定・ログ/DB などの不要ファイルを除外
 - [x] `.gitignore` 運用方針を `report/DIARY.md` / `report/PROGRESS.md` に記録
 
+### API ドキュメント整備 (2025-10-25更新)
+- [x] `scripts/export_openapi.py` を追加し、FastAPI から生成した OpenAPI スキーマを `docs/openapi.json` に書き出すフローを整備
+- [x] Swagger UI を `docs/index.html` として配置し、GitHub Pages (docs フォルダ) で公開できるようにした
+- [x] README に API サーバー起動コマンドとドキュメント再生成手順を追記し、利用者ガイドを更新
+
 ### CI運用改善 (2025-10-12更新)
 - [x] GitHub ActionsのClaude Codeレビュー出力言語を日本語に固定するプロンプトを追加
 - [x] Codex PRレビュー用プロンプトを整備し、レビュー出力が日本語になるよう指示を明文化

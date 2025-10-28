@@ -440,6 +440,34 @@ HEAD
 
 ---
 
+### 🎯 セッション目標
+- Swagger UI を用いた API ドキュメント公開基盤を整備する
+- README に API 起動およびドキュメント生成手順を追記する
+
+### ✅ 実施内容
+- `scripts/export_openapi.py` を追加し、GitHub Pages で配信できる OpenAPI JSON を自動生成する仕組みを整備
+- `docs/index.html` を作成して Swagger UI をホストし、`uv run python scripts/export_openapi.py` で `docs/openapi.json` を更新できるようにした
+- README に git clone から API サーバーを立ち上げるまでのコマンド例と、ドキュメント再生成・ローカル確認方法を追記
+
+### 📊 成果物
+- `scripts/export_openapi.py`
+- `docs/index.html`
+- `docs/openapi.json`
+- README のクイックスタートおよび API ドキュメント手順
+
+### 🤔 学んだこと・気づき
+1. 重量級依存を避けるためのスタブ挿入で、ドキュメント生成用スクリプトを軽量に維持できる
+2. GitHub Pages の `/docs` 配信に合わせてファイルを配置すると、FastAPI の OpenAPI をそのまま公開できる
+
+### ⏭️ 次回セッションの予定
+1. Pages での実際のホスティング結果を確認し、必要ならスタイルやメタデータを調整する
+2. OpenAPI スキーマ更新手順を CI に組み込むか検討する
+
+### 🔗 関連コミット
+- (コミット後に更新)
+
+---
+
 ## テンプレート
 
 以下の雛形を各セッションの記録にコピーして利用してください。
