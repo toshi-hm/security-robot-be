@@ -91,11 +91,20 @@ docker compose up --build
 - PostgreSQL: localhost:5432 (`${POSTGRES_USER}` / `${POSTGRES_PASSWORD}`)
 - Redis: localhost:6379
 - Celery ワーカー: `docker compose logs -f celery-worker` で状態確認
+- Celery 並列度: `.env` の `CELERY_WORKER_CONCURRENCY` で調整可能 (デフォルト 2)
 - ボリューム: `models/`, `logs/`, `playback_data/`, `postgres_data/`
 
 起動後は `docker compose ps` で全サービスが `healthy` になっていることを確認してください。ヘルスチェックは API / Celery ワーカー / PostgreSQL / Redis の 4 サービスに設定されています。
 
 停止する場合は `Ctrl + C` でコンテナを停止し、`docker compose down` を実行してください。
+
+本番用イメージをビルドする際は、ホストの UID/GID に合わせて `APP_UID` / `APP_GID` を指定できます。
+
+```bash
+docker build -f docker/Dockerfile --target production \
+  --build-arg APP_UID=$(id -u) --build-arg APP_GID=$(id -g) \
+  -t security-robot-rl/api:latest .
+```
 
 ## リポジトリ構成
 

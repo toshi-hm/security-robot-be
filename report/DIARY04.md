@@ -7,6 +7,8 @@
 - [2025-10-24 セッション79](#2025-10-24-セッション79)
 - [2025-10-24 セッション80](#2025-10-24-セッション80)
 - [2025-10-25 セッション81](#2025-10-25-セッション81)
+- [2025-10-25 セッション82](#2025-10-25-セッション82)
+- [2025-10-25 セッション83](#2025-10-25-セッション83)
 
 
 ## 2025-10-22 セッション73
@@ -366,6 +368,40 @@ HEAD
 1. `.env` 運用ガイドを instructions へ追記するか検討し、環境変数管理のベストプラクティスをまとめる。
 2. Docker Compose 実行ログを取得できる環境で `docker compose up` を再検証し、ヘルスチェックの挙動を確認する。
 3. Phase 8 のテストカバレッジ改善タスクを再開し、残りの統合テスト整備に着手する。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-25 セッション83
+
+### 🎯 セッション目標
+- Docker レビュー指摘 (環境変数既定値 / Celery ヘルスチェック / UID・GID 引数) を反映して Phase 9 の品質を高める。
+- `.env` 運用と Celery 並列度の調整手順をドキュメントへ追加する。
+- 作業内容を PROGRESS / DIARY に追記し、共有ログを最新化する。
+
+### ✅ 実施内容
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` の環境変数を `${VAR:-default}` 形式へ更新し、`.env` 未配置でも安全な既定値を設定。Celery のヘルスチェックを `inspect ping` 単体に簡素化し、並列度引数を `${CELERY_WORKER_CONCURRENCY:-2}` で可変化。
+- `docker/Dockerfile` に `APP_UID` / `APP_GID` のビルド引数を導入し、実行ユーザー ID をホスト環境に合わせられるよう調整。
+- `.env.example` に `CELERY_WORKER_CONCURRENCY` を追記し、README の Docker 節へ並列度調整と本番ビルド用 build-arg のガイドを追加。
+- `report/PROGRESS.md` の最終更新日と Phase 9 メモを更新し、今回の対応内容を追記。
+
+### 📊 成果物
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – 既定値付き環境変数とヘルスチェック・並列度の調整。
+- `docker/Dockerfile` – APP_UID / APP_GID ビルド引数の追加。
+- `.env.example` / `README.md` – Celery 並列度・本番ビルド手順の補足。
+- `report/PROGRESS.md` / `report/DIARY04.md` – Phase 9 フォローアップの記録。
+
+### 🤔 学んだこと・気づき
+1. Compose 側で既定値を用意しておくと、`.env` を作り忘れた場合でもコンテナが失敗せず起動でき、開発者体験を損なわない。
+2. Celery ヘルスチェックはシンプルな `inspect ping` のほうがホスト名依存を避けられ、複数ワーカー構成でも共通化しやすい。
+3. UID/GID を build-arg 化することで、ボリューム書き込み権限の不整合を環境ごとに解消しやすくなる。
+
+### ⏭️ 次回セッションの予定
+1. Docker Compose 実行環境で新しい既定値・ヘルスチェックの挙動を実地確認する。
+2. Phase 9 の追加ドキュメント整備 (instructions への `.env` ベストプラクティス追記) を検討する。
+3. Phase 8 テストカバレッジ改善タスクへリソースを戻す。
 
 ### 🔗 関連コミット
 - (作業中)

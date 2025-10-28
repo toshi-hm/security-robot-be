@@ -28,6 +28,9 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "800
 
 FROM base AS production
 
+ARG APP_UID=1000
+ARG APP_GID=1000
+
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 
@@ -36,7 +39,8 @@ COPY . .
 RUN apt-get purge -y --auto-remove build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 appuser \
+RUN groupadd -g "${APP_GID}" -o appuser \
+  && useradd -m -u "${APP_UID}" -g appuser -o appuser \
   && chown -R appuser:appuser /app
 
 USER appuser
