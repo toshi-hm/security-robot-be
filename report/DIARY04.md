@@ -6,6 +6,7 @@
 - [2025-10-22 セッション73](#2025-10-22-セッション73)
 - [2025-10-24 セッション79](#2025-10-24-セッション79)
 - [2025-10-24 セッション80](#2025-10-24-セッション80)
+- [2025-10-25 セッション81](#2025-10-25-セッション81)
 
 
 ## 2025-10-22 セッション73
@@ -294,6 +295,41 @@ HEAD
 1. 監査ログへのアーカイブ完了イベント記録とRedis通知トランザクションIDの運用方針を検討する。
 2. バッチ削除時の統計情報を観測できるようメトリクス/ログ整備案を洗い出す。
 3. 展開比率上限を運用でチューニングするための計測シナリオと設定値管理手順を整理する。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-25 セッション81
+
+### 🎯 セッション目標
+- Phase 9: Docker環境構築タスク(コンテナ構成・ヘルスチェック)を完了する。
+- PostgreSQL/Redis/Celeryを含めたCompose環境へ刷新し、READMEと依存関係を同期する。
+- `docker compose` 実行による起動検証を試行し、結果を進捗ドキュメントへ反映する。
+
+### ✅ 実施内容
+- `docker/Dockerfile` をマルチステージ構成へ刷新し、開発/本番の両ターゲットを用意。`uv` ベースで依存関係をインストールするフローに統一した。
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` をPostgreSQL・Redis・Celeryワーカー込みの4サービス構成へ拡張し、全サービスにヘルスチェックと依存関係を設定。
+- PostgreSQL接続用の `asyncpg` / `psycopg[binary]` を依存関係へ追加し、`README.md` にサービス一覧とヘルスチェック確認手順を追記。
+- `report/PROGRESS.md` のPhase 9チェックリストを更新し、開発コンテナで `docker compose config` を試行した際にCLI未インストールで失敗した点をメモとして記録。
+
+### 📊 成果物
+- `docker/Dockerfile` – multi-stage (development/production) 化とシステム依存パッケージ定義。
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – API/Redis/PostgreSQL/Celery構成とヘルスチェックの整備。
+- `requirements.txt` / `pyproject.toml` – PostgreSQLドライバの依存追加。
+- `README.md` – Docker環境の利用手順と確認ポイントを更新。
+- `report/PROGRESS.md` – Phase 9の完了ステータスと環境制約メモを追記。
+
+### 🤔 学んだこと・気づき
+1. ComposeでCeleryワーカーのヘルスチェックを組む場合、`celery inspect ping` をローカルで実行する構成にすると、ワーカーのPIDを意識せず健全性を監視できる。
+2. Postgresの非同期ドライバ(`asyncpg`)と同期ドライバ(`psycopg`)を併用する設計は、SQLAlchemyの同期フェイルバックを考慮した`_resolve_sync_driver`と整合しやすい。
+3. Docker CLIが利用できない開発環境では、設定ファイルの静的検証とドキュメント整備を優先し、実行確認は別環境でフォローする旨を明示しておくと情報共有がスムーズ。
+
+### ⏭️ 次回セッションの予定
+1. ローカルまたはCI環境で `docker compose up` を実行し、マイグレーション適用とCeleryワーカー動作を実機確認する。
+2. Compose環境向けの初期データ投入スクリプトや Alembic マイグレーション実行手順の自動化を検討する。
+3. Phase 8 テスト項目の残タスク(カバレッジ向上)に着手する準備を整える。
 
 ### 🔗 関連コミット
 - (作業中)

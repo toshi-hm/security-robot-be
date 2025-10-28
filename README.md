@@ -73,16 +73,20 @@ cd security-robot-be
 
 ## Docker を利用した実行
 
-ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンドと Redis をまとめて起動できます。
+ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンド / Celery ワーカー / PostgreSQL / Redis をまとめて起動できます。
 
 ```bash
 cd docker
 docker compose up --build
 ```
 
-- API: http://localhost:8000
+- API: http://localhost:8000 (`/api/v1/health` でヘルスチェック)
+- PostgreSQL: localhost:5432 (`security_robot` / `security_robot_password`)
 - Redis: localhost:6379
-- ボリューム: `models/`, `logs/`, `playback_data/` がホスト側にマウントされます。
+- Celery ワーカー: `docker compose logs -f celery-worker` で状態確認
+- ボリューム: `models/`, `logs/`, `playback_data/`, `postgres_data/`
+
+起動後は `docker compose ps` で全サービスが `healthy` になっていることを確認してください。ヘルスチェックは API / Celery ワーカー / PostgreSQL / Redis の 4 サービスに設定されています。
 
 停止する場合は `Ctrl + C` でコンテナを停止し、`docker compose down` を実行してください。
 
