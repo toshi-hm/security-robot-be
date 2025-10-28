@@ -42,8 +42,8 @@ def _install_optional_dependency_stubs() -> None:
         sb3_stub.__spec__ = ModuleSpec("stable_baselines3", loader=None)
 
         class _PPO:  # pylint: disable=too-few-public-methods
-            def __init__(self, *args, **kwargs) -> None:  # noqa: D401
-                """Placeholder constructor accepting any arguments."""
+            def __init__(self, *args, **kwargs) -> None:
+                """Accept any arguments as a placeholder implementation."""
 
         sb3_stub.PPO = _PPO  # type: ignore[attr-defined]
 
@@ -79,11 +79,12 @@ def _install_optional_dependency_stubs() -> None:
         training_tasks_stub.__spec__ = ModuleSpec("app.tasks.training_tasks", loader=None)
 
         class _StubAsyncResult(SimpleNamespace):
-            def revoke(self, *args, **kwargs) -> None:  # noqa: D401
-                """No-op revoke implementation for documentation builds."""
+            def revoke(self, *args, **kwargs) -> None:
+                """Perform no action when revoking tasks in documentation builds."""
 
         class _StubTask:
-            def delay(self, *args, **kwargs) -> _StubAsyncResult:  # noqa: D401
+            def delay(self, *args, **kwargs) -> _StubAsyncResult:
+                """Return a stub async result for documentation builds."""
                 return _StubAsyncResult(id="stub-task")
 
         training_tasks_stub.run_ppo_training_task = _StubTask()  # type: ignore[attr-defined]
