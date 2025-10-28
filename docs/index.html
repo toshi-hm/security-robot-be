@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Security Robot RL API ドキュメント</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css"
+      integrity="sha512-K1NqE/CgOb/LYX6ORsKX0+HNSg0GD4K41+d9RRscZ6xCfbcd6gLHPp7v/fJ3b9x+K6ehSU790FgTM/JG+wp5fg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <style>
+      body {
+        margin: 0;
+        background-color: #0d1117;
+      }
+      .swagger-ui .topbar {
+        display: none;
+      }
+      .swagger-ui .scheme-container {
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js"
+      integrity="sha512-kNfy6TGsWgN1iv61k7fajOYZa0AZY6dV9jh9t2zCa9KcHbVUW7iYv8hp6JrqSS1Hg3uR4ioMt9PlKr7A5Yqpgw=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-standalone-preset.min.js"
+      integrity="sha512-pW1+FxqC4CPEGFx6XTJH9SYBSHdDMQsAV192mxMjVgjsOMSn8zoIcxQhksDGgvA6I8Z+19YOfw1KsJWRjCMr4A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script>
+      window.onload = () => {
+        SwaggerUIBundle({
+          url: 'openapi.json',
+          dom_id: '#swagger-ui',
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'BaseLayout',
+          deepLinking: true,
+          docExpansion: 'none',
+          syntaxHighlight: {
+            activate: true,
+          },
+        });
+      };
+    </script>
+  </body>
+</html>

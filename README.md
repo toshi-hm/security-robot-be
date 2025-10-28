@@ -28,42 +28,45 @@
 >
 > インストール後に `uv --version` で動作を確認してください。
 
-## リポジトリ取得
+## クイックスタート (API サーバー起動)
 
 ```bash
 git clone https://github.com/your-org/security-robot-be.git
 cd security-robot-be
+
+# 1. 仮想環境を作成
+uv venv
+
+# 2. 依存関係をインストール
+uv pip install -r requirements.txt
+
+# 3. API サーバーを起動
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# (任意) 4. ユニットテストを実行
+uv run pytest tests/unit -q
 ```
+
+デフォルトでは `http://127.0.0.1:8000` にて API が利用可能です。ホットリロードが有効なため、コード変更は即座に反映されます。
 
 ## uv を用いたローカル開発環境構築
 
-1. **仮想環境の作成**
-   ```bash
-   uv venv
-   ```
-   `.venv/` 配下に仮想環境が作成されます。
+`uv` コマンドを利用することで仮想環境の作成からスクリプト実行までを統一的に扱えます。上記クイックスタート以外に以下のような活用が可能です。
 
-2. **依存関係のインストール**
-   ```bash
-   uv pip install -r requirements.txt
-   ```
-   `pyproject.toml` に記載された依存関係も同時に解決されます。
-
-3. **仮想環境への入る (任意)**
+1. **仮想環境へ手動で入る (任意)**
    ```bash
    source .venv/bin/activate
    ```
    `uv run` を使う場合はアクティベート不要です。
 
-4. **アプリケーションの起動**
+2. **アプリケーションを指定ホスト・ポートで起動**
    ```bash
-   uv run uvicorn app.main:app --reload
+   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
    ```
-   デフォルトでは `http://127.0.0.1:8000` で API が待ち受けます。
 
-5. **テストの実行 (任意)**
+3. **pytest を用いたテスト**
    ```bash
-   uv run pytest tests/unit -q
+   uv run pytest
    ```
 
 ### 既定の設定
@@ -104,6 +107,25 @@ docker compose up --build
 docker build -f docker/Dockerfile --target production \
   --build-arg APP_UID=$(id -u) --build-arg APP_GID=$(id -g) \
   -t security-robot-rl/api:latest .
+```
+
+## API ドキュメント (GitHub Pages 公開)
+
+`docs/` ディレクトリに配置された Swagger UI を GitHub Pages (Pages → Branch: `main`, Folder: `/docs`) として公開することで、ブラウザから API 仕様を閲覧できます。OpenAPI スキーマは FastAPI アプリケーションから自動生成され、Swagger UI が `openapi.json` を読み込んでレンダリングします。
+
+### スキーマの再生成手順
+
+API スキーマに変更が生じた場合は、以下のコマンドで `docs/openapi.json` を更新してください。
+
+```bash
+uv run python scripts/export_openapi.py
+```
+
+コマンド実行後に `docs/index.html` と同じディレクトリへ `openapi.json` が出力されます。ローカルで Swagger UI を確認する場合は、任意の静的ファイルサーバーを起動して `docs/` を公開してください。
+
+```bash
+python -m http.server 8001 --directory docs
+# ブラウザで http://127.0.0.1:8001/ を開く
 ```
 
 ## リポジトリ構成

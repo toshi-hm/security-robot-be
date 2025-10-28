@@ -1,0 +1,2965 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Security Robot RL API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health/": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "operationId": "health_check_api_v1_health__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/definitions": {
+      "get": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "List Environments",
+        "operationId": "list_environments_api_v1_environment_definitions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "$ref": "#/components/schemas/EnvironmentDefinition"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response List Environments Api V1 Environment Definitions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/definitions/{environment_id}/state": {
+      "get": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "Get Environment State",
+        "operationId": "get_environment_state_api_v1_environment_definitions__environment_id__state_get",
+        "parameters": [
+          {
+            "name": "environment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Environment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EnvironmentState"
+                  },
+                  "title": "Response Get Environment State Api V1 Environment Definitions  Environment Id  State Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/sessions": {
+      "post": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "Create Environment Session",
+        "operationId": "create_environment_session_api_v1_environment_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EnvironmentSessionState-Output"
+                  },
+                  "type": "object",
+                  "title": "Response Create Environment Session Api V1 Environment Sessions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/sessions/{session_id}/reset": {
+      "post": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "Reset Environment Session",
+        "operationId": "reset_environment_session_api_v1_environment_sessions__session_id__reset_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EnvironmentSessionResetRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EnvironmentSessionState-Output"
+                  },
+                  "title": "Response Reset Environment Session Api V1 Environment Sessions  Session Id  Reset Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/sessions/{session_id}/action": {
+      "post": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "Perform Environment Action",
+        "operationId": "perform_environment_action_api_v1_environment_sessions__session_id__action_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EnvironmentStepResponse-Output"
+                  },
+                  "title": "Response Perform Environment Action Api V1 Environment Sessions  Session Id  Action Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/environment/sessions/{session_id}": {
+      "delete": {
+        "tags": [
+          "environment"
+        ],
+        "summary": "Close Environment Session",
+        "operationId": "close_environment_session_api_v1_environment_sessions__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/start": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Start Training",
+        "description": "Create a new training job and queue it for execution.",
+        "operationId": "start_training_api_v1_training_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainingSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/{session_id}/stop": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Stop Training",
+        "description": "Stop an active training session and mark it as failed.",
+        "operationId": "stop_training_api_v1_training__session_id__stop_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Forcefully revoke the Celery task in addition to cooperative stop",
+              "default": false,
+              "title": "Force"
+            },
+            "description": "Forcefully revoke the Celery task in addition to cooperative stop"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/{session_id}/pause": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Pause Training",
+        "description": "Temporarily pause an active training session.",
+        "operationId": "pause_training_api_v1_training__session_id__pause_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/{session_id}/resume": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Resume Training",
+        "description": "Resume a paused training session by re-queuing it.",
+        "operationId": "resume_training_api_v1_training__session_id__resume_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/{session_id}/status": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Training Status",
+        "description": "Return the persisted status of a training session.",
+        "operationId": "get_training_status_api_v1_training__session_id__status_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/list": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "List Training Sessions",
+        "description": "Return paginated training sessions.",
+        "operationId": "list_training_sessions_api_v1_training_list_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of sessions per page",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Number of sessions per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingSessionListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/{session_id}": {
+      "delete": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Delete Training Session",
+        "description": "Delete a training session and remove it from the job queue.",
+        "operationId": "delete_training_session_api_v1_training__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/training/sessions/{session_id}/metrics": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Metrics",
+        "description": "Return paginated training metrics for the specified session.",
+        "operationId": "get_metrics_api_v1_training_sessions__session_id__metrics_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Number of metrics per page",
+              "default": 50,
+              "title": "Page Size"
+            },
+            "description": "Number of metrics per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingMetricsListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List Jobs",
+        "description": "Return a snapshot of the queued training jobs.",
+        "operationId": "list_jobs_api_v1_jobs__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueueListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{session_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job",
+        "description": "Return queue metadata for a specific training session.",
+        "operationId": "get_job_api_v1_jobs__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueueDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Delete Job",
+        "description": "Remove a job entry from the in-memory queue manager.",
+        "operationId": "delete_job_api_v1_jobs__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Upload File",
+        "description": "Persist an uploaded file and return its metadata.",
+        "operationId": "upload_file_api_v1_files__post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_file_api_v1_files__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/list": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "List Files",
+        "description": "Return paginated file metadata entries.",
+        "operationId": "list_files_api_v1_files_list_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of items per page",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Number of items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{file_id}": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Get File Metadata",
+        "description": "Retrieve metadata for a single file.",
+        "operationId": "get_file_metadata_api_v1_files__file_id__get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMetadataResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Delete File",
+        "description": "Delete a stored file and its metadata.",
+        "operationId": "delete_file_api_v1_files__file_id__delete",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{file_id}/download": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Download File",
+        "description": "Stream the stored binary file back to the client.",
+        "operationId": "download_file_api_v1_files__file_id__download_get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/playback/sessions": {
+      "get": {
+        "tags": [
+          "playback"
+        ],
+        "summary": "List Playback Sessions",
+        "description": "Return sessions that have recorded playback frames.",
+        "operationId": "list_playback_sessions_api_v1_playback_sessions_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of sessions per page",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Number of sessions per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSessionListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/playback/{session_id}/frames": {
+      "get": {
+        "tags": [
+          "playback"
+        ],
+        "summary": "Get Playback Frames",
+        "description": "Return recorded playback frames for a training session.",
+        "operationId": "get_playback_frames_api_v1_playback__session_id__frames_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Number of frames per page",
+              "default": 200,
+              "title": "Page Size"
+            },
+            "description": "Number of frames per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackFramesListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_upload_file_api_v1_files__post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type",
+            "description": "Logical type of the file (model, log, config, etc.)"
+          },
+          "training_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Job Id",
+            "description": "Associated training job identifier"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Optional file description"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata",
+            "description": "Arbitrary JSON metadata as a string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "file_type"
+        ],
+        "title": "Body_upload_file_api_v1_files__post"
+      },
+      "EnvironmentActionRequest": {
+        "properties": {
+          "action": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Action",
+            "description": "Discrete action index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "EnvironmentActionRequest",
+        "description": "Request payload for performing an action in an environment session."
+      },
+      "EnvironmentDefinition": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "robot_vision_range": {
+            "type": "integer",
+            "title": "Robot Vision Range"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "observation_channels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Observation Channels"
+          },
+          "action_space": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Action Space"
+          },
+          "default_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Default Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "width",
+          "height",
+          "robot_vision_range",
+          "features",
+          "observation_channels",
+          "action_space",
+          "default_config"
+        ],
+        "title": "EnvironmentDefinition"
+      },
+      "EnvironmentSessionCreate": {
+        "properties": {
+          "environment_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Environment Id"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config",
+            "description": "Environment overrides"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment_id"
+        ],
+        "title": "EnvironmentSessionCreate",
+        "description": "Request schema for creating an interactive environment session."
+      },
+      "EnvironmentSessionResetRequest": {
+        "properties": {
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "type": "object",
+        "title": "EnvironmentSessionResetRequest",
+        "description": "Request payload for resetting an environment session."
+      },
+      "EnvironmentSessionState-Input": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "environment_id": {
+            "type": "string",
+            "title": "Environment Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EnvironmentState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "environment_id",
+          "state"
+        ],
+        "title": "EnvironmentSessionState",
+        "description": "State information for an interactive environment session."
+      },
+      "EnvironmentSessionState-Output": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "environment_id": {
+            "type": "string",
+            "title": "Environment Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EnvironmentState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "environment_id",
+          "state"
+        ],
+        "title": "EnvironmentSessionState",
+        "description": "State information for an interactive environment session."
+      },
+      "EnvironmentState": {
+        "properties": {
+          "environment_id": {
+            "type": "string",
+            "title": "Environment Id"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/EnvironmentDefinition"
+          },
+          "observation": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Observation"
+          },
+          "robot": {
+            "$ref": "#/components/schemas/RobotState"
+          },
+          "threat_levels": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Threat Levels"
+          },
+          "obstacles": {
+            "items": {
+              "items": {
+                "type": "boolean"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Obstacles"
+          },
+          "suspicious_objects": {
+            "items": {
+              "$ref": "#/components/schemas/SuspiciousObject"
+            },
+            "type": "array",
+            "title": "Suspicious Objects"
+          },
+          "time_step": {
+            "type": "integer",
+            "title": "Time Step"
+          },
+          "coverage_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment_id",
+          "definition",
+          "observation",
+          "robot",
+          "threat_levels",
+          "obstacles",
+          "suspicious_objects",
+          "time_step"
+        ],
+        "title": "EnvironmentState"
+      },
+      "EnvironmentStateResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "episode": {
+            "type": "integer",
+            "title": "Episode"
+          },
+          "step": {
+            "type": "integer",
+            "title": "Step"
+          },
+          "robot_x": {
+            "type": "integer",
+            "title": "Robot X"
+          },
+          "robot_y": {
+            "type": "integer",
+            "title": "Robot Y"
+          },
+          "robot_orientation": {
+            "type": "integer",
+            "title": "Robot Orientation"
+          },
+          "threat_grid": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Threat Grid"
+          },
+          "coverage_map": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Map"
+          },
+          "suspicious_objects": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspicious Objects"
+          },
+          "action_taken": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Taken"
+          },
+          "reward_received": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reward Received"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "episode",
+          "step",
+          "robot_x",
+          "robot_y",
+          "robot_orientation",
+          "threat_grid",
+          "coverage_map",
+          "suspicious_objects",
+          "action_taken",
+          "reward_received",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EnvironmentStateResponse",
+        "description": "Response schema for environment state snapshot."
+      },
+      "EnvironmentStepResponse-Input": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "environment_id": {
+            "type": "string",
+            "title": "Environment Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EnvironmentState"
+          },
+          "reward": {
+            "type": "number",
+            "title": "Reward"
+          },
+          "terminated": {
+            "type": "boolean",
+            "title": "Terminated"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "info": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Info"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "environment_id",
+          "state",
+          "reward",
+          "terminated",
+          "truncated"
+        ],
+        "title": "EnvironmentStepResponse",
+        "description": "Response model for a single environment step."
+      },
+      "EnvironmentStepResponse-Output": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "environment_id": {
+            "type": "string",
+            "title": "Environment Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EnvironmentState"
+          },
+          "reward": {
+            "type": "number",
+            "title": "Reward"
+          },
+          "terminated": {
+            "type": "boolean",
+            "title": "Terminated"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "info": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Info"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "environment_id",
+          "state",
+          "reward",
+          "terminated",
+          "truncated"
+        ],
+        "title": "EnvironmentStepResponse",
+        "description": "Response model for a single environment step."
+      },
+      "FileDeleteResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "message"
+        ],
+        "title": "FileDeleteResponse",
+        "description": "Response schema for file deletion."
+      },
+      "FileListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileMetadataResponse"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "files"
+        ],
+        "title": "FileListResponse",
+        "description": "Response schema for file list."
+      },
+      "FileMetadataResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "File Size"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "training_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Job Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "original_filename",
+          "file_path",
+          "file_size",
+          "file_type",
+          "content_type",
+          "training_job_id",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FileMetadataResponse",
+        "description": "Response schema for file metadata."
+      },
+      "FileUploadResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "File Size"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "training_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Job Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "upload_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "original_filename",
+          "file_path",
+          "file_size",
+          "file_type",
+          "content_type",
+          "training_job_id",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FileUploadResponse",
+        "description": "Response schema for file uploads."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JobQueueDetailResponse": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobQueueEntry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job"
+        ],
+        "title": "JobQueueDetailResponse",
+        "description": "Response envelope for retrieving a single job queue entry."
+      },
+      "JobQueueEntry": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id",
+            "description": "Training session identifier associated with the job."
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id",
+            "description": "Celery task identifier for the job."
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current queue status for the job (queued, paused, stopped, revoked)."
+          },
+          "forced": {
+            "type": "boolean",
+            "title": "Forced",
+            "description": "Whether the most recent transition was triggered forcefully (e.g. Celery revoke).",
+            "default": false
+          },
+          "enqueued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Enqueued At",
+            "description": "Timestamp when the job was enqueued."
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At",
+            "description": "Timestamp of the latest metadata update, if any."
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At",
+            "description": "Time when the job was paused."
+          },
+          "resumed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resumed At",
+            "description": "Time when the job was resumed."
+          },
+          "stopped_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped At",
+            "description": "Time when the job was stopped cooperatively."
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At",
+            "description": "Time when the job was forcefully revoked."
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "description": "Original payload submitted when the job was created."
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "task_id",
+          "status",
+          "enqueued_at"
+        ],
+        "title": "JobQueueEntry",
+        "description": "Queue metadata captured for a submitted training job."
+      },
+      "JobQueueListResponse": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobQueueEntry"
+            },
+            "type": "array",
+            "title": "Jobs",
+            "description": "Queued training jobs."
+          }
+        },
+        "type": "object",
+        "title": "JobQueueListResponse",
+        "description": "Response envelope for job queue listing requests."
+      },
+      "PlaybackFramesListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentStateResponse"
+            },
+            "type": "array",
+            "title": "Frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "frames"
+        ],
+        "title": "PlaybackFramesListResponse",
+        "description": "Paginated playback frame data for a session."
+      },
+      "PlaybackSessionListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/PlaybackSessionSummary"
+            },
+            "type": "array",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "sessions"
+        ],
+        "title": "PlaybackSessionListResponse",
+        "description": "Paginated list of playback-enabled sessions."
+      },
+      "PlaybackSessionSummary": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id",
+            "description": "Training session identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Display name of the training job"
+          },
+          "algorithm": {
+            "$ref": "#/components/schemas/TrainingAlgorithm",
+            "description": "Training algorithm used"
+          },
+          "environment_type": {
+            "type": "string",
+            "title": "Environment Type",
+            "description": "Environment variant (standard/enhanced)"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrainingJobStatus",
+            "description": "Current job status"
+          },
+          "total_timesteps": {
+            "type": "integer",
+            "title": "Total Timesteps",
+            "description": "Configured total timesteps"
+          },
+          "current_timestep": {
+            "type": "integer",
+            "title": "Current Timestep",
+            "description": "Latest recorded timestep"
+          },
+          "episodes_completed": {
+            "type": "integer",
+            "title": "Episodes Completed",
+            "description": "Number of completed episodes"
+          },
+          "frame_count": {
+            "type": "integer",
+            "title": "Frame Count",
+            "description": "Number of recorded playback frames"
+          },
+          "first_episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Episode",
+            "description": "Lowest episode index with frames"
+          },
+          "last_episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Episode",
+            "description": "Highest episode index with frames"
+          },
+          "first_recorded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Recorded At",
+            "description": "Timestamp of the first recorded frame"
+          },
+          "last_recorded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Recorded At",
+            "description": "Timestamp of the most recent frame"
+          },
+          "last_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Step",
+            "description": "Highest step value among recorded frames"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At",
+            "description": "Job creation timestamp"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At",
+            "description": "Training start timestamp"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "Training completion timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "name",
+          "algorithm",
+          "environment_type",
+          "status",
+          "total_timesteps",
+          "current_timestep",
+          "episodes_completed",
+          "frame_count"
+        ],
+        "title": "PlaybackSessionSummary",
+        "description": "Summary information about a session that has playback frames."
+      },
+      "RobotState": {
+        "properties": {
+          "x": {
+            "type": "integer",
+            "title": "X"
+          },
+          "y": {
+            "type": "integer",
+            "title": "Y"
+          },
+          "direction": {
+            "type": "integer",
+            "title": "Direction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "direction"
+        ],
+        "title": "RobotState"
+      },
+      "SuspiciousObject": {
+        "properties": {
+          "x": {
+            "type": "integer",
+            "title": "X"
+          },
+          "y": {
+            "type": "integer",
+            "title": "Y"
+          },
+          "spawned_at": {
+            "type": "integer",
+            "title": "Spawned At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "spawned_at"
+        ],
+        "title": "SuspiciousObject"
+      },
+      "TrainingActionResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "celery_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celery Task Id"
+          },
+          "queue_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Task Id"
+          },
+          "revoked_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked Task Id"
+          },
+          "forced": {
+            "type": "boolean",
+            "title": "Forced",
+            "default": false
+          },
+          "stopped_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped At"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "resumed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resumed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "message"
+        ],
+        "title": "TrainingActionResponse",
+        "description": "Standard response payload for training control actions."
+      },
+      "TrainingAlgorithm": {
+        "type": "string",
+        "enum": [
+          "ppo",
+          "a3c"
+        ],
+        "title": "TrainingAlgorithm"
+      },
+      "TrainingJobStatus": {
+        "type": "string",
+        "enum": [
+          "created",
+          "queued",
+          "running",
+          "paused",
+          "completed",
+          "failed"
+        ],
+        "title": "TrainingJobStatus"
+      },
+      "TrainingMetricResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "job_id": {
+            "type": "integer",
+            "title": "Job Id"
+          },
+          "timestep": {
+            "type": "integer",
+            "title": "Timestep"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "reward": {
+            "type": "number",
+            "title": "Reward"
+          },
+          "loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loss"
+          },
+          "coverage_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Ratio"
+          },
+          "exploration_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exploration Score"
+          },
+          "threat_level_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threat Level Avg"
+          },
+          "additional_metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Metrics"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "timestep",
+          "episode",
+          "reward",
+          "loss",
+          "coverage_ratio",
+          "exploration_score",
+          "threat_level_avg",
+          "additional_metrics",
+          "timestamp",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrainingMetricResponse",
+        "description": "Response schema for training metric."
+      },
+      "TrainingMetricsListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingMetricResponse"
+            },
+            "type": "array",
+            "title": "Metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "metrics"
+        ],
+        "title": "TrainingMetricsListResponse",
+        "description": "Response schema for paginated training metrics."
+      },
+      "TrainingSessionCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Training session name"
+          },
+          "algorithm": {
+            "$ref": "#/components/schemas/TrainingAlgorithm",
+            "description": "RL algorithm: 'ppo' or 'a3c'"
+          },
+          "environment_type": {
+            "type": "string",
+            "pattern": "^(standard|enhanced)$",
+            "title": "Environment Type",
+            "description": "Environment type",
+            "default": "standard"
+          },
+          "total_timesteps": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Total Timesteps",
+            "description": "Total training timesteps"
+          },
+          "env_width": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 3.0,
+            "title": "Env Width",
+            "description": "Environment width",
+            "default": 8
+          },
+          "env_height": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 3.0,
+            "title": "Env Height",
+            "description": "Environment height",
+            "default": 8
+          },
+          "coverage_weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Coverage Weight",
+            "description": "Coverage reward weight",
+            "default": 1.5
+          },
+          "exploration_weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Exploration Weight",
+            "description": "Exploration reward weight",
+            "default": 3.0
+          },
+          "diversity_weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Diversity Weight",
+            "description": "Diversity reward weight",
+            "default": 2.0
+          },
+          "learning_rate": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Learning Rate",
+            "description": "Learning rate",
+            "default": 0.0003
+          },
+          "batch_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Batch Size",
+            "description": "Batch size",
+            "default": 64
+          },
+          "num_workers": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Num Workers",
+            "description": "Number of workers (for A3C)",
+            "default": 1
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config",
+            "description": "Additional configuration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "algorithm",
+          "total_timesteps"
+        ],
+        "title": "TrainingSessionCreate",
+        "description": "Request schema for creating a training session."
+      },
+      "TrainingSessionListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingSessionResponse"
+            },
+            "type": "array",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "sessions"
+        ],
+        "title": "TrainingSessionListResponse",
+        "description": "Paginated response for training sessions."
+      },
+      "TrainingSessionResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "algorithm": {
+            "$ref": "#/components/schemas/TrainingAlgorithm"
+          },
+          "environment_type": {
+            "type": "string",
+            "title": "Environment Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "total_timesteps": {
+            "type": "integer",
+            "title": "Total Timesteps"
+          },
+          "current_timestep": {
+            "type": "integer",
+            "title": "Current Timestep"
+          },
+          "episodes_completed": {
+            "type": "integer",
+            "title": "Episodes Completed"
+          },
+          "env_width": {
+            "type": "integer",
+            "title": "Env Width"
+          },
+          "env_height": {
+            "type": "integer",
+            "title": "Env Height"
+          },
+          "coverage_weight": {
+            "type": "number",
+            "title": "Coverage Weight"
+          },
+          "exploration_weight": {
+            "type": "number",
+            "title": "Exploration Weight"
+          },
+          "diversity_weight": {
+            "type": "number",
+            "title": "Diversity Weight"
+          },
+          "learning_rate": {
+            "type": "number",
+            "title": "Learning Rate"
+          },
+          "batch_size": {
+            "type": "integer",
+            "title": "Batch Size"
+          },
+          "num_workers": {
+            "type": "integer",
+            "title": "Num Workers"
+          },
+          "model_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Path"
+          },
+          "log_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Path"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "algorithm",
+          "environment_type",
+          "status",
+          "total_timesteps",
+          "current_timestep",
+          "episodes_completed",
+          "env_width",
+          "env_height",
+          "coverage_weight",
+          "exploration_weight",
+          "diversity_weight",
+          "learning_rate",
+          "batch_size",
+          "num_workers",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrainingSessionResponse",
+        "description": "Response schema for training session."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
