@@ -35,8 +35,7 @@ services:
     healthcheck:
       test:
         - "CMD-SHELL"
-        - >-
-          python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health').status == 200 else 1)"
+        - python docker/check_api_health.py
       interval: 30s
       timeout: 5s
       retries: 5
