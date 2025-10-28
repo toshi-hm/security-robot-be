@@ -6,6 +6,10 @@
 - [2025-10-22 セッション73](#2025-10-22-セッション73)
 - [2025-10-24 セッション79](#2025-10-24-セッション79)
 - [2025-10-24 セッション80](#2025-10-24-セッション80)
+- [2025-10-25 セッション81](#2025-10-25-セッション81)
+- [2025-10-25 セッション82](#2025-10-25-セッション82)
+- [2025-10-25 セッション83](#2025-10-25-セッション83)
+- [2025-10-26 セッション84](#2025-10-26-セッション84)
 
 
 ## 2025-10-22 セッション73
@@ -294,6 +298,142 @@ HEAD
 1. 監査ログへのアーカイブ完了イベント記録とRedis通知トランザクションIDの運用方針を検討する。
 2. バッチ削除時の統計情報を観測できるようメトリクス/ログ整備案を洗い出す。
 3. 展開比率上限を運用でチューニングするための計測シナリオと設定値管理手順を整理する。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-25 セッション81
+
+### 🎯 セッション目標
+- Phase 9: Docker環境構築タスク(コンテナ構成・ヘルスチェック)を完了する。
+- PostgreSQL/Redis/Celeryを含めたCompose環境へ刷新し、READMEと依存関係を同期する。
+- `docker compose` 実行による起動検証を試行し、結果を進捗ドキュメントへ反映する。
+
+### ✅ 実施内容
+- `docker/Dockerfile` をマルチステージ構成へ刷新し、開発/本番の両ターゲットを用意。`uv` ベースで依存関係をインストールするフローに統一した。
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` をPostgreSQL・Redis・Celeryワーカー込みの4サービス構成へ拡張し、全サービスにヘルスチェックと依存関係を設定。
+- PostgreSQL接続用の `asyncpg` / `psycopg[binary]` を依存関係へ追加し、`README.md` にサービス一覧とヘルスチェック確認手順を追記。
+- `report/PROGRESS.md` のPhase 9チェックリストを更新し、開発コンテナで `docker compose config` を試行した際にCLI未インストールで失敗した点をメモとして記録。
+
+### 📊 成果物
+- `docker/Dockerfile` – multi-stage (development/production) 化とシステム依存パッケージ定義。
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – API/Redis/PostgreSQL/Celery構成とヘルスチェックの整備。
+- `requirements.txt` / `pyproject.toml` – PostgreSQLドライバの依存追加。
+- `README.md` – Docker環境の利用手順と確認ポイントを更新。
+- `report/PROGRESS.md` – Phase 9の完了ステータスと環境制約メモを追記。
+
+### 🤔 学んだこと・気づき
+1. ComposeでCeleryワーカーのヘルスチェックを組む場合、`celery inspect ping` をローカルで実行する構成にすると、ワーカーのPIDを意識せず健全性を監視できる。
+2. Postgresの非同期ドライバ(`asyncpg`)と同期ドライバ(`psycopg`)を併用する設計は、SQLAlchemyの同期フェイルバックを考慮した`_resolve_sync_driver`と整合しやすい。
+3. Docker CLIが利用できない開発環境では、設定ファイルの静的検証とドキュメント整備を優先し、実行確認は別環境でフォローする旨を明示しておくと情報共有がスムーズ。
+
+### ⏭️ 次回セッションの予定
+1. ローカルまたはCI環境で `docker compose up` を実行し、マイグレーション適用とCeleryワーカー動作を実機確認する。
+2. Compose環境向けの初期データ投入スクリプトや Alembic マイグレーション実行手順の自動化を検討する。
+3. Phase 8 テスト項目の残タスク(カバレッジ向上)に着手する準備を整える。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-25 セッション82
+
+### 🎯 セッション目標
+- Phase 9 のレビュー指摘を反映し、Compose 構成と Dockerfile をセキュアに調整する。
+- 資格情報のハードコードを排除し、`.env` ベースの運用手順を整理する。
+- 変更内容を README / PROGRESS / DIARY に記録し、作業ログを最新化する。
+
+### ✅ 実施内容
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` の環境変数を `.env` 参照へ切り替え、Celery 依存関係を `service_healthy` に統一した。API ヘルスチェックは Python ワンライナーへ置換し、`curl` 依存を排除。
+- `docker/Dockerfile` から `curl`/`git` のインストールを削除し、本番ステージで `build-essential` をパージする処理を追加。ヘルスチェック変更に合わせてコンテナ内の追加ツールを不要化。
+- ルートに `.env.example` と `.dockerignore` を新規作成し、`.gitignore` へ `.env` を追加して秘匿情報がリポジトリへ混入しないようガード。
+- `README.md` の Docker 手順を `.env` 作成ステップ込みで更新し、PostgreSQL 認証情報の参照先を `${POSTGRES_USER}` / `${POSTGRES_PASSWORD}` 表記へ調整。
+- `report/PROGRESS.md` の Phase 9 セクションへ環境変数外部化と本番イメージ軽量化の追記を行い、本日の作業を記録。
+
+### 📊 成果物
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – `.env` 参照化・Celery ヘルスチェック条件修正・Python ベースの API ヘルスチェック。
+- `docker/Dockerfile` – 不要パッケージ削除と本番ステージでのビルドツールパージ処理。
+- `.env.example` / `.dockerignore` / `.gitignore` – 環境変数テンプレートとビルドコンテキスト除外設定の整備。
+- `README.md` – `.env` 作成手順と資格情報記載の更新。
+- `report/PROGRESS.md` / `report/DIARY04.md` – Phase 9 の追記と本セッションログ。
+
+### 🤔 学んだこと・気づき
+1. Compose の `depends_on.condition` を `service_healthy` へ揃えると、API 立ち上がりを待ってから Celery を起動でき、接続リトライのログが減る見込み。
+2. API ヘルスチェックを Python で実装すると追加バイナリ不要で、本番イメージの攻撃面が狭まる。`curl` を削除してもランタイムに影響が出ない構成を維持できた。
+3. Celery ワーカーは同期的に DB へ接続するため、`psycopg` 依存を残しておく必要がある。`.env` による資格情報分離で今後のステージング・本番切替も容易になる。
+
+### ⏭️ 次回セッションの予定
+1. `.env` 運用ガイドを instructions へ追記するか検討し、環境変数管理のベストプラクティスをまとめる。
+2. Docker Compose 実行ログを取得できる環境で `docker compose up` を再検証し、ヘルスチェックの挙動を確認する。
+3. Phase 8 のテストカバレッジ改善タスクを再開し、残りの統合テスト整備に着手する。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-25 セッション83
+
+### 🎯 セッション目標
+- Docker レビュー指摘 (環境変数既定値 / Celery ヘルスチェック / UID・GID 引数) を反映して Phase 9 の品質を高める。
+- `.env` 運用と Celery 並列度の調整手順をドキュメントへ追加する。
+- 作業内容を PROGRESS / DIARY に追記し、共有ログを最新化する。
+
+### ✅ 実施内容
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` の環境変数を `${VAR:-default}` 形式へ更新し、`.env` 未配置でも安全な既定値を設定。Celery のヘルスチェックを `inspect ping` 単体に簡素化し、並列度引数を `${CELERY_WORKER_CONCURRENCY:-2}` で可変化。
+- `docker/Dockerfile` に `APP_UID` / `APP_GID` のビルド引数を導入し、実行ユーザー ID をホスト環境に合わせられるよう調整。
+- `.env.example` に `CELERY_WORKER_CONCURRENCY` を追記し、README の Docker 節へ並列度調整と本番ビルド用 build-arg のガイドを追加。
+- `report/PROGRESS.md` の最終更新日と Phase 9 メモを更新し、今回の対応内容を追記。
+
+### 📊 成果物
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – 既定値付き環境変数とヘルスチェック・並列度の調整。
+- `docker/Dockerfile` – APP_UID / APP_GID ビルド引数の追加。
+- `.env.example` / `README.md` – Celery 並列度・本番ビルド手順の補足。
+- `report/PROGRESS.md` / `report/DIARY04.md` – Phase 9 フォローアップの記録。
+
+### 🤔 学んだこと・気づき
+1. Compose 側で既定値を用意しておくと、`.env` を作り忘れた場合でもコンテナが失敗せず起動でき、開発者体験を損なわない。
+2. Celery ヘルスチェックはシンプルな `inspect ping` のほうがホスト名依存を避けられ、複数ワーカー構成でも共通化しやすい。
+3. UID/GID を build-arg 化することで、ボリューム書き込み権限の不整合を環境ごとに解消しやすくなる。
+
+### ⏭️ 次回セッションの予定
+1. Docker Compose 実行環境で新しい既定値・ヘルスチェックの挙動を実地確認する。
+2. Phase 9 の追加ドキュメント整備 (instructions への `.env` ベストプラクティス追記) を検討する。
+3. Phase 8 テストカバレッジ改善タスクへリソースを戻す。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
+## 2025-10-26 セッション84
+
+### 🎯 セッション目標
+- Docker レビューの追加指摘 (BuildKit ディレクティブと API ヘルスチェック) を解消し、Phase 9 の安定性を強化する。
+- 新しいヘルスチェックスクリプト導入に合わせて、進捗ログ (PROGRESS / DIARY) を更新する。
+
+### ✅ 実施内容
+- `docker/Dockerfile` から BuildKit 用 `# syntax=` 指定を削除し、標準 Docker 実行環境でも警告なくビルドできるよう調整。
+- `docker/check_api_health.py` を追加し、`docker-compose.yml` / `docker-compose.prod.yml` のヘルスチェックから Python ワンライナーを置き換えて例外ハンドリングを明示。
+- `report/PROGRESS.md` に Phase 9 の追記メモを追加し、本セッションの変更を `report/DIARY04.md` へ記録。
+
+### 📊 成果物
+- `docker/Dockerfile` – BuildKit パーサーディレクティブの除去。
+- `docker/check_api_health.py` – API ヘルスチェック用スクリプトの新規追加。
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – ヘルスチェックコマンドのスクリプト化。
+- `report/PROGRESS.md` / `report/DIARY04.md` – Phase 9 フォローアップログの更新。
+
+### 🤔 学んだこと・気づき
+1. BuildKit 特有のディレクティブは依存を明記しない限り避けた方が、チーム内の多様な Docker バージョンで運用しやすい。
+2. ヘルスチェックの Python スクリプト化により、ログ出力やタイムアウトの制御を柔軟に行えることが分かった。
+
+### ⏭️ 次回セッションの予定
+1. Compose 環境で新しいスクリプトの挙動を実地検証し、必要なら追加ログ出力や設定値を調整する。
+2. Phase 9 ドキュメント (README や instructions) にヘルスチェックスクリプトの利用方法を追記するか検討する。
+3. Phase 8 のテスト強化タスクへ戻り、バックエンド統合テストの不足ケースを洗い出す。
 
 ### 🔗 関連コミット
 - (作業中)

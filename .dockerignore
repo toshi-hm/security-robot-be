@@ -1,0 +1,14 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+*.db
+*.log
+.env
+logs/
+models/
+playback_data/
+postgres_data/
+tests/
