@@ -8,8 +8,6 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     build-essential \
-    curl \
-    git \
   && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir uv
@@ -34,6 +32,9 @@ ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 
 COPY . .
+
+RUN apt-get purge -y --auto-remove build-essential \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 appuser \
   && chown -R appuser:appuser /app

@@ -46,6 +46,7 @@ htmlcov/
 .pytest_cache/
 
 # Local environment files
+.env
 .env.local
 .env.*.local
 .DS_Store

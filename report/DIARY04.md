@@ -336,6 +336,42 @@ HEAD
 
 ---
 
+## 2025-10-25 セッション82
+
+### 🎯 セッション目標
+- Phase 9 のレビュー指摘を反映し、Compose 構成と Dockerfile をセキュアに調整する。
+- 資格情報のハードコードを排除し、`.env` ベースの運用手順を整理する。
+- 変更内容を README / PROGRESS / DIARY に記録し、作業ログを最新化する。
+
+### ✅ 実施内容
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` の環境変数を `.env` 参照へ切り替え、Celery 依存関係を `service_healthy` に統一した。API ヘルスチェックは Python ワンライナーへ置換し、`curl` 依存を排除。
+- `docker/Dockerfile` から `curl`/`git` のインストールを削除し、本番ステージで `build-essential` をパージする処理を追加。ヘルスチェック変更に合わせてコンテナ内の追加ツールを不要化。
+- ルートに `.env.example` と `.dockerignore` を新規作成し、`.gitignore` へ `.env` を追加して秘匿情報がリポジトリへ混入しないようガード。
+- `README.md` の Docker 手順を `.env` 作成ステップ込みで更新し、PostgreSQL 認証情報の参照先を `${POSTGRES_USER}` / `${POSTGRES_PASSWORD}` 表記へ調整。
+- `report/PROGRESS.md` の Phase 9 セクションへ環境変数外部化と本番イメージ軽量化の追記を行い、本日の作業を記録。
+
+### 📊 成果物
+- `docker/docker-compose.yml` / `docker/docker-compose.prod.yml` – `.env` 参照化・Celery ヘルスチェック条件修正・Python ベースの API ヘルスチェック。
+- `docker/Dockerfile` – 不要パッケージ削除と本番ステージでのビルドツールパージ処理。
+- `.env.example` / `.dockerignore` / `.gitignore` – 環境変数テンプレートとビルドコンテキスト除外設定の整備。
+- `README.md` – `.env` 作成手順と資格情報記載の更新。
+- `report/PROGRESS.md` / `report/DIARY04.md` – Phase 9 の追記と本セッションログ。
+
+### 🤔 学んだこと・気づき
+1. Compose の `depends_on.condition` を `service_healthy` へ揃えると、API 立ち上がりを待ってから Celery を起動でき、接続リトライのログが減る見込み。
+2. API ヘルスチェックを Python で実装すると追加バイナリ不要で、本番イメージの攻撃面が狭まる。`curl` を削除してもランタイムに影響が出ない構成を維持できた。
+3. Celery ワーカーは同期的に DB へ接続するため、`psycopg` 依存を残しておく必要がある。`.env` による資格情報分離で今後のステージング・本番切替も容易になる。
+
+### ⏭️ 次回セッションの予定
+1. `.env` 運用ガイドを instructions へ追記するか検討し、環境変数管理のベストプラクティスをまとめる。
+2. Docker Compose 実行ログを取得できる環境で `docker compose up` を再検証し、ヘルスチェックの挙動を確認する。
+3. Phase 8 のテストカバレッジ改善タスクを再開し、残りの統合テスト整備に着手する。
+
+### 🔗 関連コミット
+- (作業中)
+
+---
+
 ## テンプレート
 
 以下の雛形を各セッションの記録にコピーして利用してください。

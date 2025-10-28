@@ -75,13 +75,20 @@ cd security-robot-be
 
 ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンド / Celery ワーカー / PostgreSQL / Redis をまとめて起動できます。
 
+1. ルートディレクトリで `.env.example` をコピーし、機密値 (特に `POSTGRES_PASSWORD`) を書き換えて `.env` を作成します。
+   ```bash
+   cp .env.example .env
+   # エディタでPOSTGRES_PASSWORDなどを編集
+   ```
+   Docker Compose はこのファイルを自動的に読み込み、サービス間で共有する環境変数を設定します。
+
 ```bash
 cd docker
 docker compose up --build
 ```
 
 - API: http://localhost:8000 (`/api/v1/health` でヘルスチェック)
-- PostgreSQL: localhost:5432 (`security_robot` / `security_robot_password`)
+- PostgreSQL: localhost:5432 (`${POSTGRES_USER}` / `${POSTGRES_PASSWORD}`)
 - Redis: localhost:6379
 - Celery ワーカー: `docker compose logs -f celery-worker` で状態確認
 - ボリューム: `models/`, `logs/`, `playback_data/`, `postgres_data/`
