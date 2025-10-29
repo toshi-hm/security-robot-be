@@ -6,6 +6,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      network: host
     command:
       - uv
       - run
@@ -46,6 +47,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      network: host
     command:
       - celery
       - -A
