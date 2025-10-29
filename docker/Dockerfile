@@ -19,6 +19,13 @@ FROM base AS development
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=development
 
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+RUN groupadd -g "${APP_GID}" -o appuser \
+  && useradd -m -u "${APP_UID}" -g appuser -o appuser \
+  && chown -R appuser:appuser /app
+
 COPY . .
 
 EXPOSE 8000
