@@ -231,6 +231,8 @@
 - [x] app/api/v1/endpoints/playback.py - プレイバックセッション一覧/フレーム取得APIを追加 (2025-10-18)
 - [x] app/services/playback_service.py - フレーム集計と記録サービスを新設 (2025-10-18)
 - [x] app/schemas/playback.py - プレイバックレスポンススキーマを追加 (2025-10-18)
+- [x] app/models/base.py / app/models/training.py / alembic/versions/20251030_convert_timestamps_to_timestamptz.py - タイムゾーン付きタイムスタンプ列へ移行し、`TrainingJob`作成時のasyncpg DataErrorを解消 (2025-10-30対応)
+- [x] app/tasks/celery_app.py - Celeryタスクの自動登録と明示的インポートを追加し、`training.run_ppo_training` が未登録扱いになる問題を解消 (2025-10-30対応)
 
 #### ドキュメント整備TODO (優先度順)
 - [x] `instructions/02_backend_api_design_standalone.md` にプレイバックAPI群(`/playback/sessions`, `/playback/{session_id}/frames`)と録画保持ポリシーの仕様を追記し、フロントエンドとテストが参照できる形でレスポンス例・エラーハンドリングを整理する。(2025-10-22完了)

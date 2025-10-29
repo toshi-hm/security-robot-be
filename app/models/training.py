@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Enum as SqlEnum, ForeignKey, String, JSON
+from sqlalchemy import JSON, DateTime, Enum as SqlEnum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -68,8 +68,12 @@ class TrainingJob(Base):
   config: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
   
   # Timestamps
-  started_at: Mapped[Optional[datetime]] = mapped_column(default=None)
-  completed_at: Mapped[Optional[datetime]] = mapped_column(default=None)
+  started_at: Mapped[Optional[datetime]] = mapped_column(
+    DateTime(timezone=True), default=None, nullable=True
+  )
+  completed_at: Mapped[Optional[datetime]] = mapped_column(
+    DateTime(timezone=True), default=None, nullable=True
+  )
   
   # Relationships
   metrics: Mapped[list['TrainingMetric']] = relationship(
@@ -99,7 +103,7 @@ class TrainingMetric(Base):
   additional_metrics: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
   
   # Timestamp
-  timestamp: Mapped[datetime] = mapped_column(default=utcnow)
+  timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
   
   # Relationship
   job: Mapped[TrainingJob] = relationship(back_populates='metrics')

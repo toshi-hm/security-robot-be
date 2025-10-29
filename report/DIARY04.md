@@ -652,6 +652,41 @@ HEAD
 
 ---
 
+## 2025-10-30 セッション90
+
+### 🎯 セッション目標
+- `/api/v1/training/start` が 500 応答になる原因を特定し、バックエンド側で修正する。
+
+### ✅ 実施内容
+- API ログの asyncpg `DataError` を調査し、`TrainingJob` の `created_at` がタイムゾーン付きで挿入されている一方でテーブル定義がタイムゾーン非対応であることを確認。
+- `app/models/base.py` と `app/models/training.py` に `DateTime(timezone=True)` を設定し、`created_at`/`updated_at`/`started_at`/`completed_at`/`timestamp` の各列がタイムゾーン付きで保存されるよう修正。
+- `alembic/versions/20251030_convert_timestamps_to_timestamptz.py` を追加して既存テーブルの列型を `TIMESTAMP WITH TIME ZONE` へ移行し、運用中DBでも DataError が発生しないようにした。
+- `report/PROGRESS.md` に asyncpg エラー修正を追記し、Phase 4 の進捗メモを最新化。
+- `pytest` の実行を試みたが、開発向け依存 (`pytest`) が未インストールでネットワーク制限により取得できず、テストは未実行。
+
+### 📊 成果物
+- `app/models/base.py` – タイムゾーン付きタイムスタンプ列を導入。
+- `app/models/training.py` – ジョブとメトリクスのタイムスタンプ列をタイムゾーン対応へ更新。
+- `alembic/versions/20251030_convert_timestamps_to_timestamptz.py` – 既存データベースを `TIMESTAMPTZ` へ移行するスキーマ更新を追加。
+- `report/PROGRESS.md` – asyncpg DataError 解消の進捗を追記。
+- `app/tasks/celery_app.py` – Celeryワーカー起動時にタスクを自動登録し、明示的なモジュール読み込みで登録漏れを防ぐよう更新。
+
+### 🤔 学んだこと・気づき
+1. Python 側で UTC aware な `datetime` を返すよう統一した場合でも、ORM のカラム定義を揃えないと Postgres では挿入時に DataError になってしまう。
+2. タイムゾーンカラム化は `Base` の共通列を修正すれば他モデルにも波及するため、差分を最小限に抑えつつ再発を防げる。
+
+### ⏭️ 次回セッションの予定
+1. Postgres 環境でテーブル型を再作成またはマイグレーションし、タイムゾーン列が反映された状態で `/training/start` の再テストを行う。
+2. `pytest` を実行できるよう開発依存をインストールする手順を整理し、CI/ローカル環境の両方で回帰確認できるようにする。
+
+### 🔗 関連コミット
+- (コミットなし)
+```
+HEAD
+```
+
+---
+
 ## テンプレート
 
 以下の雛形を各セッションの記録にコピーして利用してください。
