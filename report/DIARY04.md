@@ -669,6 +669,7 @@ HEAD
 - `app/models/training.py` – ジョブとメトリクスのタイムスタンプ列をタイムゾーン対応へ更新。
 - `alembic/versions/20251030_convert_timestamps_to_timestamptz.py` – 既存データベースを `TIMESTAMPTZ` へ移行するスキーマ更新を追加。
 - `report/PROGRESS.md` – asyncpg DataError 解消の進捗を追記。
+- `app/tasks/celery_app.py` – Celeryワーカー起動時にタスクを自動登録し、明示的なモジュール読み込みで登録漏れを防ぐよう更新。
 
 ### 🤔 学んだこと・気づき
 1. Python 側で UTC aware な `datetime` を返すよう統一した場合でも、ORM のカラム定義を揃えないと Postgres では挿入時に DataError になってしまう。
