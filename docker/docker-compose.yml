@@ -6,9 +6,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      network: host
     command:
-      - uv
-      - run
       - uvicorn
       - app.main:app
       - --host
@@ -20,6 +19,7 @@ services:
       - '8000:8000'
     volumes:
       - ../:/app
+      - venv_data:/app/.venv
       - ../models:/app/models
       - ../logs:/app/logs
       - ../playback_data:/app/playback_data
@@ -46,6 +46,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      network: host
     command:
       - celery
       - -A
@@ -55,6 +56,7 @@ services:
       - --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
     volumes:
       - ../:/app
+      - venv_data:/app/.venv
       - ../models:/app/models
       - ../logs:/app/logs
       - ../playback_data:/app/playback_data
@@ -104,6 +106,7 @@ services:
 
 volumes:
   postgres_data:
+  venv_data:
   models:
   logs:
   playback_data:
