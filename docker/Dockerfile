@@ -1,6 +1,6 @@
 FROM python:3.12-slim AS base
 
-ENV PATH="/root/.local/bin:${PATH}"
+ENV PATH="/app/.venv/bin:/root/.local/bin:${PATH}"
 WORKDIR /app
 
 RUN apt-get update \
@@ -11,7 +11,8 @@ RUN apt-get update \
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml requirements.txt ./
-RUN uv pip install --system --no-cache -r requirements.txt
+RUN uv venv .venv && \
+    uv pip install --no-cache -r requirements.txt
 
 FROM base AS development
 
@@ -22,7 +23,7 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 FROM base AS production
 
@@ -45,4 +46,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
