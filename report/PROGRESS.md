@@ -231,6 +231,7 @@
 - [x] app/api/v1/endpoints/playback.py - プレイバックセッション一覧/フレーム取得APIを追加 (2025-10-18)
 - [x] app/services/playback_service.py - フレーム集計と記録サービスを新設 (2025-10-18)
 - [x] app/schemas/playback.py - プレイバックレスポンススキーマを追加 (2025-10-18)
+- [x] app/models/base.py / app/models/training.py - タイムゾーン付きタイムスタンプ列を導入し、`TrainingJob`作成時のasyncpg DataErrorを解消 (2025-10-30対応)
 
 #### ドキュメント整備TODO (優先度順)
 - [x] `instructions/02_backend_api_design_standalone.md` にプレイバックAPI群(`/playback/sessions`, `/playback/{session_id}/frames`)と録画保持ポリシーの仕様を追記し、フロントエンドとテストが参照できる形でレスポンス例・エラーハンドリングを整理する。(2025-10-22完了)
