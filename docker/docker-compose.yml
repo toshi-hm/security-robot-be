@@ -6,6 +6,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
     command:
       - uv
@@ -47,6 +48,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+      # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
     command:
       - celery
