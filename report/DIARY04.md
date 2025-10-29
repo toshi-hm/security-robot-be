@@ -660,12 +660,14 @@ HEAD
 ### ✅ 実施内容
 - API ログの asyncpg `DataError` を調査し、`TrainingJob` の `created_at` がタイムゾーン付きで挿入されている一方でテーブル定義がタイムゾーン非対応であることを確認。
 - `app/models/base.py` と `app/models/training.py` に `DateTime(timezone=True)` を設定し、`created_at`/`updated_at`/`started_at`/`completed_at`/`timestamp` の各列がタイムゾーン付きで保存されるよう修正。
+- `alembic/versions/20251030_convert_timestamps_to_timestamptz.py` を追加して既存テーブルの列型を `TIMESTAMP WITH TIME ZONE` へ移行し、運用中DBでも DataError が発生しないようにした。
 - `report/PROGRESS.md` に asyncpg エラー修正を追記し、Phase 4 の進捗メモを最新化。
 - `pytest` の実行を試みたが、開発向け依存 (`pytest`) が未インストールでネットワーク制限により取得できず、テストは未実行。
 
 ### 📊 成果物
 - `app/models/base.py` – タイムゾーン付きタイムスタンプ列を導入。
 - `app/models/training.py` – ジョブとメトリクスのタイムスタンプ列をタイムゾーン対応へ更新。
+- `alembic/versions/20251030_convert_timestamps_to_timestamptz.py` – 既存データベースを `TIMESTAMPTZ` へ移行するスキーマ更新を追加。
 - `report/PROGRESS.md` – asyncpg DataError 解消の進捗を追記。
 
 ### 🤔 学んだこと・気づき
