@@ -8,7 +8,7 @@ services:
       target: development
       # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
-    command: /bin/sh -c "uv pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    user: appuser
     ports:
       - '8000:8000'
     volumes:
@@ -42,7 +42,14 @@ services:
       target: development
       # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
-    command: /bin/sh -c "uv pip install -r requirements.txt && celery -A app.tasks.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-2}"
+    command:
+      - celery
+      - -A
+      - app.tasks.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency
+      - "${CELERY_WORKER_CONCURRENCY:-2}"
     user: appuser
     volumes:
       - ../:/app
@@ -97,6 +104,3 @@ services:
 volumes:
   postgres_data:
   venv_data:
-  models:
-  logs:
-  playback_data:

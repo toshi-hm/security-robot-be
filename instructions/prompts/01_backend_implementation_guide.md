@@ -17,7 +17,8 @@
    - 既知の問題や課題を確認
    - 次のアクションアイテムを確認
 
-2. **`../../report/summary/DIARY01.md` & `../../report/summary/DIARY02.md` & `../../report/DIARY03.md`** - 開発セッション履歴
+2. **`../../report/summary/DIARY01.md` & `../../report/summary/DIARY02.md` & `../../report/summary/DIARY03.md` & `../../report/summary/DIARY04.md`** - 開発セッション履歴の要約
+3. **`../../report/DIARY05.md`** - 最新の開発セッション記録
    - アーカイブの要点と直近のセッションを確認
    - 学んだことや気づきを把握
    - 前回のセッションからの引き継ぎ事項を確認
@@ -35,7 +36,7 @@
 - 目次とアンカーリンクを上部に配置
 - フェーズごとにセクションを作成し、アンカーリンクで移動可能にする
 
-**DIARY03.md:**
+**DIARY05.md:**
 - **最新エントリを上部に配置** (逆時系列順)
 - 目次とアンカーリンクを上部に配置
 - 新しいセッションを追加する際は、目次の直後、前回セッションの前に挿入
@@ -44,7 +45,7 @@
 
 **summary/DIARY01.md:**
 - アーカイブ化された `DIARY01.md` の要点を把握するためのサマリー
-- 新規メンバーはまずここで履歴の概要を掴んでから `summary/DIARY02.md` → `DIARY03.md` を読み進める
+- 新規メンバーはまずここで履歴の概要を掴んでから `summary/DIARY02.md` → `summary/DIARY03.md` → `summary/DIARY04.md` → `DIARY05.md` を読み進める
 
 詳細は `../../CLAUDE.md` の「Progress File Guidelines」セクションを参照してください。
 
