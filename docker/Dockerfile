@@ -20,8 +20,8 @@ RUN groupadd -g "${APP_GID}" -o appuser \
 
 COPY pyproject.toml requirements.txt ./
 RUN uv venv .venv && \
-    uv pip install --no-cache -r requirements.txt && \
-    chown -R appuser:appuser /app
+    uv pip install --no-cache -r requirements.txt
+RUN chown -R appuser:appuser /app
 
 FROM base AS development
 
