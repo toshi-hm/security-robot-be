@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 """API endpoints for playback data management."""
-# ruff: noqa: E402
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

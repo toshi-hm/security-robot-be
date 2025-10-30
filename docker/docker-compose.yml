@@ -103,13 +103,14 @@ services:
 
   # 🔹 Ruff 専用サービス（公式イメージ使用）
   ruff:
-    image: ghcr.io/astral-sh/ruff:latest
-    working_dir: /work
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: ruff
+    image: security-robot-be-ruff
+    profiles: ["tools"]
     volumes:
-      - ..:/work:rw
-    command: ["check", "."]
-    profiles:
-      - tools
+      - ../:/app
 
 volumes:
   postgres_data:

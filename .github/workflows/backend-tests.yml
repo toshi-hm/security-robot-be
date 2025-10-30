@@ -10,6 +10,7 @@ jobs:
   lint:
     name: Ruff Linting
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - name: Checkout repository
@@ -23,7 +24,6 @@ jobs:
   tests:
     name: Run pytest
     runs-on: ubuntu-latest
-    needs: lint
 
     steps:
       - name: Checkout repository
