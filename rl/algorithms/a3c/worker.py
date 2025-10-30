@@ -209,11 +209,11 @@ class A3CWorker:
     value_loss = nn.functional.mse_loss(value_predictions, stacked_returns.detach())
     loss = policy_loss + self._value_loss_coef * value_loss - self._entropy_coef * entropy.sum()
 
-    self._optimizer.zero_grad()
     loss.backward()
     torch.nn.utils.clip_grad_norm_(self._local_network.parameters(), self._max_grad_norm)
 
     def _apply_gradients() -> None:
+      self._optimizer.zero_grad()
       with torch.no_grad():
         for global_param, local_param in zip(
           self._global_network.parameters(),
