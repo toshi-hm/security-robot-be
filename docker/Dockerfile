@@ -13,14 +13,19 @@ RUN apt-get update \
 
 RUN pip install --no-cache-dir uv
 
+# Install dependencies as root before creating user
+# This ensures dependency layer is cached even when APP_UID/APP_GID changes
+COPY pyproject.toml requirements.txt ./
+RUN uv venv .venv && \
+    uv pip install --no-cache -r requirements.txt
+
+# Create user after dependency installation to maximize cache efficiency
 ARG APP_UID
 ARG APP_GID
 RUN groupadd -g "${APP_GID}" -o appuser \
   && useradd -m -u "${APP_UID}" -g appuser -o appuser
 
-COPY pyproject.toml requirements.txt ./
-RUN uv venv .venv && \
-    uv pip install --no-cache -r requirements.txt
+# Change ownership after user creation
 RUN chown -R appuser:appuser /app
 
 FROM base AS development
