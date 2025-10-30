@@ -49,7 +49,7 @@ services:
       - worker
       - --loglevel=info
       - --concurrency
-      - "${CELERY_WORKER_CONCURRENCY}"
+      - "${CELERY_WORKER_CONCURRENCY:-2}"
     user: appuser
     volumes:
       - ../:/app

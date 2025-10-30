@@ -717,9 +717,9 @@ HEAD
 2. Phase 8 のテストタスクを進める際に、Docker環境から `pytest` を実行する手順を文書化するか検討する。
 
 ### 🔗 関連コミット
-- (コミットなし)
+- d27fde6: Fix Docker dev user ownership and startup flow
 ```
-HEAD
+d27fde6
 ```
 
 ---
