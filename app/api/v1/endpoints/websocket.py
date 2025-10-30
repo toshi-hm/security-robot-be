@@ -7,7 +7,6 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +15,7 @@ from app.core.websocket.manager import websocket_manager
 from app.core.websocket.redis_forwarder import redis_forwarder
 from app.models.training import TrainingJob
 from app.schemas.websocket import ConnectionAckMessage, PongMessage, TrainingErrorEvent
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

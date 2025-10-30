@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 from .security_env import SecurityEnvironment
 
 
@@ -35,9 +33,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     def reset(
         self,
         *,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None,
-    ) -> Tuple[list[list[list[float]]], dict]:
+        seed: int | None = None,
+        options: dict | None = None,
+    ) -> tuple[list[list[list[float]]], dict]:
         observation, info = super().reset(seed=seed, options=options)
         self._init_tracking_structures()
 
@@ -46,7 +44,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     def step(
         self, action: int
-    ) -> Tuple[list[list[list[float]]], float, bool, bool, dict]:
+    ) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
         observation, base_reward, terminated, truncated, info = super().step(action)
 
         self._update_exploration_state()

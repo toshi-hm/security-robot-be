@@ -7,11 +7,10 @@ import json
 import logging
 from typing import Any, Protocol
 
+import torch
 from redis import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
-
-import torch
 
 from app.core.config import settings
 from app.core.training.a3c_service import A3CTrainingService

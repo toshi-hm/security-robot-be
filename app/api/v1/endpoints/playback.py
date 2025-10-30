@@ -2,7 +2,6 @@ from __future__ import annotations
 
 """API endpoints for playback data management."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -13,6 +12,7 @@ from app.schemas.playback import (
   PlaybackSessionSummary,
 )
 from app.services import PlaybackService
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 router = APIRouter()
 

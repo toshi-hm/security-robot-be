@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, JSON, String
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -27,7 +27,7 @@ class EnvironmentState(Base):
   session_id: Mapped[int] = mapped_column(
     ForeignKey('trainingjob.id', ondelete='CASCADE'), index=True
   )
-  job: Mapped['TrainingJob'] = relationship(back_populates='states')
+  job: Mapped[TrainingJob] = relationship(back_populates='states')
 
   # Step information
   episode: Mapped[int] = mapped_column(index=True)
@@ -40,9 +40,9 @@ class EnvironmentState(Base):
 
   # Environment state (JSON)
   threat_grid: Mapped[dict] = mapped_column(JSON)  # 2D array of threat levels
-  coverage_map: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
-  suspicious_objects: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
+  coverage_map: Mapped[dict | None] = mapped_column(JSON, default=None)
+  suspicious_objects: Mapped[dict | None] = mapped_column(JSON, default=None)
 
   # Action information
-  action_taken: Mapped[Optional[int]] = mapped_column(default=None)  # 0-3: Up, Right, Down, Left
-  reward_received: Mapped[Optional[float]] = mapped_column(default=None)
+  action_taken: Mapped[int | None] = mapped_column(default=None)  # 0-3: Up, Right, Down, Left
+  reward_received: Mapped[float | None] = mapped_column(default=None)

@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from fastapi import HTTPException, status
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 

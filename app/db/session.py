@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import async_engine, sync_engine
 
-
 # Async session factory used by FastAPI request handlers.
 async_session = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
 

@@ -81,7 +81,7 @@ class RedisTrainingEventForwarder:
             ignore_subscribe_messages=True,
             timeout=self._poll_interval,
           )
-        except asyncio.TimeoutError:
+        except TimeoutError:
           continue
 
         if not message or message.get("type") != "message":

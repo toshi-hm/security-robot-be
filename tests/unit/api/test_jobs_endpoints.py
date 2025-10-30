@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import HTTPException
 
 from app.api.v1.endpoints import jobs as jobs_module
 from app.core.training import job_manager as job_manager_module
 from app.core.training.job_manager import JobManager
+from fastapi import HTTPException
 from tests.utils.time import set_time_sequence
 
 

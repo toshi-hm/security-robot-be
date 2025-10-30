@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable
+from typing import Any, Dict
 
 from .enhanced_env import EnhancedSecurityEnvironment
 from .security_env import SecurityEnvironment
-
 
 EnvironmentFactory = Callable[..., SecurityEnvironment]
 
@@ -20,17 +20,17 @@ class EnvironmentSpec:
     name: str
     description: str
     factory: EnvironmentFactory
-    default_config: Dict[str, Any] = field(default_factory=dict)
+    default_config: dict[str, Any] = field(default_factory=dict)
     features: list[str] = field(default_factory=list)
     observation_channels: list[str] = field(default_factory=list)
-    action_space: Dict[str, Any] = field(default_factory=dict)
+    action_space: dict[str, Any] = field(default_factory=dict)
 
     def create(self, **overrides: Any) -> SecurityEnvironment:
         config = {**self.default_config, **overrides}
         return self.factory(**config)
 
 
-_REGISTRY: Dict[str, EnvironmentSpec] = {
+_REGISTRY: dict[str, EnvironmentSpec] = {
     "base": EnvironmentSpec(
         id="base",
         name="Security Patrol Environment",

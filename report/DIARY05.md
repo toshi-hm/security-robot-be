@@ -84,3 +84,44 @@
 - 4a898ba: fix(config): remove misplaced Serena config and fix Docker compose defaults
 - 835fe97: perf(docker): separate chown layer for better build cache efficiency
 - 638fda3: perf(docker): move dependency installation before user creation for cache efficiency
+
+---
+
+## 2025-10-31 セッション94
+
+### 🎯 セッション目標
+- Python用lintツール（Ruff）を導入し、コードベース全体の品質を向上させる
+
+### ✅ 実施内容
+- Ruff 0.14.2（最新版）を`requirements.txt`と`pyproject.toml`に追加
+- `pyproject.toml`にRuff設定を追加（ターゲットバージョン、行長、ルール選択、除外設定）
+- `docker/docker-compose.yml`にRuff専用サービスを追加（公式イメージ使用、toolsプロファイル）
+- Ruffチェックを実行：377個のエラーを検出
+- 自動修正（`--fix`）を実行：355個のエラーを修正
+- 残り22個のエラーを確認（E402、W293、UP系、F841）
+
+### 📊 成果物
+- `requirements.txt`: ruff==0.14.2 追加
+- `pyproject.toml`: [tool.ruff]設定セクション追加（select、ignore、per-file-ignores、format設定）
+- `docker/docker-compose.yml`: ruffサービス追加（ghcr.io/astral-sh/ruff:latest）
+- 355ファイルの自動修正（主にimport整理、typing更新、未使用import削除）
+
+### 🧠 学んだこと・課題
+1. Ruffは非常に高速で、公式Dockerイメージを使うことでローカル環境の問題（仮想環境のパーミッション）を回避できた
+2. 主な修正内容：
+   - I001: Import文の並び順とフォーマット（最多）
+   - UP系: Python 3.9+の新しい型ヒント（`List`→`list`、`Tuple`→`tuple`）
+   - F401: 未使用のimport削除
+3. 残り22個のエラーは手動対応または許容が必要：
+   - E402: 意図的なimport配置（`playback.py`、`export_openapi.py`）
+   - W293: docstring内の空白行
+   - UP系: 一部の古い型ヒント
+   - F841: テストコード内の未使用変数
+
+### ⏭️ 次回セッションの予定
+1. 残り22個のRuffエラーへの対応方針を決定（手動修正 vs 許容 vs ruff設定調整）
+2. CI/CDパイプラインへのRuffチェック組み込みを検討
+3. テスト実行してリグレッションがないことを確認
+
+### 🔗 関連コミット
+- （次回コミット予定）

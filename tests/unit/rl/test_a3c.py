@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-from typing import List, Tuple
-
 import numpy as np
 import pytest
 import torch
@@ -22,11 +19,11 @@ class _DummyEnv:
     self.observation_space = spaces.Box(low=0, high=1, shape=(2, 2, 1), dtype=np.float32)
     self._step_count = 0
 
-  def reset(self, *, seed: int | None = None, options: dict | None = None) -> Tuple[np.ndarray, dict]:
+  def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
     self._step_count = 0
     return np.zeros(self.observation_space.shape, dtype=np.float32), {}
 
-  def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, dict]:
+  def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
     self._step_count += 1
     reward = 1.0 if action == 1 else 0.5
     terminated = self._step_count >= 3
@@ -141,7 +138,7 @@ def test_a3c_trainer_runs_with_dummy_environment() -> None:
     'num_workers': 1,
   }
 
-  progress: List[Tuple[int, dict]] = []
+  progress: list[tuple[int, dict]] = []
 
   trainer = A3CTrainer(_dummy_env_factory, config, device='cpu')
   result = trainer.train(progress_callback=lambda t, m: progress.append((t, m)))

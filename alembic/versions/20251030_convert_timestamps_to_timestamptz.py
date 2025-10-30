@@ -9,8 +9,8 @@ mixing offset-naive and offset-aware datetimes.
 from __future__ import annotations
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "20251030_convert_timestamps_to_timestamptz"

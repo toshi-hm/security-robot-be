@@ -2,10 +2,9 @@
 
 import asyncio
 import logging
-from typing import Optional, Dict, Any
 
-from stable_baselines3.common.callbacks import BaseCallback
 import numpy as np
+from stable_baselines3.common.callbacks import BaseCallback
 
 from app.utils.datetime import utcnow
 
@@ -18,7 +17,7 @@ class WebSocketTrainingCallback(BaseCallback):
   
   This callback sends training metrics to connected WebSocket clients at regular intervals.
   """
-  
+
   def __init__(
     self,
     session_id: int,
@@ -43,15 +42,15 @@ class WebSocketTrainingCallback(BaseCallback):
     self.episode_lengths = []
     self.current_episode_reward = 0
     self.current_episode_length = 0
-    
+
   def _on_training_start(self) -> None:
     """Called before the first rollout."""
     self._send_status_update("running", "Training started")
-  
+
   def _on_rollout_start(self) -> None:
     """Called before collecting new samples."""
     pass
-  
+
   def _on_step(self) -> bool:
     """
     Called after each environment step.
@@ -62,7 +61,7 @@ class WebSocketTrainingCallback(BaseCallback):
     # Track episode progress
     self.current_episode_reward += self.locals.get("rewards", [0])[0]
     self.current_episode_length += 1
-    
+
     # Check if episode ended
     done = self.locals.get("dones", [False])[0]
     if done:
@@ -70,34 +69,34 @@ class WebSocketTrainingCallback(BaseCallback):
       self.episode_lengths.append(self.current_episode_length)
       self.current_episode_reward = 0
       self.current_episode_length = 0
-    
+
     # Send progress update at intervals
     if self.n_calls % self.update_interval == 0:
       self._send_progress_update()
-    
+
     return True  # Continue training
-  
+
   def _on_rollout_end(self) -> None:
     """Called after rollout collection."""
     pass
-  
+
   def _on_training_end(self) -> None:
     """Called at the end of training."""
     self._send_status_update("completed", "Training completed successfully")
-  
+
   def _send_progress_update(self) -> None:
     """Send training progress update via WebSocket."""
     try:
       # Calculate metrics
       mean_reward = float(np.mean(self.episode_rewards[-10:])) if self.episode_rewards else 0.0
-      
+
       # Get loss from logger if available
       loss = None
       if hasattr(self.model, 'logger') and self.model.logger:
         loss_key = 'train/loss'
         if loss_key in self.model.logger.name_to_value:
           loss = float(self.model.logger.name_to_value[loss_key])
-      
+
       message = {
         "type": "training_progress",
         "session_id": self.session_id,
@@ -110,18 +109,18 @@ class WebSocketTrainingCallback(BaseCallback):
           "total_episodes": len(self.episode_rewards)
         }
       }
-      
+
       # Send via WebSocket (async operation)
       asyncio.create_task(
         self.websocket_manager.broadcast_to_session(self.session_id, message)
       )
-      
+
       if self.verbose > 0:
         logger.info(f"Sent progress update: timestep={self.num_timesteps}, reward={mean_reward:.2f}")
-        
+
     except Exception as e:
       logger.error(f"Failed to send WebSocket update: {e}")
-  
+
   def _send_status_update(self, status: str, message: str) -> None:
     """Send training status update via WebSocket."""
     try:
@@ -131,14 +130,14 @@ class WebSocketTrainingCallback(BaseCallback):
         "status": status,
         "message": message
       }
-      
+
       asyncio.create_task(
         self.websocket_manager.broadcast_to_session(self.session_id, status_message)
       )
-      
+
       if self.verbose > 0:
         logger.info(f"Sent status update: {status} - {message}")
-        
+
     except Exception as e:
       logger.error(f"Failed to send status update: {e}")
 
@@ -147,7 +146,7 @@ class DatabaseMetricsCallback(BaseCallback):
   """
   Callback that saves training metrics to the database.
   """
-  
+
   def __init__(
     self,
     session_id: int,
@@ -170,37 +169,37 @@ class DatabaseMetricsCallback(BaseCallback):
     self.update_interval = update_interval
     self.episode_rewards = []
     self.current_episode_reward = 0
-  
+
   def _on_step(self) -> bool:
     """Save metrics to database at intervals."""
     # Track episode reward
     self.current_episode_reward += self.locals.get("rewards", [0])[0]
-    
+
     done = self.locals.get("dones", [False])[0]
     if done:
       self.episode_rewards.append(self.current_episode_reward)
       self.current_episode_reward = 0
-    
+
     # Save to database at intervals
     if self.n_calls % self.update_interval == 0:
       self._save_metrics()
-    
+
     return True
-  
+
   def _save_metrics(self) -> None:
     """Save current metrics to database."""
     try:
       from app.models.training import TrainingMetric
 
       mean_reward = float(np.mean(self.episode_rewards[-10:])) if self.episode_rewards else 0.0
-      
+
       # Get loss if available
       loss = None
       if hasattr(self.model, 'logger') and self.model.logger:
         loss_key = 'train/loss'
         if loss_key in self.model.logger.name_to_value:
           loss = float(self.model.logger.name_to_value[loss_key])
-      
+
       metric = TrainingMetric(
         job_id=self.session_id,
         timestep=self.num_timesteps,
@@ -209,13 +208,13 @@ class DatabaseMetricsCallback(BaseCallback):
         loss=loss,
         timestamp=utcnow()
       )
-      
+
       self.db_session.add(metric)
       self.db_session.commit()
-      
+
       if self.verbose > 0:
         logger.info(f"Saved metrics to database: timestep={self.num_timesteps}")
-        
+
     except Exception as e:
       logger.error(f"Failed to save metrics to database: {e}")
       self.db_session.rollback()

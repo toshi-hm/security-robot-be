@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 from importlib.machinery import ModuleSpec
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 from fastapi import FastAPI
@@ -96,7 +96,7 @@ def _install_optional_dependency_stubs() -> None:
         import importlib  # local import to avoid polluting module namespace
 
         tasks_pkg = importlib.import_module("app.tasks")
-        setattr(tasks_pkg, "training_tasks", training_tasks_stub)
+        tasks_pkg.training_tasks = training_tasks_stub
 
 
 _install_optional_dependency_stubs()

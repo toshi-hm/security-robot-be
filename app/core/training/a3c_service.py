@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import torch
-
-from rl.algorithms.a3c.trainer import A3CTrainer
-from rl.environments.enhanced_env import EnhancedSecurityEnvironment
-from rl.environments.security_env import SecurityEnvironment
-
 from sqlalchemy.orm import Session
 
 from app.core.training.playback_recorder import wrap_environment_for_playback
-
+from rl.algorithms.a3c.trainer import A3CTrainer
+from rl.environments.enhanced_env import EnhancedSecurityEnvironment
+from rl.environments.security_env import SecurityEnvironment
 
 EnvironmentFactory = Callable[[], Any]
 

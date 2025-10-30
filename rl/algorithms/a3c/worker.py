@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -14,7 +15,6 @@ from torch import nn
 from torch.distributions import Categorical
 
 from rl.algorithms.a3c.network import A3CNetwork
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,14 @@ def _to_tensor(array: np.ndarray | Tensor, *, device: torch.device) -> Tensor:
 
 
 def compute_gae(
-  rewards: List[Tensor],
-  values: List[Tensor],
+  rewards: list[Tensor],
+  values: list[Tensor],
   next_value: Tensor,
-  dones: List[bool],
+  dones: list[bool],
   *,
   gamma: float,
   lam: float,
-) -> Tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor]:
   """Compute Generalised Advantage Estimation (GAE) for a rollout."""
 
   if not rewards:
@@ -53,7 +53,7 @@ def compute_gae(
   ] + [_as_row(next_value)])
   rewards_tensor = torch.cat([_as_row(reward) for reward in rewards])
 
-  advantages: List[Tensor] = []
+  advantages: list[Tensor] = []
   gae = torch.zeros(1, device=device)
 
   for step in reversed(range(len(rewards))):
@@ -98,7 +98,7 @@ class A3CWorker:
     entropy_coef: float = 0.01,
     value_loss_coef: float = 0.5,
     max_grad_norm: float = 0.5,
-    grad_lock: Optional[Lock] = None,
+    grad_lock: Lock | None = None,
   ) -> None:
     self.worker_id = worker_id
     self._env_factory = env_factory
@@ -142,11 +142,11 @@ class A3CWorker:
     self._local_network.train()
     self._episode_done = False
 
-    states: List[Tensor] = []
-    actions: List[Tensor] = []
-    rewards: List[Tensor] = []
-    values: List[Tensor] = []
-    dones: List[bool] = []
+    states: list[Tensor] = []
+    actions: list[Tensor] = []
+    rewards: list[Tensor] = []
+    values: list[Tensor] = []
+    dones: list[bool] = []
 
     episode_reward = 0.0
     timesteps = 0

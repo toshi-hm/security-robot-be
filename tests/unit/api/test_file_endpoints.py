@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+import sys
+from collections.abc import AsyncIterator
 from io import BytesIO
 from pathlib import Path
-import sys
-from typing import AsyncIterator
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.datastructures import Headers, UploadFile
+
 from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))

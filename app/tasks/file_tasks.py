@@ -11,7 +11,8 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import exc as sa_exc, select
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings

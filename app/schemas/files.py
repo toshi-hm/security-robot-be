@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,9 +22,9 @@ class FileMetadataResponse(BaseModel):
   file_size: int
   file_type: str
   content_type: str
-  training_job_id: Optional[int]
-  description: Optional[str]
-  metadata: Optional[dict[str, Any]] = Field(default=None, alias='metadata_', serialization_alias='metadata')
+  training_job_id: int | None
+  description: str | None
+  metadata: dict[str, Any] | None = Field(default=None, alias='metadata_', serialization_alias='metadata')
   created_at: datetime
   updated_at: datetime
 
@@ -33,7 +32,7 @@ class FileMetadataResponse(BaseModel):
 class FileUploadResponse(FileMetadataResponse):
   """Response schema for file uploads."""
 
-  upload_url: Optional[str] = None
+  upload_url: str | None = None
 
 
 class FileListResponse(BaseModel):
@@ -61,9 +60,9 @@ class ModelFileInfo(BaseModel):
   filename: str
   file_size: int
   algorithm: TrainingAlgorithm
-  training_session_id: Optional[int] = None
+  training_session_id: int | None = None
   created_at: datetime
-  metadata: Optional[dict[str, Any]] = None
+  metadata: dict[str, Any] | None = None
 
 
 class ModelListResponse(BaseModel):

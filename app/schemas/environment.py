@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.environment.schemas import EnvironmentState as CoreEnvironmentState
-
 
 # Environment State Snapshot Schemas
 
@@ -13,45 +12,45 @@ class EnvironmentStateCreate(BaseModel):
   session_id: int
   episode: int = Field(..., ge=0)
   step: int = Field(..., ge=0)
-  
+
   # Robot state
   robot_x: int = Field(..., ge=0)
   robot_y: int = Field(..., ge=0)
   robot_orientation: int = Field(..., ge=0, le=3, description="0=North, 1=East, 2=South, 3=West")
-  
+
   # Environment state
   threat_grid: dict = Field(..., description="2D array of threat levels")
-  coverage_map: Optional[dict] = Field(default=None, description="2D array of visit counts")
-  suspicious_objects: Optional[dict] = Field(default=None, description="List of suspicious objects")
-  
+  coverage_map: dict | None = Field(default=None, description="2D array of visit counts")
+  suspicious_objects: dict | None = Field(default=None, description="List of suspicious objects")
+
   # Action information
-  action_taken: Optional[int] = Field(default=None, ge=0, le=3, description="0=Up, 1=Right, 2=Down, 3=Left")
-  reward_received: Optional[float] = None
+  action_taken: int | None = Field(default=None, ge=0, le=3, description="0=Up, 1=Right, 2=Down, 3=Left")
+  reward_received: float | None = None
 
 
 class EnvironmentStateResponse(BaseModel):
   """Response schema for environment state snapshot."""
   model_config = ConfigDict(from_attributes=True)
-  
+
   id: int
   session_id: int
   episode: int
   step: int
-  
+
   # Robot state
   robot_x: int
   robot_y: int
   robot_orientation: int
-  
+
   # Environment state
   threat_grid: dict
-  coverage_map: Optional[dict]
-  suspicious_objects: Optional[dict]
-  
+  coverage_map: dict | None
+  suspicious_objects: dict | None
+
   # Action information
-  action_taken: Optional[int]
-  reward_received: Optional[float]
-  
+  action_taken: int | None
+  reward_received: float | None
+
   # Timestamps
   created_at: datetime
   updated_at: datetime
@@ -77,7 +76,7 @@ class EnvironmentDefinitionCreate(BaseModel):
 class EnvironmentDefinitionResponse(BaseModel):
   """Response schema for environment definition."""
   model_config = ConfigDict(from_attributes=True)
-  
+
   id: int
   name: str
   description: str

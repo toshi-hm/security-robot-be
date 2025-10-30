@@ -436,6 +436,42 @@
 
 ---
 
+## 🔧 コード品質・Linting
+
+### Ruff導入 (2025-10-31完了)
+- [x] Ruff 0.14.2をプロジェクトに追加（requirements.txt、pyproject.toml）
+- [x] pyproject.tomlにRuff設定を追加（ルール選択、除外設定、フォーマット設定）
+- [x] docker-compose.ymlにRuff専用サービスを追加（公式イメージ使用）
+- [x] 全コードベースに対してRuffチェックを実行し、355個のエラーを自動修正
+- [ ] 残り22個のエラーへの対応方針を決定
+- [ ] CI/CDパイプラインへのRuffチェック組み込み
+
+**修正内容:**
+- Import文の並び順とフォーマット統一（I001）
+- Python 3.9+の新しい型ヒント適用（`List`→`list`、`Tuple`→`tuple`）
+- 未使用のimport削除（F401）
+- コードスタイルの統一
+
+**残課題（22個）:**
+- E402: 意図的なimport配置（playback.py、export_openapi.py）
+- W293: docstring内の空白行
+- UP系: 一部の古い型ヒント（typing.Dict → dict）
+- F841: テストコード内の未使用変数
+
+**実行方法:**
+```bash
+# チェックのみ
+docker compose -f docker/docker-compose.yml run --rm ruff check .
+
+# 自動修正
+docker compose -f docker/docker-compose.yml run --rm ruff check --fix .
+
+# フォーマット
+docker compose -f docker/docker-compose.yml run --rm ruff format .
+```
+
+---
+
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度

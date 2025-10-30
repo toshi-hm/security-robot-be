@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable, Iterable, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -15,7 +16,6 @@ import torch
 from app.core.config import settings
 from rl.algorithms.a3c.network import A3CNetwork
 from rl.algorithms.a3c.worker import A3CWorker, RolloutResult
-
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class A3CTrainer:
       sample_obs, _ = sample_env.reset()
       observation = np.asarray(sample_obs, dtype=np.float32)
       self._input_dim = int(observation.size)
-      self._action_dim = int(getattr(sample_env.action_space, 'n'))
+      self._action_dim = int(sample_env.action_space.n)
     finally:
       with contextlib.suppress(Exception):
         sample_env.close()
@@ -124,8 +124,8 @@ class A3CTrainer:
   def train(
     self,
     *,
-    progress_callback: Optional[Callable[[int, dict[str, Any]], None]] = None,
-    stop_signal: Optional[Callable[[], bool]] = None,
+    progress_callback: Callable[[int, dict[str, Any]], None] | None = None,
+    stop_signal: Callable[[], bool] | None = None,
   ) -> dict[str, Any]:
     """Execute training until the configured timestep target is reached."""
 
@@ -133,7 +133,7 @@ class A3CTrainer:
 
     total_timesteps = 0
     episodes = 0
-    last_metrics: Optional[RolloutResult] = None
+    last_metrics: RolloutResult | None = None
 
     futures: dict[Future[RolloutResult], A3CWorker] = {}
 

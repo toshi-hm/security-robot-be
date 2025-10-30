@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,7 +108,7 @@ class TrainingService:
     sessions = sessions_result.scalars().all()
     return sessions, total
 
-  async def get_session(self, job_id: int) -> Optional[TrainingJob]:
+  async def get_session(self, job_id: int) -> TrainingJob | None:
     """Retrieve a training job by its primary key."""
 
     return await self._db.get(TrainingJob, job_id)

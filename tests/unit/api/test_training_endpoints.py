@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from dataclasses import dataclass
-
 import pytest
 import pytest_asyncio
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from fastapi import HTTPException, status
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.api.v1.endpoints import training as training_module
+from app.core.training.job_manager import JobManager
 from app.models.base import Base
 from app.models.training import TrainingJob, TrainingJobStatus, TrainingMetric
 from app.schemas.training import TrainingSessionCreate
-from app.core.training.job_manager import JobManager
 
 
 @pytest_asyncio.fixture
