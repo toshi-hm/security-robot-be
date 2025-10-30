@@ -5,7 +5,7 @@ Pull Request を Codex (OpenAI) にレビューしてもらう際に使用する
 
 ## 📋 レビュー時の前提情報
 - リポジトリのガイドライン: `CLAUDE.md`
-- 進捗と履歴: `report/PROGRESS.md`, `report/summary/DIARY01.md`, `report/summary/DIARY02.md`, `report/DIARY03.md`
+- 進捗と履歴: `report/PROGRESS.md`, `report/summary/DIARY01.md`, `report/summary/DIARY02.md`, `report/summary/DIARY03.md`, `report/summary/DIARY04.md`, `report/DIARY05.md`
 - 実装ガイド: `instructions/prompts/00_implementation_guide.md`
 - バックエンド実装ガイド: `instructions/prompts/01_backend_implementation_guide.md`
 
@@ -43,7 +43,7 @@ PR NUMBER: {{PR_NUMBER}}
 
 # レビュー手順
 1. `CLAUDE.md` を読み、プロジェクトのコーディング規約と作業方針を把握する。
-2. `report/PROGRESS.md`、`report/summary/DIARY01.md`、`report/summary/DIARY02.md`、`report/DIARY03.md` で最新の進捗と背景を確認する。
+2. `report/PROGRESS.md`、`report/summary/DIARY01.md`、`report/summary/DIARY02.md`、`report/summary/DIARY03.md`、`report/summary/DIARY04.md`、`report/DIARY05.md` で最新の進捗と背景を確認する。
 3. 変更ファイルを精査し、設計書 (`instructions/` 配下) の仕様に反していないか確認する。
 4. 重大なバグ、セキュリティ問題、設計違反があれば必ず指摘し、修正理由を説明する。
 5. テストが不足している場合は、具体的な追加テスト案を提案する。

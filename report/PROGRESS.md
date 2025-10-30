@@ -1,6 +1,20 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-10-25 Session 81
+**最終更新:** 2025-10-30 Diary Rotation Execution
+
+### 2025-10-30 10:13:52 /diary-rotate 実行
+- 対象DIARY: DIARY04.md
+- 目次エントリ数: 15件 (閾値10以上につきローテーション実行)
+- 個別サマリー生成: `report/summary/DIARY04.md` (セッション73〜91の19セッション分を意味的に要約)
+- 次DIARY作成: `report/DIARY05.md` (テンプレート付き)
+- 参照更新: 
+  - `instructions/prompts/02_codex_review_prompt.md` (2箇所)
+  - `instructions/prompts/01_backend_implementation_guide.md` (3箇所)
+  - `CLAUDE.md` (3箇所)
+  - `AGENTS.md` (3箇所)
+  - すべてのDIARY参照をDIARY05およびDIARY04サマリーへ更新
+- 統合サマリー: 既存サマリー数3件（DIARY01/02/03）のため、ARCHIVE生成閾値（5件）未到達。次回ローテーション時に実施
+- Git連携: 環境変数 `GIT_AUTOCOMMIT` 未設定のため、手動コミット待ち状態
 ## 📑 目次
 
 - [全体進捗](#-全体進捗)
@@ -458,11 +472,11 @@
 - [API設計] `instructions/02_backend_api_design_standalone.md`
 - [実装ガイド] `instructions/prompts/01_backend_implementation_guide.md`
 - [プロジェクト指示] `CLAUDE.md`
-- [日記] `report/DIARY04.md`
+- [日記] `report/DIARY05.md`
 
 ---
 
 **注意事項:**
 - このファイルは実装進捗に応じて随時更新してください
 - 新しい課題や問題が見つかった場合は「既知の問題・課題」に追記してください
-- セッションごとの作業内容は `report/DIARY04.md` に記録してください
+- セッションごとの作業内容は `report/DIARY05.md` に記録してください
