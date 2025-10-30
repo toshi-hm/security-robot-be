@@ -355,7 +355,7 @@ async def test_get_training_status_returns_serialized_job(
 async def test_list_training_sessions_returns_latest_first(
     db_session: AsyncSession,
 ) -> None:
-    first = await _create_job(db_session)
+    _first = await _create_job(db_session)
     second = await _create_job(db_session)
     third = await _create_job(db_session)
     await db_session.commit()

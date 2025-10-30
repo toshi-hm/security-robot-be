@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class WebSocketTrainingCallback(BaseCallback):
   """
   Stable-Baselines3 callback that streams training progress via WebSocket.
-  
+
   This callback sends training metrics to connected WebSocket clients at regular intervals.
   """
 
@@ -27,7 +27,7 @@ class WebSocketTrainingCallback(BaseCallback):
   ):
     """
     Initialize WebSocket callback.
-    
+
     Args:
       session_id: Training session ID
       websocket_manager: WebSocket manager instance
@@ -54,7 +54,7 @@ class WebSocketTrainingCallback(BaseCallback):
   def _on_step(self) -> bool:
     """
     Called after each environment step.
-    
+
     Returns:
       If False, training will be stopped.
     """
@@ -156,7 +156,7 @@ class DatabaseMetricsCallback(BaseCallback):
   ):
     """
     Initialize database metrics callback.
-    
+
     Args:
       session_id: Training session ID
       db_session: SQLAlchemy database session

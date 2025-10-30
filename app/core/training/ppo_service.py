@@ -24,14 +24,14 @@ class PPOTrainingService:
 
   def create_environment(self, env_config: dict) -> gym.Env:
     """Create and configure the training environment.
-    
+
     Args:
       env_config: Environment configuration including:
         - environment_type: 'standard' or 'enhanced'
         - env_width: Environment width
         - env_height: Environment height
         - Other environment-specific parameters
-    
+
     Returns:
       Configured Gymnasium environment
     """
@@ -71,7 +71,7 @@ class PPOTrainingService:
     tensorboard_log: str | None = None
   ) -> PPO:
     """Create PPO model with specified hyperparameters.
-    
+
     Args:
       env: Training environment
       learning_rate: Learning rate
@@ -83,7 +83,7 @@ class PPOTrainingService:
       clip_range: Clipping parameter for PPO
       verbose: Verbosity level
       tensorboard_log: Path for TensorBoard logs
-    
+
     Returns:
       Configured PPO model
     """
@@ -117,7 +117,7 @@ class PPOTrainingService:
     playback_options: dict[str, Any] | None = None,
   ) -> dict:
     """Start PPO training with the given configuration.
-    
+
     Args:
       config: Training configuration including:
         - total_timesteps: Total training timesteps
@@ -129,7 +129,7 @@ class PPOTrainingService:
         - log_path: Path for TensorBoard logs
       callbacks: List of Stable-Baselines3 callbacks
       progress_callback: Optional async callback for progress updates
-    
+
     Returns:
       Training result dictionary
     """
@@ -220,11 +220,11 @@ class PPOTrainingService:
 
   def load_model(self, model_path: str, env: gym.Env | None = None) -> PPO:
     """Load a trained PPO model from disk.
-    
+
     Args:
       model_path: Path to the saved model
       env: Optional environment (will create DummyVecEnv if provided)
-    
+
     Returns:
       Loaded PPO model
     """

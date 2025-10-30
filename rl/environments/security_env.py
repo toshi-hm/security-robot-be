@@ -79,8 +79,7 @@ class SecurityEnvironment(gym.Env):
 
         print(f"Time: {self.time_step}")
         print(
-            "Robot position: (%d, %d), Direction: %d"
-            % (self.robot_x, self.robot_y, self.robot_direction)
+            f"Robot position: ({self.robot_x}, {self.robot_y}), Direction: {self.robot_direction}"
         )
         print(f"Threat levels: {self.threat_levels}")
         print(f"Suspicious objects: {len(self.suspicious_objects)}")

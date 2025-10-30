@@ -101,7 +101,7 @@ def _install_optional_dependency_stubs() -> None:
 
 _install_optional_dependency_stubs()
 
-from app.main import app as fastapi_app
+from app.main import app as fastapi_app  # noqa: E402
 
 
 def export_openapi(app: FastAPI, output_path: Path) -> None:
