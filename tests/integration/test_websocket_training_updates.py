@@ -6,16 +6,16 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from starlette.websockets import WebSocketDisconnect
 
 import app.main as main_module
 from app.api.deps import get_db
 from app.api.v1.endpoints import websocket as websocket_endpoint_module
 from app.core.websocket import manager as ws_manager_module
+from app.core.websocket import redis_forwarder as redis_forwarder_module
 from app.core.websocket.manager import WebSocketManager
 from app.core.websocket.redis_forwarder import RedisTrainingEventForwarder
-from app.core.websocket import redis_forwarder as redis_forwarder_module
 from app.db import database as db_module
 from app.db import session as session_module
 from app.main import create_app
@@ -23,7 +23,7 @@ from app.models.training import TrainingJob
 
 
 class FakeRedisPubSub:
-    def __init__(self, client: "FakeRedisClient") -> None:
+    def __init__(self, client: FakeRedisClient) -> None:
         self._client = client
         self._channels: list[str] = []
         self.closed = False
@@ -46,7 +46,7 @@ class FakeRedisPubSub:
         queue = self._client.ensure_queue(channel)
         try:
             payload = await asyncio.wait_for(queue.get(), timeout)
-        except asyncio.TimeoutError as exc:  # pragma: no cover - propagation to caller
+        except TimeoutError as exc:  # pragma: no cover - propagation to caller
             raise exc
 
         return {"type": "message", "data": payload}

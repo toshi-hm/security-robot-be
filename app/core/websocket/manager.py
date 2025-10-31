@@ -5,12 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Optional
-
-from fastapi import WebSocket, WebSocketDisconnect
+from typing import Any
 
 from app.core.config import settings
 from app.schemas.websocket import PingMessage
+from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class WebSocketManager:
     self._connection_meta: dict[WebSocket, dict[str, Any]] = {}
     self._lock = asyncio.Lock()
     self._heartbeat_interval = heartbeat_interval
-    self._heartbeat_task: Optional[asyncio.Task[None]] = None
+    self._heartbeat_task: asyncio.Task[None] | None = None
     self._running = False
 
   def start(self) -> None:
@@ -67,7 +66,7 @@ class WebSocketManager:
     loop.create_task(self._close_all_connections())
     logger.debug("WebSocketManager cleanup task scheduled.")
 
-  async def connect(self, websocket: WebSocket, session_id: Optional[int] = None, *, client_id: Optional[str] = None) -> None:
+  async def connect(self, websocket: WebSocket, session_id: int | None = None, *, client_id: str | None = None) -> None:
     """Accept a WebSocket connection and track it for optional session scope."""
 
     await websocket.accept()
@@ -95,7 +94,7 @@ class WebSocketManager:
       client_id,
     )
 
-  async def disconnect(self, websocket: WebSocket, session_id: Optional[int] = None) -> None:
+  async def disconnect(self, websocket: WebSocket, session_id: int | None = None) -> None:
     """Remove a WebSocket connection from tracking and clean up metadata."""
 
     async with self._lock:

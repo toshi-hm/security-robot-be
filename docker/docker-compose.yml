@@ -101,6 +101,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # 🔹 Ruff 専用サービス（公式イメージ使用）
+  ruff:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: ruff
+    image: security-robot-be-ruff
+    profiles: ["tools"]
+    volumes:
+      - ../:/app
+
 volumes:
   postgres_data:
   venv_data:

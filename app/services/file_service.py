@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
-
-from starlette.datastructures import UploadFile
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.datastructures import UploadFile
 
 from app.core.files.service import FileStorageService, file_storage_service
 from app.models.files import FileMetadata
@@ -16,7 +15,7 @@ from app.models.files import FileMetadata
 class FileService:
   """Coordinate file storage operations with database persistence."""
 
-  def __init__(self, db: AsyncSession, storage: Optional[FileStorageService] = None):
+  def __init__(self, db: AsyncSession, storage: FileStorageService | None = None):
     self._db = db
     self._storage = storage or file_storage_service
 
@@ -25,9 +24,9 @@ class FileService:
     *,
     upload: UploadFile,
     file_type: str,
-    training_job_id: Optional[int],
-    description: Optional[str],
-    metadata: Optional[dict[str, Any]],
+    training_job_id: int | None,
+    description: str | None,
+    metadata: dict[str, Any] | None,
   ) -> FileMetadata:
     filename, relative_path, file_size, content_type = await self._storage.save_upload(
       upload,
@@ -69,7 +68,7 @@ class FileService:
     records = records_result.scalars().all()
     return records, total
 
-  async def get_file(self, file_id: int) -> Optional[FileMetadata]:
+  async def get_file(self, file_id: int) -> FileMetadata | None:
     return await self._db.get(FileMetadata, file_id)
 
   async def delete_file(self, record: FileMetadata) -> None:

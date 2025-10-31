@@ -56,7 +56,7 @@ class FakePubSub:
       if timeout is None:
         return await self._messages.get()
       return await asyncio.wait_for(self._messages.get(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
       return None
 
 

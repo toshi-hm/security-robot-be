@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, Tuple
 
 from rl._gym_compat import gym, spaces
 
@@ -44,9 +43,9 @@ class SecurityEnvironment(gym.Env):
     def reset(
         self,
         *,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None,
-    ) -> Tuple[list[list[list[float]]], dict]:
+        seed: int | None = None,
+        options: dict | None = None,
+    ) -> tuple[list[list[list[float]]], dict]:
         super().reset(seed=seed)
 
         self.threat_levels = self._build_grid(0.0)
@@ -63,7 +62,7 @@ class SecurityEnvironment(gym.Env):
 
     def step(
         self, action: int
-    ) -> Tuple[list[list[list[float]]], float, bool, bool, dict]:
+    ) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
         self.time_step += 1
 
         self._update_threat_levels()
@@ -80,8 +79,7 @@ class SecurityEnvironment(gym.Env):
 
         print(f"Time: {self.time_step}")
         print(
-            "Robot position: (%d, %d), Direction: %d"
-            % (self.robot_x, self.robot_y, self.robot_direction)
+            f"Robot position: ({self.robot_x}, {self.robot_y}), Direction: {self.robot_direction}"
         )
         print(f"Threat levels: {self.threat_levels}")
         print(f"Suspicious objects: {len(self.suspicious_objects)}")
@@ -156,7 +154,7 @@ class SecurityEnvironment(gym.Env):
 
         return reward
 
-    def _get_front_position(self) -> Tuple[int, int]:
+    def _get_front_position(self) -> tuple[int, int]:
         dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_direction]
         return self.robot_x + dx, self.robot_y + dy
 

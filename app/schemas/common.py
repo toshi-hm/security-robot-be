@@ -1,4 +1,5 @@
-from typing import Optional, Any
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -10,15 +11,15 @@ class Message(BaseModel):
 class ErrorResponse(BaseModel):
   """Error response schema."""
   error: str = Field(..., description="Error message")
-  detail: Optional[str] = Field(default=None, description="Detailed error information")
-  error_code: Optional[str] = Field(default=None, description="Application-specific error code")
+  detail: str | None = Field(default=None, description="Detailed error information")
+  error_code: str | None = Field(default=None, description="Application-specific error code")
 
 
 class SuccessResponse(BaseModel):
   """Success response schema."""
   success: bool = True
   message: str
-  data: Optional[Any] = None
+  data: Any | None = None
 
 
 class PaginationParams(BaseModel):
@@ -33,7 +34,7 @@ class PaginatedResponse(BaseModel):
   page: int = Field(..., description="Current page number")
   page_size: int = Field(..., description="Number of items per page")
   total_pages: int = Field(..., description="Total number of pages")
-  
+
   @classmethod
   def from_items(cls, items: list, total: int, page: int, page_size: int):
     """Create paginated response from items."""

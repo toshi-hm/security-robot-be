@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,13 +17,13 @@ class JobQueueEntry(BaseModel):
         description="Whether the most recent transition was triggered forcefully (e.g. Celery revoke).",
     )
     enqueued_at: datetime = Field(..., description="Timestamp when the job was enqueued.")
-    updated_at: Optional[datetime] = Field(
+    updated_at: datetime | None = Field(
         default=None, description="Timestamp of the latest metadata update, if any."
     )
-    paused_at: Optional[datetime] = Field(default=None, description="Time when the job was paused.")
-    resumed_at: Optional[datetime] = Field(default=None, description="Time when the job was resumed.")
-    stopped_at: Optional[datetime] = Field(default=None, description="Time when the job was stopped cooperatively.")
-    revoked_at: Optional[datetime] = Field(default=None, description="Time when the job was forcefully revoked.")
+    paused_at: datetime | None = Field(default=None, description="Time when the job was paused.")
+    resumed_at: datetime | None = Field(default=None, description="Time when the job was resumed.")
+    stopped_at: datetime | None = Field(default=None, description="Time when the job was stopped cooperatively.")
+    revoked_at: datetime | None = Field(default=None, description="Time when the job was forcefully revoked.")
     payload: dict[str, Any] = Field(
         default_factory=dict,
         description="Original payload submitted when the job was created.",

@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app.models.environment import EnvironmentState
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -261,9 +260,9 @@ class PlaybackRecordingWrapper:
 
     coverage_source = None
     if hasattr(self._env, "visit_count"):
-      coverage_source = getattr(self._env, "visit_count")
+      coverage_source = self._env.visit_count
     elif hasattr(self._env, "last_patrolled"):
-      coverage_source = getattr(self._env, "last_patrolled")
+      coverage_source = self._env.last_patrolled
     if coverage_source is not None:
       payload["coverage_map"] = {"counts": _copy_grid(coverage_source)}
 

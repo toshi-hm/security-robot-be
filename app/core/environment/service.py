@@ -20,7 +20,6 @@ from app.core.environment.schemas import (
 )
 from rl.environments import EnvironmentSpec, available_environments
 
-
 logger = logging.getLogger(__name__)
 
 

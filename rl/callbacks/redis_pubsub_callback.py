@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from redis.exceptions import RedisError
 from stable_baselines3.common.callbacks import BaseCallback
 
-
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
   from app.models.training import TrainingJobStatus
 
 
-def _load_training_status_enum() -> "type[TrainingJobStatus] | None":
+def _load_training_status_enum() -> type[TrainingJobStatus] | None:
   try:
     from app.models.training import TrainingJobStatus
   except Exception:  # pragma: no cover - avoid import errors during optional use
@@ -44,13 +44,13 @@ class RedisTrainingCallback(BaseCallback):
     redis_client: Any,
     *,
     update_interval: int = 100,
-    total_timesteps: Optional[int] = None,
-    state_hook: Optional[ProgressHook] = None,
+    total_timesteps: int | None = None,
+    state_hook: ProgressHook | None = None,
     verbose: int = 0,
     max_retries: int = 3,
     critical_statuses: Sequence[str] | None = None,
-    status_getter: Optional[Callable[[], "TrainingJobStatus | None"]] = None,
-    status_check_interval: Optional[int] = None,
+    status_getter: Callable[[], TrainingJobStatus | None] | None = None,
+    status_check_interval: int | None = None,
   ) -> None:
     super().__init__(verbose)
     self._session_id = session_id
@@ -226,7 +226,7 @@ class RedisTrainingCallback(BaseCallback):
       self._emit_state_update({"status": "paused", "current": self.num_timesteps})
       raise TrainingCancelled("Training paused")
 
-  def _normalise_status(self, status: object) -> "TrainingJobStatus | None":
+  def _normalise_status(self, status: object) -> TrainingJobStatus | None:
     TrainingJobStatus = _load_training_status_enum()
     if TrainingJobStatus is None:
       return None
@@ -242,7 +242,7 @@ class RedisTrainingCallback(BaseCallback):
 
     if hasattr(status, "value"):
       try:
-        return TrainingJobStatus(getattr(status, "value"))
+        return TrainingJobStatus(status.value)
       except (ValueError, TypeError):
         return None
 

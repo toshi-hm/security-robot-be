@@ -6,7 +6,7 @@ import importlib
 import importlib.util
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any
 
 _SPEC = importlib.util.find_spec("gymnasium")
 
@@ -27,13 +27,13 @@ else:
             *,
             seed: int | None = None,
             options: dict[str, Any] | None = None,
-        ) -> Tuple[Any, dict[str, Any]]:
+        ) -> tuple[Any, dict[str, Any]]:
             if seed is not None:
                 self.np_random.seed(seed)
                 random.seed(seed)
             return None, {}
 
-        def step(self, action: Any) -> Tuple[Any, float, bool, bool, dict[str, Any]]:
+        def step(self, action: Any) -> tuple[Any, float, bool, bool, dict[str, Any]]:
             raise NotImplementedError("Fallback Env does not implement step().")
 
         def render(self, mode: str = "human") -> None:  # pragma: no cover - noop
@@ -46,10 +46,10 @@ else:
 
         low: Any
         high: Any
-        shape: Tuple[int, ...]
+        shape: tuple[int, ...]
         dtype: Any = float
 
-        def _expand(self, value: Any) -> Tuple[float, ...]:
+        def _expand(self, value: Any) -> tuple[float, ...]:
             if isinstance(value, (tuple, list)):
                 return tuple(float(v) for v in value)
             return (float(value),) * len(self.shape)
@@ -58,7 +58,7 @@ else:
             lows = self._expand(self.low)
             highs = self._expand(self.high)
 
-            def _sample_dimension(idx: int, dims: Tuple[int, ...]) -> Any:
+            def _sample_dimension(idx: int, dims: tuple[int, ...]) -> Any:
                 if not dims:
                     span_low = lows[min(idx, len(lows) - 1)]
                     span_high = highs[min(idx, len(highs) - 1)]

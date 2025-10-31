@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 from torch import nn
 
@@ -39,7 +37,7 @@ class A3CNetwork(nn.Module):
       nn.Linear(64, 1),
     )
 
-  def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+  def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Return action probabilities and the estimated state-value."""
 
     if x.dim() == 1:

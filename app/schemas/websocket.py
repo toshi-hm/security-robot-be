@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,17 +21,17 @@ class TrainingProgressEvent(WebSocketMessage):
   type: Literal["training_progress"] = "training_progress"
   session_id: int
   timestep: int
-  episode: Optional[int] = None
+  episode: int | None = None
   reward: float
-  loss: Optional[float] = None
+  loss: float | None = None
 
   # Environment-specific metrics
-  coverage_ratio: Optional[float] = None
-  exploration_score: Optional[float] = None
-  threat_level_avg: Optional[float] = None
+  coverage_ratio: float | None = None
+  exploration_score: float | None = None
+  threat_level_avg: float | None = None
 
   # Additional data
-  additional_metrics: Optional[dict[str, Any]] = None
+  additional_metrics: dict[str, Any] | None = None
 
 
 class TrainingStatusEvent(WebSocketMessage):
@@ -39,7 +39,7 @@ class TrainingStatusEvent(WebSocketMessage):
   type: Literal["training_status"] = "training_status"
   session_id: int
   status: str  # 'created', 'queued', 'running', 'paused', 'completed', 'failed'
-  message: Optional[str] = None
+  message: str | None = None
 
 
 class TrainingErrorEvent(WebSocketMessage):
@@ -47,7 +47,7 @@ class TrainingErrorEvent(WebSocketMessage):
   type: Literal["training_error"] = "training_error"
   session_id: int
   error_message: str
-  error_type: Optional[str] = None
+  error_type: str | None = None
 
 
 class EnvironmentUpdateEvent(WebSocketMessage):
@@ -57,8 +57,8 @@ class EnvironmentUpdateEvent(WebSocketMessage):
   episode: int
   step: int
   robot_position: dict[str, int]  # {"x": int, "y": int, "orientation": int}
-  action_taken: Optional[int] = None
-  reward_received: Optional[float] = None
+  action_taken: int | None = None
+  reward_received: float | None = None
 
 
 class ConnectionAckMessage(WebSocketMessage):

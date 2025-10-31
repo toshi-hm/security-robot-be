@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.core.config import settings
 
-
 _SYNC_DRIVER_MAP: Final[dict[tuple[str, str | None], str | None]] = {
   ("postgresql", "asyncpg"): "psycopg",
   ("postgresql", "psycopg_async"): "psycopg",

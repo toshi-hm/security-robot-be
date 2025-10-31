@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, AsyncIterator, Callable, Literal
-
+from typing import Any, Literal
 from uuid import uuid4
 
 from app.utils.datetime import utcnow
-
 
 StopReason = Literal["stopped", "paused", "revoked"]
 
