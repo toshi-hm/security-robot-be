@@ -91,7 +91,7 @@ class FileStorageService:
     try:
       absolute.relative_to(root)
     except ValueError as exc:
-      raise ValueError('Invalid file path outside storage root') from exc
+      raise ValueError(f'Invalid file path outside storage root: {relative_path}') from exc
     if not absolute.exists():
       raise FileNotFoundError(relative_path)
     return absolute
