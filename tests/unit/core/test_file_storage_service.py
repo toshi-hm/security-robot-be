@@ -1,4 +1,4 @@
-"""Tests for :mod:`app.core.files.service.FileStorageService`."""
+"""Tests for FileStorageService in app.core.files.service."""
 
 from __future__ import annotations
 
