@@ -21,8 +21,17 @@ class FileStorageService:
   def _sanitize_segment(self, value: str, *, fallback: str) -> str:
     """Return a filesystem-safe path segment.
 
+    Args:
+      value (str): The input string to sanitize for use as a path segment.
+      fallback (str): The value to use if `value` is empty or resolves to an unsafe segment
+        (such as "", ".", or "..").
+
+    Returns:
+      str: A sanitized path segment. If `value` is empty or unsafe, returns `fallback`.
+
     This helper rejects empty values as well as dot segments ("." or "..") to
-    prevent directory traversal when composing storage paths.
+    prevent directory traversal when composing storage paths. The fallback value is used
+    whenever the input is empty or resolves to an unsafe segment.
     """
 
     if not value:
