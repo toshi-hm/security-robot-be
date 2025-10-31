@@ -183,3 +183,31 @@
 
 ### 🔗 関連コミット
 - 521f239: fix(a3c): resolve race condition in multi-worker optimizer access
+
+---
+
+## 2025-10-31 セッション96
+
+### 🎯 セッション目標
+- リポジトリ公開に向けて、ファイルアップロード機構にパストラバーサル脆弱性が残っていないかを確認し、必要な防御策を実装する。
+
+### ✅ 実施内容
+- `FileStorageService._sanitize_segment` が `file_type='..'` のような入力をそのまま許容していたため、`storage` 直下以外にファイルが書き込まれる再現手順を作成。
+- ドットセグメントや空値をフォールバックさせるガードを追加し、保存時・削除時ともに `resolve()` でストレージルート外を検知するよう改修。
+- パストラバーサル再現テストと防御策の回帰テストを `tests/unit/core/test_file_storage_service.py` に追加し、`pytest tests/unit/core/test_file_storage_service.py` で成功を確認。
+
+### 📊 成果物
+- `app/core/files/service.py`: 入力サニタイズとルート外パス検出を導入。
+- `tests/unit/core/test_file_storage_service.py`: パストラバーサル防止のユニットテストを新規追加。
+
+### 🧠 学んだこと・課題
+1. `pathlib.Path(name).name` は `'..'` をそのまま返すため、ドットセグメント除去を明示的に行わないとディレクトリ脱出が可能になる。
+2. 保存と削除の双方で `resolve()` を使ってルート外パスを検知すれば、DB改ざん時にも安全に失敗させられる。
+3. Starlette の `UploadFile` は `Headers` から `content-type` を参照するため、テストでの疑似ファイル生成時にはヘッダーを自前で注入する必要がある。
+
+### ⏭️ 次回セッションの予定
+1. 他の入出力系サービス(アーカイブ処理やプレイバックAPI)にも同種の入力検証抜けがないか棚卸しする。
+2. リポジトリ公開前の最終的なセキュリティチェックリストを整備する。
+
+### 🔗 関連コミット
+- (このセッションのコミット確定後に追記予定)

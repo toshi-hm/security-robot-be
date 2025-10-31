@@ -77,6 +77,11 @@
 - [x] `app/core/training/job_manager.py` に`session_id`粒度の`asyncio.Lock`マップを導入し、停止・再開操作を直列化。保持ポリシーとTTLスイープに伴う削除処理でもロックがリークしないようクリーンアップを追加。
 - [x] `tests/unit/core/test_job_manager.py` へInstrumentedLockフィクスチャを実装し、並行`stop`/`resume`ケース(A:停止→再開/B:再開→停止/C:再開→強制停止)とセッション跨ぎの非干渉を検証するユニットテストを追加。
 
+### ファイルストレージのパストラバーサル対策 (2025-10-31更新)
+- [x] `FileStorageService._sanitize_segment` でドットセグメントや空値をフォールバックし、`file_type='..'` などによるディレクトリ脱出を遮断。
+- [x] ファイル保存・削除時に `storage` ルート外へ解決されるパスを検出して拒否し、`resolve()` による防御を共通化。
+- [x] `tests/unit/core/test_file_storage_service.py` を追加し、パストラバーサル再現ケースと防御策の回帰テストを実装。
+
 ### ドキュメント日付調整 (2025-10-13更新)
 - [x] `report/PROGRESS.md` と `report/DIARY02.md` の日付表記を 2025-10-13 に統一
 
