@@ -19,8 +19,28 @@ class FileStorageService:
     return root
 
   def _sanitize_segment(self, value: str, *, fallback: str) -> str:
-    sanitized = Path(value).name
-    return sanitized or fallback
+    """Return a filesystem-safe path segment.
+
+    Args:
+      value (str): The input string to sanitize for use as a path segment.
+      fallback (str): The value to use if `value` is empty or resolves to an unsafe segment
+        (such as "", ".", or "..").
+
+    Returns:
+      str: A sanitized path segment. If `value` is empty or unsafe, returns `fallback`.
+
+    This helper rejects empty values as well as dot segments ("." or "..") to
+    prevent directory traversal when composing storage paths. The fallback value is used
+    whenever the input is empty or resolves to an unsafe segment.
+    """
+
+    if not value:
+      return fallback
+
+    sanitized = Path(value.strip()).name
+    if sanitized in {"", ".", ".."}:
+      return fallback
+    return sanitized
 
   def _generate_filename(self, original_name: str) -> str:
     safe_name = self._sanitize_segment(original_name or 'upload.bin', fallback='upload')
@@ -40,7 +60,14 @@ class FileStorageService:
     safe_type = self._sanitize_segment(file_type or 'misc', fallback='misc')
     filename = self._generate_filename(upload.filename or 'upload.bin')
     relative_path = Path(safe_type) / filename
-    absolute_path = self._storage_root() / relative_path
+
+    storage_root = self._storage_root().resolve()
+    absolute_path = (storage_root / relative_path).resolve()
+    try:
+      absolute_path.relative_to(storage_root)
+    except ValueError as exc:
+      raise ValueError(f'Invalid storage path outside storage root: {relative_path}') from exc
+
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
     absolute_path.write_bytes(content)
 
@@ -55,7 +82,11 @@ class FileStorageService:
     if not relative_path:
       return
 
-    absolute_path = self._storage_root() / Path(relative_path)
+    try:
+      absolute_path = self.resolve(relative_path)
+    except (FileNotFoundError, ValueError):
+      return
+
     try:
       absolute_path.unlink()
     except FileNotFoundError:
@@ -64,10 +95,12 @@ class FileStorageService:
   def resolve(self, relative_path: str) -> Path:
     """Return the absolute path for the given relative storage path."""
 
-    absolute = (self._storage_root() / Path(relative_path)).resolve()
     root = self._storage_root().resolve()
-    if not str(absolute).startswith(str(root)):
-      raise ValueError('Invalid file path outside storage root')
+    absolute = (root / Path(relative_path)).resolve()
+    try:
+      absolute.relative_to(root)
+    except ValueError as exc:
+      raise ValueError(f'Invalid file path outside storage root: {relative_path}') from exc
     if not absolute.exists():
       raise FileNotFoundError(relative_path)
     return absolute
