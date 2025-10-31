@@ -54,8 +54,10 @@ class FileStorageService:
 
     storage_root = self._storage_root().resolve()
     absolute_path = (storage_root / relative_path).resolve()
-    if not str(absolute_path).startswith(str(storage_root)):
-      raise ValueError('Invalid storage path outside storage root')
+    try:
+      absolute_path.relative_to(storage_root)
+    except ValueError as exc:
+      raise ValueError('Invalid storage path outside storage root') from exc
 
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
     absolute_path.write_bytes(content)
@@ -84,10 +86,12 @@ class FileStorageService:
   def resolve(self, relative_path: str) -> Path:
     """Return the absolute path for the given relative storage path."""
 
-    absolute = (self._storage_root() / Path(relative_path)).resolve()
     root = self._storage_root().resolve()
-    if not str(absolute).startswith(str(root)):
-      raise ValueError('Invalid file path outside storage root')
+    absolute = (root / Path(relative_path)).resolve()
+    try:
+      absolute.relative_to(root)
+    except ValueError as exc:
+      raise ValueError('Invalid file path outside storage root') from exc
     if not absolute.exists():
       raise FileNotFoundError(relative_path)
     return absolute

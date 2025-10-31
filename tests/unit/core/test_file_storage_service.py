@@ -53,3 +53,27 @@ def test_delete_ignores_paths_outside_storage_root(tmp_path: Path, monkeypatch: 
     service.delete("../outside.txt")
 
     assert outside.exists()
+
+
+def test_resolve_rejects_paths_that_only_share_prefix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage")
+    service = FileStorageService()
+
+    sneaky = Path("uploads/../../storage_evil/escape.txt")
+
+    with pytest.raises(ValueError):
+        service.resolve(sneaky.as_posix())
+
+
+def test_delete_does_not_follow_prefix_only_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage")
+    service = FileStorageService()
+
+    escape_root = tmp_path / "storage_evil"
+    escape_root.mkdir()
+    escape_target = escape_root / "escape.txt"
+    escape_target.write_text("keep")
+
+    service.delete("uploads/../../storage_evil/escape.txt")
+
+    assert escape_target.exists()
