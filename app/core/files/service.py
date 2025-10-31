@@ -57,7 +57,7 @@ class FileStorageService:
     try:
       absolute_path.relative_to(storage_root)
     except ValueError as exc:
-      raise ValueError('Invalid storage path outside storage root') from exc
+      raise ValueError(f'Invalid storage path outside storage root: {relative_path}') from exc
 
     absolute_path.parent.mkdir(parents=True, exist_ok=True)
     absolute_path.write_bytes(content)
