@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import random
 
+import numpy as np
+
 from rl._gym_compat import gym, spaces
 
 
@@ -31,6 +33,7 @@ class SecurityEnvironment(gym.Env):
             low=0,
             high=1,
             shape=(width, height, 3),
+            dtype=np.float32,
         )
         self.action_space = spaces.Discrete(4)
 
@@ -45,7 +48,7 @@ class SecurityEnvironment(gym.Env):
         *,
         seed: int | None = None,
         options: dict | None = None,
-    ) -> tuple[list[list[list[float]]], dict]:
+    ) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
 
         self.threat_levels = self._build_grid(0.0)
@@ -62,7 +65,7 @@ class SecurityEnvironment(gym.Env):
 
     def step(
         self, action: int
-    ) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
+    ) -> tuple[np.ndarray, float, bool, bool, dict]:
         self.time_step += 1
 
         self._update_threat_levels()
@@ -101,11 +104,8 @@ class SecurityEnvironment(gym.Env):
             obstacles[x][y] = True
         return obstacles
 
-    def _get_observation(self) -> list[list[list[float]]]:
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+    def _get_observation(self) -> np.ndarray:
+        observation = np.zeros((self.width, self.height, 3), dtype=np.float32)
 
         for x in range(self.width):
             for y in range(self.height):
