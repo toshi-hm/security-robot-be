@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.environment import EnvironmentState
+from rl._gym_compat import gym
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class _PlaybackRecorder:
         logger.debug("Failed to close playback recorder session", exc_info=True)
 
 
-class PlaybackRecordingWrapper:
+class PlaybackRecordingWrapper(gym.Env):
   """Proxy environment that records state snapshots for playback."""
 
   def __init__(

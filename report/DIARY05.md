@@ -3,11 +3,46 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-02 セッション97](#2025-11-02-セッション97)
 - [2025-10-31 セッション96](#2025-10-31-セッション96)
 - [2025-10-31 セッション95](#2025-10-31-セッション95)
 - [2025-10-31 セッション94](#2025-10-31-セッション94)
 - [2025-10-30 セッション93](#2025-10-30-セッション93)
 - [2025-10-30 セッション92](#2025-10-30-セッション92)
+
+---
+
+## 2025-11-02 セッション97
+
+### 🎯 セッション目標
+- PPO学習時のGymnasium型互換性エラー「The environment is of type PlaybackRecordingWrapper, not a Gymnasium environment」を調査・修正する
+
+### ✅ 実施内容
+- エラーログから原因を特定: `PlaybackRecordingWrapper` が `gym.Env` を継承していないため、Stable-Baselines3 の `DummyVecEnv` で型チェックに失敗
+- `app/core/training/playback_recorder.py` を修正:
+  - `from rl._gym_compat import gym` をインポート
+  - `class PlaybackRecordingWrapper(gym.Env):` として継承関係を確立
+- 全テスト138件を実行し、リグレッションがないことを確認
+- PPO + PlaybackRecordingWrapper の動作を検証するテストを作成・実行し、正常動作を確認
+
+### 📊 成果物
+- `app/core/training/playback_recorder.py` の修正（2箇所）
+- 検証用テストスクリプト（PlaybackRecordingWrapperを使用したPPO学習が成功することを確認）
+- report/PROGRESS.md の更新（セッション97の記録追加）
+
+### 🧠 学んだこと・課題
+1. Stable-Baselines3 の `DummyVecEnv` は環境の型を厳密にチェックし、Gymnasium環境でない場合はエラーを返す
+2. PlaybackRecordingWrapper は Gymnasium API（reset/step/close）を実装していたが、継承関係がないため型チェックで弾かれていた
+3. セッション96で修正した環境の型互換性と合わせて、PPO学習パイプライン全体の Gymnasium 1.0.0 対応が完了
+4. A3C学習では環境ラッパーを直接使用するため、この問題は発生しなかった（Stable-Baselines3を経由しない）
+
+### ⏭️ 次回セッションの予定
+1. UI画面からPPO学習を実行し、実環境での動作を確認
+2. プレイバック録画が正常に機能することを確認
+3. 必要に応じてフロントエンド側の調整を行う
+
+### 🔗 関連コミット
+- （次回コミット予定）
 
 ---
 
