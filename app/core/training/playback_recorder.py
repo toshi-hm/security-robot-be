@@ -165,9 +165,11 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     # This allows wrapping of any duck-typed environment
     self.env = env
     # Copy standard attributes from wrapped environment
+    # Use getattr with defaults to support environments without these attributes
     self.action_space = getattr(env, "action_space", None)
     self.observation_space = getattr(env, "observation_space", None)
-    self.metadata = getattr(env, "metadata", {})
+    # Create a copy to avoid sharing mutable dict with wrapped environment
+    self.metadata = getattr(env, "metadata", {}).copy()
     
     self._session_id = session_id
     self._record_interval = max(1, record_interval)

@@ -204,3 +204,31 @@ def test_recorder_clears_buffer_after_session_error(session_factory: sessionmake
   wrapped.close()
 
   assert _fetch_states(session_factory) == []
+
+
+def test_wrapper_copies_metadata(session_factory: sessionmaker[Session]) -> None:
+  class EnvWithMetadata:
+    def __init__(self):
+      self.metadata = {"render_modes": ["human", "rgb_array"], "custom_key": "value"}
+
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+      return [[0.0]], {}
+
+    def step(self, action: int):
+      return [[0.0]], 0.0, False, False, {}
+
+  env = EnvWithMetadata()
+  original_metadata = env.metadata.copy()
+
+  wrapped = wrap_environment_for_playback(env, session_id=1, session_factory=session_factory)
+
+  # Wrapper should have a copy of metadata, not the same object
+  assert wrapped.metadata is not env.metadata
+  assert wrapped.metadata == original_metadata
+
+  # Modifying wrapper's metadata should not affect env's metadata
+  wrapped.metadata["new_key"] = "new_value"
+  assert "new_key" not in env.metadata
+  assert env.metadata == original_metadata
+
+  wrapped.close()
