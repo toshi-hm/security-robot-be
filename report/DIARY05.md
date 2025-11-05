@@ -3,6 +3,9 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-05 セッション98](#2025-11-05-セッション98)
+- [2025-10-31 セッション97](#2025-10-31-セッション97)
+- [2025-10-31 セッション96](#2025-10-31-セッション96)
 - [2025-10-31 セッション95](#2025-10-31-セッション95)
 - [2025-10-31 セッション94](#2025-10-31-セッション94)
 - [2025-10-30 セッション93](#2025-10-30-セッション93)
@@ -29,6 +32,71 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-05 セッション98
+
+### 🎯 セッション目標
+- PPOトレーニング開始時の「PlaybackRecordingWrapperはGymnasium環境ではない」エラーを修正する
+
+### ✅ 実施内容
+- エラーメッセージを分析し、PlaybackRecordingWrapperがStable-Baselines3のDummyVecEnvに認識されない問題を特定
+- `gymnasium.Wrapper`を継承するように`PlaybackRecordingWrapper`を修正
+- `self._env`を`self.env`に統一してGymnasium Wrapper規約に準拠
+- `reset()`メソッドの戻り値をGymnasium API形式`(observation, info)`に修正
+- `close()`メソッドを安全化し、環境に`close`メソッドがない場合も対応
+- 手動でWrapper初期化を行い、duck-typed環境もサポート
+
+### 📊 成果物
+- `app/core/training/playback_recorder.py`: Gymnasium互換性対応
+  - `gymnasium.Wrapper`継承
+  - `self.env`属性への統一
+  - `reset()`/`step()`/`close()`メソッドの修正
+- 全既存テストがパス（6/6プレイバック、22/22 RL/トレーニング、9/9プレイバックAPI）
+- PPO+PlaybackRecordingWrapper統合テストで100ステップの学習成功を確認
+
+### 🧠 学んだこと・課題
+1. **Gymnasium Wrapper規約の重要性**: Stable-Baselines3のDummyVecEnvは環境がGymnasium/Gymのインスタンスかを厳密にチェックする
+2. **duck-typingのサポート**: テストでの柔軟性のため、Wrapper初期化を手動で行い`isinstance`チェックをバイパス
+3. **API移行の影響範囲**: Gymnasium APIは`reset()`が`(observation, info)`タプルを返すため、古いコードとの互換性に注意が必要
+4. **テスト戦略**: 単体テスト→統合テスト→実環境テストの順で段階的に検証し、各レベルでリグレッションがないことを確認
+
+### ⏭️ 次回セッションの予定
+1. Pull Requestを作成し、変更内容をレビュー依頼
+2. 本番環境でのPPOトレーニング動作確認
+
+### 🔗 関連コミット
+- 4fc8bf7: fix(training): make PlaybackRecordingWrapper Gymnasium-compatible for SB3
+
+---
+
+## 2025-10-31 セッション97
+
+### 🎯 セッション目標
+- ファイルストレージのプレフィックス一致バイパスを封じ、公開前の秘匿情報露出がないことを確認する。
+
+### ✅ 実施内容
+- `FileStorageService.resolve()` が `str.startswith()` 判定のため `/storage_evil` のようなプレフィックス衝突を許していた問題を再現。
+- `save_upload()` と `resolve()` の両方で `Path.relative_to()` を利用し、ストレージルート外のパスは即座に `ValueError` を送出するように修正。
+- プレフィックス衝突を狙った `resolve()`／`delete()` の回帰テストを追加し、`pytest tests/unit/core/test_file_storage_service.py` で4ケースとも成功することを確認。
+- `rg` 検索で `password`／`token`／`secret` を横断確認し、設計資料以外にハードコードされた資格情報が存在しないことを確認。
+
+### 📊 成果物
+- `app/core/files/service.py`: `Path.relative_to()` を用いたストレージルート検証に変更。
+- `tests/unit/core/test_file_storage_service.py`: プレフィックス衝突を想定したユニットテストを2件追加。
+
+### 🧠 学んだこと・課題
+1. 文字列比較によるパストラバーサル防止は `/storage_evil` のような衝突ケースを防げないため、`Path.relative_to()` や `os.path.commonpath` での厳密比較が必須。
+2. 秘匿情報チェックは`rg`などの横断検索で自動化できるが、設計資料に例示として残るダミー資格情報は誤検出となるため分類に注意する。
+3. 他のストレージ／アーカイブ系ユーティリティでも同様のプレフィックス比較がないか継続棚卸しが必要。
+
+### ⏭️ 次回セッションの予定
+1. ファイルアーカイブやジョブ成果物アップロード経路に同様の検証抜けがないか静的・動的チェックを実施する。
+2. 公開チェックリストへ「資格情報スキャン」手順を組み込む。
+
+### 🔗 関連コミット
+- (このセッションのコミット確定後に追記予定)
 
 ---
 
