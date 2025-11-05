@@ -110,7 +110,7 @@ def _seed_playback_states(session: sessionmaker, job: TrainingJob) -> int:
                 robot_orientation=1,
                 threat_grid={"levels": [[0.2, 0.3], [0.4, 0.5]]},
                 coverage_map=None,
-                suspicious_objects={"items": ["box"]},
+                suspicious_objects=[],
                 action_taken=2,
                 reward_received=0.8,
             ),

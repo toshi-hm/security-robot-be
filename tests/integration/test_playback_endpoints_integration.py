@@ -107,7 +107,7 @@ def _create_states(
           robot_orientation=step % 4,
           threat_grid={"levels": [[float(step)]]},
           coverage_map={"counts": [[float(episode)]]},
-          suspicious_objects={"items": []},
+          suspicious_objects=[],
           action_taken=step % 5,
           reward_received=step * 0.1,
           created_at=timestamp,

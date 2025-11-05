@@ -21,7 +21,7 @@ class EnvironmentStateCreate(BaseModel):
   # Environment state
   threat_grid: dict = Field(..., description="2D array of threat levels")
   coverage_map: dict | None = Field(default=None, description="2D array of visit counts")
-  suspicious_objects: dict | None = Field(default=None, description="List of suspicious objects")
+  suspicious_objects: list[dict] | None = Field(default=None, description="List of suspicious objects")
 
   # Action information
   action_taken: int | None = Field(default=None, ge=0, le=3, description="0=Up, 1=Right, 2=Down, 3=Left")
@@ -45,7 +45,7 @@ class EnvironmentStateResponse(BaseModel):
   # Environment state
   threat_grid: dict
   coverage_map: dict | None
-  suspicious_objects: dict | None
+  suspicious_objects: list[dict] | None
 
   # Action information
   action_taken: int | None
