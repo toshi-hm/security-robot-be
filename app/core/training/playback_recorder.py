@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+import gymnasium as gym
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -143,7 +144,7 @@ class _PlaybackRecorder:
         logger.debug("Failed to close playback recorder session", exc_info=True)
 
 
-class PlaybackRecordingWrapper:
+class PlaybackRecordingWrapper(gym.Wrapper):
   """Proxy environment that records state snapshots for playback."""
 
   def __init__(
@@ -159,7 +160,15 @@ class PlaybackRecordingWrapper:
   ) -> None:
     if session_id <= 0:
       raise ValueError(f"Invalid session_id: {session_id}")
-    self._env = env
+    
+    # Initialize Wrapper manually to support non-Gymnasium environments
+    # This allows wrapping of any duck-typed environment
+    self.env = env
+    # Copy standard attributes from wrapped environment
+    self.action_space = getattr(env, "action_space", None)
+    self.observation_space = getattr(env, "observation_space", None)
+    self.metadata = getattr(env, "metadata", {})
+    
     self._session_id = session_id
     self._record_interval = max(1, record_interval)
     self._record_on_reset = record_on_reset
@@ -172,22 +181,17 @@ class PlaybackRecordingWrapper:
     self._step_in_episode = 0
     self._steps_since_record = 0
 
-    self.action_space = getattr(env, "action_space", None)
-    self.observation_space = getattr(env, "observation_space", None)
-    self.metadata = getattr(env, "metadata", {})
-
   # ------------------------------------------------------------------
   # Gymnasium API
   # ------------------------------------------------------------------
   def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
-    result = self._env.reset(seed=seed, options=options)
+    observation, info = self.env.reset(seed=seed, options=options)
 
     self._episode += 1
     self._step_in_episode = 0
     self._steps_since_record = 0
 
     if self._record_on_reset:
-      observation = result[0] if isinstance(result, tuple) else result
       self._record_snapshot(
         observation=observation,
         action=None,
@@ -195,14 +199,14 @@ class PlaybackRecordingWrapper:
         step=0,
       )
 
-    return result
+    return observation, info
 
   def step(self, action: Any):
-    observation, reward, terminated, truncated, info = self._env.step(action)
+    observation, reward, terminated, truncated, info = self.env.step(action)
 
     self._step_in_episode += 1
     self._steps_since_record += 1
-    step_value = getattr(self._env, "time_step", self._step_in_episode)
+    step_value = getattr(self.env, "time_step", self._step_in_episode)
 
     should_record = (
       self._steps_since_record >= self._record_interval
@@ -225,9 +229,9 @@ class PlaybackRecordingWrapper:
     try:
       self._recorder.flush()
     finally:
-      close = getattr(self._env, "close", None)
-      if callable(close):
-        close()
+      # Safely close the wrapped environment if it has a close method
+      if hasattr(self.env, "close") and callable(self.env.close):
+        self.env.close()
 
   # ------------------------------------------------------------------
   # Internal helpers
@@ -244,25 +248,25 @@ class PlaybackRecordingWrapper:
       "session_id": self._session_id,
       "episode": self._episode,
       "step": int(step),
-      "threat_grid": {"levels": _copy_grid(getattr(self._env, "threat_levels", []))},
+      "threat_grid": {"levels": _copy_grid(getattr(self.env, "threat_levels", []))},
       "coverage_map": None,
-      "suspicious_objects": _copy_mapping(getattr(self._env, "suspicious_objects", None)),
+      "suspicious_objects": _copy_mapping(getattr(self.env, "suspicious_objects", None)),
       "action_taken": self._normalise_action(action),
       "reward_received": float(reward) if reward is not None else None,
     }
 
     for payload_key, (source_attr, default) in ATTR_MAPPING.items():
-      value = getattr(self._env, source_attr, default)
+      value = getattr(self.env, source_attr, default)
       if isinstance(value, (int, float)):
         payload[payload_key] = int(value)
       else:
         payload[payload_key] = value
 
     coverage_source = None
-    if hasattr(self._env, "visit_count"):
-      coverage_source = self._env.visit_count
-    elif hasattr(self._env, "last_patrolled"):
-      coverage_source = self._env.last_patrolled
+    if hasattr(self.env, "visit_count"):
+      coverage_source = self.env.visit_count
+    elif hasattr(self.env, "last_patrolled"):
+      coverage_source = self.env.last_patrolled
     if coverage_source is not None:
       payload["coverage_map"] = {"counts": _copy_grid(coverage_source)}
 
@@ -287,7 +291,7 @@ class PlaybackRecordingWrapper:
     return None
 
   def __getattr__(self, name: str) -> Any:
-    return getattr(self._env, name)
+    return getattr(self.env, name)
 
 
 def wrap_environment_for_playback(
