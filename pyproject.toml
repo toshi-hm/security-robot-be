@@ -73,3 +73,4 @@ indent-style = "space"
 [tool.ruff.lint.isort]
 known-first-party = ["app", "rl", "tests"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = true

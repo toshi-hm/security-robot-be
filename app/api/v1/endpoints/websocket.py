@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from typing import Any
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
-import logging
 from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+import contextlib
+import logging
 from pathlib import Path
 from threading import Lock
 from typing import Any

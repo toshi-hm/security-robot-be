@@ -1,7 +1,7 @@
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import sys
 
 import pytest
 import pytest_asyncio

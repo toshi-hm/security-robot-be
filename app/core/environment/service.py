@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import logging
 from numbers import Integral
 from typing import Any
 from uuid import uuid4

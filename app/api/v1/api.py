@@ -1,5 +1,3 @@
-from fastapi import APIRouter
-
 from app.api.v1.endpoints import (
     environment,
     files,
@@ -9,6 +7,7 @@ from app.api.v1.endpoints import (
     training,
     websocket,
 )
+from fastapi import APIRouter
 
 api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health", tags=["health"])

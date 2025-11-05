@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import sys
 from collections.abc import AsyncIterator
 from io import BytesIO
 from pathlib import Path
+import sys
 
 import pytest
 import pytest_asyncio

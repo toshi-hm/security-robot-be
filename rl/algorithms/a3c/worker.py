@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
-import logging
 from collections.abc import Callable
+import contextlib
 from dataclasses import dataclass
+import logging
 from threading import Lock
 from typing import Any
 
