@@ -120,7 +120,9 @@ def _seed_playback_states(session: sessionmaker, job: TrainingJob) -> int:
         return job_id
 
 
-def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_archive_playback_session_registers_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     storage_root = tmp_path / "storage"
     storage_root.mkdir(parents=True)
     monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)
@@ -136,7 +138,14 @@ def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: py
     def fake_create() -> object:
         return redis_stub
 
-    def fake_publish(client: object, session_id: int, payload: dict[str, object], *, critical: bool, max_retries: int = 3) -> None:
+    def fake_publish(
+        client: object,
+        session_id: int,
+        payload: dict[str, object],
+        *,
+        critical: bool,
+        max_retries: int = 3,
+    ) -> None:
         published["client"] = client
         published["session_id"] = session_id
         published["payload"] = payload
@@ -170,11 +179,7 @@ def test_archive_playback_session_registers_file(tmp_path: Path, monkeypatch: py
         assert first_record["step"] == 0
 
     with Session() as db:
-        remaining = (
-            db.query(EnvironmentState)
-            .filter(EnvironmentState.session_id == job_id)
-            .count()
-        )
+        remaining = db.query(EnvironmentState).filter(EnvironmentState.session_id == job_id).count()
         assert remaining == 0
 
         files = db.query(FileMetadata).all()
@@ -318,7 +323,9 @@ def test_archive_playback_session_enforces_expansion_ratio_limit(
     assert not list(playback_root.rglob("*.zip"))
 
 
-def test_archive_playback_session_without_frames_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_archive_playback_session_without_frames_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     storage_root = tmp_path / "storage"
     storage_root.mkdir(parents=True)
     monkeypatch.setattr(file_tasks.storage, "STORAGE_ROOT", storage_root)

@@ -25,4 +25,3 @@ def set_time_sequence(
         return values.popleft()
 
     monkeypatch.setattr(module, "utcnow", _utcnow)
-

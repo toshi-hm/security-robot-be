@@ -6,13 +6,15 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from starlette.datastructures import Headers, UploadFile
 
 from app.core.files import storage as storage_module
 from app.core.files.service import FileStorageService
-from starlette.datastructures import Headers, UploadFile
 
 
-def _upload_file(*, name: str, data: bytes, content_type: str = "application/octet-stream") -> UploadFile:
+def _upload_file(
+    *, name: str, data: bytes, content_type: str = "application/octet-stream"
+) -> UploadFile:
     buffer = BytesIO()
     buffer.write(data)
     buffer.seek(0)
@@ -21,7 +23,9 @@ def _upload_file(*, name: str, data: bytes, content_type: str = "application/oct
 
 
 @pytest.mark.asyncio
-async def test_save_upload_prevents_path_traversal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_save_upload_prevents_path_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage-root")
     service = FileStorageService()
 
@@ -43,7 +47,9 @@ async def test_save_upload_prevents_path_traversal(tmp_path: Path, monkeypatch: 
     assert str(absolute_path).startswith(str(storage_root))
 
 
-def test_delete_ignores_paths_outside_storage_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_ignores_paths_outside_storage_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage")
     service = FileStorageService()
 
@@ -55,7 +61,9 @@ def test_delete_ignores_paths_outside_storage_root(tmp_path: Path, monkeypatch: 
     assert outside.exists()
 
 
-def test_resolve_rejects_paths_that_only_share_prefix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_rejects_paths_that_only_share_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage")
     service = FileStorageService()
 
@@ -65,7 +73,9 @@ def test_resolve_rejects_paths_that_only_share_prefix(tmp_path: Path, monkeypatc
         service.resolve(sneaky.as_posix())
 
 
-def test_delete_does_not_follow_prefix_only_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_does_not_follow_prefix_only_escape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(storage_module, "STORAGE_ROOT", tmp_path / "storage")
     service = FileStorageService()
 

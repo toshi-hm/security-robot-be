@@ -117,10 +117,7 @@ class JobManager:
         if self._history_ttl <= timedelta(0):
             return
 
-        if (
-            self._last_sweep_at is not None
-            and now - self._last_sweep_at < self._sweep_interval
-        ):
+        if self._last_sweep_at is not None and now - self._last_sweep_at < self._sweep_interval:
             return
 
         cutoff = now - self._history_ttl
@@ -141,7 +138,9 @@ class JobManager:
     def _prune_counts(self) -> None:
         """Ensure active and total queue sizes stay within configured limits."""
 
-        def _partition() -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]]:
+        def _partition() -> tuple[
+            list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]
+        ]:
             active: list[tuple[int, dict[str, Any]]] = []
             history: list[tuple[int, dict[str, Any]]] = []
 

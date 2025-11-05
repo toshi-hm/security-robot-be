@@ -60,9 +60,7 @@ class SecurityEnvironment(gym.Env):
 
         return self._get_observation(), {}
 
-    def step(
-        self, action: int
-    ) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
+    def step(self, action: int) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
         self.time_step += 1
 
         self._update_threat_levels()
@@ -102,10 +100,7 @@ class SecurityEnvironment(gym.Env):
         return obstacles
 
     def _get_observation(self) -> list[list[list[float]]]:
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
 
         for x in range(self.width):
             for y in range(self.height):
@@ -209,9 +204,7 @@ class SecurityEnvironment(gym.Env):
                 threat_reward = self.threat_levels[x][y] * 10
                 if threat_reward > 0:
                     total_reward += threat_reward
-                    self.last_patrol_info.append(
-                        f"脅威度除去 ({x},{y}): +{threat_reward:.1f}"
-                    )
+                    self.last_patrol_info.append(f"脅威度除去 ({x},{y}): +{threat_reward:.1f}")
 
                 self.threat_levels[x][y] = 0.0
                 self.last_patrolled[x][y] = self.time_step

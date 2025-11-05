@@ -58,7 +58,7 @@ def test_upload_and_download_round_trip(file_api_app: tuple[FastAPI, Path]) -> N
                 "file_type": "model",
                 "training_job_id": "7",
                 "description": "Integration upload",
-                "metadata": "{\"version\": \"1.2.3\"}",
+                "metadata": '{"version": "1.2.3"}',
             },
             files={"file": ("checkpoint.zip", b"binary-data", "application/zip")},
         )

@@ -48,13 +48,17 @@ def patch_storage_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     storage.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-async def _create_upload(filename: str, data: bytes, content_type: str = "application/octet-stream") -> UploadFile:
+async def _create_upload(
+    filename: str, data: bytes, content_type: str = "application/octet-stream"
+) -> UploadFile:
     headers = Headers({"content-type": content_type})
     return UploadFile(filename=filename, file=BytesIO(data), headers=headers)
 
 
 @pytest.mark.asyncio
-async def test_upload_file_persists_metadata_and_binary(db_session: AsyncSession, tmp_path: Path) -> None:
+async def test_upload_file_persists_metadata_and_binary(
+    db_session: AsyncSession, tmp_path: Path
+) -> None:
     upload = await _create_upload("model.zip", b"fake-binary-data", "application/zip")
 
     response = await files_module.upload_file(
@@ -111,7 +115,9 @@ async def test_list_files_returns_paginated_results(db_session: AsyncSession) ->
 
 
 @pytest.mark.asyncio
-async def test_delete_file_removes_binary_and_metadata(db_session: AsyncSession, tmp_path: Path) -> None:
+async def test_delete_file_removes_binary_and_metadata(
+    db_session: AsyncSession, tmp_path: Path
+) -> None:
     upload = await _create_upload("log.txt", b"log-data", "text/plain")
     created = await files_module.upload_file(
         file=upload,
