@@ -1,7 +1,7 @@
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import sys
 
 import pytest
 import pytest_asyncio
@@ -135,9 +135,15 @@ async def test_get_playback_frames_returns_frames_sorted(
     base_time = datetime.now(tz=UTC)
 
     states = [
-        _build_state(job.id, _StateSpec(episode=2, step=3, offset_minutes=5, reward=0.7), base_time),
-        _build_state(job.id, _StateSpec(episode=1, step=0, offset_minutes=2, reward=0.4), base_time),
-        _build_state(job.id, _StateSpec(episode=2, step=1, offset_minutes=3, reward=0.6), base_time),
+        _build_state(
+            job.id, _StateSpec(episode=2, step=3, offset_minutes=5, reward=0.7), base_time
+        ),
+        _build_state(
+            job.id, _StateSpec(episode=1, step=0, offset_minutes=2, reward=0.4), base_time
+        ),
+        _build_state(
+            job.id, _StateSpec(episode=2, step=1, offset_minutes=3, reward=0.6), base_time
+        ),
     ]
     db_session.add_all(states)
     await db_session.commit()

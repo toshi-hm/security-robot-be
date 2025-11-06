@@ -5,17 +5,17 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-import pytest
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-import app.main as main_module
 from app.api.deps import get_db
 from app.api.v1.endpoints import jobs as jobs_module
 from app.api.v1.endpoints import training as training_module
 from app.core.training.job_manager import JobManager
 from app.db import database as database_module
 from app.db import session as session_module
+import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
@@ -64,9 +64,9 @@ def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
     """Assert that a timestamp is within ``window_seconds`` of now."""
 
     delta = abs((datetime.now(UTC) - timestamp).total_seconds())
-    assert (
-        delta < window_seconds
-    ), f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
+    assert delta < window_seconds, (
+        f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
+    )
 
 
 @pytest.fixture()
@@ -112,7 +112,7 @@ def _load_job(session_maker: async_sessionmaker[AsyncSession], job_id: int) -> T
 
 
 def test_start_training_creates_session_and_enqueues_job(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, dispatcher = training_api_app
 
@@ -154,7 +154,7 @@ def test_start_training_creates_session_and_enqueues_job(
 
 
 def test_pause_unknown_session_returns_not_found(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, _, _ = training_api_app
 
@@ -167,7 +167,7 @@ def test_pause_unknown_session_returns_not_found(
 
 
 def test_resume_requires_paused_status(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, _, _ = training_api_app
 
@@ -200,7 +200,7 @@ def test_resume_requires_paused_status(
 
 
 def test_resume_requeues_paused_session_dispatches_job(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, dispatcher = training_api_app
 
@@ -259,7 +259,7 @@ def test_resume_requeues_paused_session_dispatches_job(
 
 
 def test_stop_training_marks_job_failed_and_stops_queue_entry(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, dispatcher = training_api_app
 
@@ -317,7 +317,7 @@ def test_stop_training_marks_job_failed_and_stops_queue_entry(
 
 
 def test_force_stop_training_revokes_celery_task(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, dispatcher = training_api_app
 
@@ -375,7 +375,7 @@ def test_force_stop_training_revokes_celery_task(
 
 
 def test_pause_training_updates_queue_entry_and_response_task_ids(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, job_manager, dispatcher = training_api_app
 
@@ -422,7 +422,7 @@ def test_pause_training_updates_queue_entry_and_response_task_ids(
 
 
 def test_stop_response_includes_resumed_timestamp(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, dispatcher = training_api_app
 
@@ -482,7 +482,7 @@ def test_stop_response_includes_resumed_timestamp(
 
 
 def test_status_endpoint_returns_persisted_job_state(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, _, _ = training_api_app
 
@@ -517,7 +517,7 @@ def test_status_endpoint_returns_persisted_job_state(
 
 
 def test_list_training_sessions_returns_latest_first(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, _, _ = training_api_app
 
@@ -555,7 +555,7 @@ def test_list_training_sessions_returns_latest_first(
 
 
 def test_delete_training_session_removes_job_and_queue_entry(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, session_maker, job_manager, _dispatcher = training_api_app
 
@@ -588,7 +588,7 @@ def test_delete_training_session_removes_job_and_queue_entry(
 
 
 def test_jobs_endpoints_expose_queue_metadata(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, job_manager, dispatcher = training_api_app
 
@@ -641,7 +641,7 @@ def test_jobs_endpoints_expose_queue_metadata(
 
 
 def test_jobs_endpoint_allows_removing_queue_entries(
-    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]
+    training_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub],
 ) -> None:
     app, _, job_manager, _dispatcher = training_api_app
 

@@ -1,4 +1,5 @@
 """Unit tests for the in-memory job queue manager."""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,12 +20,8 @@ class InstrumentedLock(asyncio.Lock):
 
     def __init__(self) -> None:
         super().__init__()
-        self._acquire_plan: deque[
-            tuple[asyncio.Event | None, asyncio.Event | None]
-        ] = deque()
-        self._release_plan: deque[
-            tuple[asyncio.Event | None, asyncio.Event | None]
-        ] = deque()
+        self._acquire_plan: deque[tuple[asyncio.Event | None, asyncio.Event | None]] = deque()
+        self._release_plan: deque[tuple[asyncio.Event | None, asyncio.Event | None]] = deque()
 
     def plan_acquire(
         self,
@@ -181,9 +178,7 @@ async def test_resume_updates_status(monkeypatch: pytest.MonkeyPatch) -> None:
     paused_at = enqueued_at + timedelta(minutes=4)
     resumed_at = paused_at + timedelta(minutes=6)
 
-    set_time_sequence(
-        monkeypatch, job_manager_module, enqueued_at, paused_at, resumed_at
-    )
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, paused_at, resumed_at)
     _freeze_uuid(monkeypatch, "42345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 42})
@@ -221,9 +216,7 @@ async def test_resume_after_revoked_clears_forced_state(
     revoked_at = enqueued_at + timedelta(minutes=2)
     resumed_at = revoked_at + timedelta(minutes=5)
 
-    set_time_sequence(
-        monkeypatch, job_manager_module, enqueued_at, revoked_at, resumed_at
-    )
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, revoked_at, resumed_at)
     _freeze_uuid(monkeypatch, "52345678-1234-5678-1234-567812345678")
 
     await manager.enqueue({"session_id": 84})
@@ -559,9 +552,7 @@ async def test_stop_unknown_reason_preserves_forced(monkeypatch: pytest.MonkeyPa
     paused_at = enqueued_at + timedelta(minutes=1)
     updated_at = paused_at + timedelta(minutes=1)
 
-    set_time_sequence(
-        monkeypatch, job_manager_module, enqueued_at, paused_at, updated_at
-    )
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, paused_at, updated_at)
     await manager.enqueue({"session_id": 55})
     await manager.stop(55, reason="revoked")
 
@@ -581,9 +572,7 @@ async def test_stop_overwrites_previous_reason_timestamp(monkeypatch: pytest.Mon
     paused_at = enqueued_at + timedelta(minutes=2)
     stopped_at = paused_at + timedelta(minutes=3)
 
-    set_time_sequence(
-        monkeypatch, job_manager_module, enqueued_at, paused_at, stopped_at
-    )
+    set_time_sequence(monkeypatch, job_manager_module, enqueued_at, paused_at, stopped_at)
     await manager.enqueue({"session_id": 77})
     await manager.stop(77, reason="paused")
 

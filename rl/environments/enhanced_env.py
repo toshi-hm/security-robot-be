@@ -42,22 +42,16 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
         self._mark_current_position()
         return observation, info
 
-    def step(
-        self, action: int
-    ) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
+    def step(self, action: int) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
         observation, base_reward, terminated, truncated, info = super().step(action)
 
         self._update_exploration_state()
 
         total_cells = self.width * self.height
-        visited_count = sum(
-            1 for column in self.visited_cells for cell in column if cell
-        )
+        visited_count = sum(1 for column in self.visited_cells for cell in column if cell)
         coverage_ratio = visited_count / total_cells if total_cells else 0.0
 
-        enhanced_reward = self._calculate_enhanced_reward(
-            action, base_reward, coverage_ratio
-        )
+        enhanced_reward = self._calculate_enhanced_reward(action, base_reward, coverage_ratio)
 
         info.update(
             {
@@ -75,15 +69,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # ------------------------------------------------------------------
 
     def _init_tracking_structures(self) -> None:
-        self.visited_cells = [
-            [False for _ in range(self.height)] for _ in range(self.width)
-        ]
-        self.visit_count = [
-            [0 for _ in range(self.height)] for _ in range(self.width)
-        ]
-        self.last_visited = [
-            [-1 for _ in range(self.height)] for _ in range(self.width)
-        ]
+        self.visited_cells = [[False for _ in range(self.height)] for _ in range(self.width)]
+        self.visit_count = [[0 for _ in range(self.height)] for _ in range(self.width)]
+        self.last_visited = [[-1 for _ in range(self.height)] for _ in range(self.width)]
         self.recent_positions: list[tuple[int, int]] = []
         self.position_history_length = 10
         self.coverage_history: list[float] = []
@@ -112,9 +100,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     ) -> float:
         total_reward = base_reward
         total_reward += self._calculate_exploration_reward() * self.exploration_weight
-        total_reward += (
-            self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
-        )
+        total_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
         total_reward += self._calculate_diversity_reward() * self.diversity_weight
         total_reward += self._calculate_movement_reward(action)
         total_reward += self._calculate_patrol_optimization_reward(action)

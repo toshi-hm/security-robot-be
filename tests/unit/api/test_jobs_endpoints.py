@@ -27,9 +27,7 @@ async def test_list_jobs_returns_queue_entries(
     job_manager_stub: JobManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     base = datetime(2025, 10, 21, 12, 0, tzinfo=UTC)
-    set_time_sequence(
-        monkeypatch, job_manager_module, base, base + timedelta(minutes=1)
-    )
+    set_time_sequence(monkeypatch, job_manager_module, base, base + timedelta(minutes=1))
 
     await job_manager_stub.enqueue({"session_id": 10, "task_id": "task-10"})
     await job_manager_stub.enqueue({"session_id": 11, "task_id": "task-11"})

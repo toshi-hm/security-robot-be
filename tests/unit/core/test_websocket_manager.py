@@ -61,7 +61,9 @@ async def test_connect_and_disconnect_tracks_sessions(manager: WebSocketManager)
 
 
 @pytest.mark.asyncio
-async def test_broadcast_to_session_only_targets_matching_connections(manager: WebSocketManager) -> None:
+async def test_broadcast_to_session_only_targets_matching_connections(
+    manager: WebSocketManager,
+) -> None:
     session_websocket = FakeWebSocket()
     other_websocket = FakeWebSocket()
 

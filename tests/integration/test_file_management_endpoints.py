@@ -6,14 +6,14 @@ import asyncio
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-import app.main as main_module
 from app.api.deps import get_db
 from app.db import database as database_module
 from app.db import session as session_module
+import app.main as main_module
 from app.main import create_app
 from fastapi import FastAPI
 
@@ -58,7 +58,7 @@ def test_upload_and_download_round_trip(file_api_app: tuple[FastAPI, Path]) -> N
                 "file_type": "model",
                 "training_job_id": "7",
                 "description": "Integration upload",
-                "metadata": "{\"version\": \"1.2.3\"}",
+                "metadata": '{"version": "1.2.3"}',
             },
             files={"file": ("checkpoint.zip", b"binary-data", "application/zip")},
         )

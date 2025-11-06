@@ -11,10 +11,15 @@ class JobQueueEntry(BaseModel):
 
     session_id: int = Field(..., description="Training session identifier associated with the job.")
     task_id: str = Field(..., description="Celery task identifier for the job.")
-    status: str = Field(..., description="Current queue status for the job (queued, paused, stopped, revoked).")
+    status: str = Field(
+        ..., description="Current queue status for the job (queued, paused, stopped, revoked)."
+    )
     forced: bool = Field(
         default=False,
-        description="Whether the most recent transition was triggered forcefully (e.g. Celery revoke).",
+        description=(
+            "Whether the most recent transition was triggered forcefully "
+            "(e.g. Celery revoke)."
+        ),
     )
     enqueued_at: datetime = Field(..., description="Timestamp when the job was enqueued.")
     updated_at: datetime | None = Field(
@@ -22,8 +27,12 @@ class JobQueueEntry(BaseModel):
     )
     paused_at: datetime | None = Field(default=None, description="Time when the job was paused.")
     resumed_at: datetime | None = Field(default=None, description="Time when the job was resumed.")
-    stopped_at: datetime | None = Field(default=None, description="Time when the job was stopped cooperatively.")
-    revoked_at: datetime | None = Field(default=None, description="Time when the job was forcefully revoked.")
+    stopped_at: datetime | None = Field(
+        default=None, description="Time when the job was stopped cooperatively."
+    )
+    revoked_at: datetime | None = Field(
+        default=None, description="Time when the job was forcefully revoked."
+    )
     payload: dict[str, Any] = Field(
         default_factory=dict,
         description="Original payload submitted when the job was created.",

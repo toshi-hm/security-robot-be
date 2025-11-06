@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from datetime import timedelta
+import logging
 from typing import Any
 
 import pytest
@@ -53,10 +53,7 @@ class TrackingEnvironment:
         self.robot_direction = 2
         self.time_step = 5 if seed is None else seed % 10
 
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
         for x in range(self.width):
             for y in range(self.height):
                 observation[x][y][0] = self.threat_levels[x][y]
@@ -70,10 +67,7 @@ class TrackingEnvironment:
         elif action == 1:
             self.robot_y = min(self.height - 1, self.robot_y + 1)
 
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
         for x in range(self.width):
             for y in range(self.height):
                 observation[x][y][0] = self.threat_levels[x][y]
@@ -101,10 +95,7 @@ class MinimalEnvironment:
         self.time_step = 0
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
         return observation, {}
 
 
@@ -114,10 +105,7 @@ class NonSerializableEnvironment(MinimalEnvironment):
         self.closed = False
 
     def step(self, action: int):
-        observation = [
-            [[0.0, 0.0, 0.0] for _ in range(self.height)]
-            for _ in range(self.width)
-        ]
+        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
         info = {
             "set": {1, 2, 3},
             "mapping": {"nested": {"value": complex(1, 2)}},
@@ -205,9 +193,7 @@ def test_default_timeout_comes_from_settings(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_list_definitions_and_get_state(monkeypatch: pytest.MonkeyPatch) -> None:
     specs = tuple(_build_specs())
-    monkeypatch.setattr(
-        service_module, "available_environments", lambda: specs
-    )
+    monkeypatch.setattr(service_module, "available_environments", lambda: specs)
     service = service_module.EnvironmentService()
 
     definitions = asyncio.run(service.list_definitions())
@@ -228,9 +214,10 @@ def test_list_definitions_and_get_state(monkeypatch: pytest.MonkeyPatch) -> None
     assert state.robot.x == 1
     assert state.robot.y == 0
     assert state.coverage_ratio == pytest.approx(3 / 6)
-    assert [
-        (obj.x, obj.y, obj.spawned_at) for obj in state.suspicious_objects
-    ] == [(0, 0, 1), (2, 1, 3)]
+    assert [(obj.x, obj.y, obj.spawned_at) for obj in state.suspicious_objects] == [
+        (0, 0, 1),
+        (2, 1, 3),
+    ]
 
     minimal_state = asyncio.run(service.get_state("minimal"))
     assert minimal_state.coverage_ratio is None
@@ -255,16 +242,12 @@ def test_refresh_registry(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(service_module, "available_environments", first)
     service = service_module.EnvironmentService()
-    initial_ids = {
-        definition.id for definition in asyncio.run(service.list_definitions())
-    }
+    initial_ids = {definition.id for definition in asyncio.run(service.list_definitions())}
     assert initial_ids == {"tracked"}
 
     monkeypatch.setattr(service_module, "available_environments", second)
     service.refresh_registry()
-    refreshed_ids = {
-        definition.id for definition in asyncio.run(service.list_definitions())
-    }
+    refreshed_ids = {definition.id for definition in asyncio.run(service.list_definitions())}
     assert refreshed_ids == {"minimal"}
 
 
@@ -365,9 +348,7 @@ def test_concurrent_actions_on_same_session(monkeypatch: pytest.MonkeyPatch) -> 
     session_id, _ = asyncio.run(service.create_session("guarded"))
 
     async def _run_steps() -> list[tuple[Any, float, bool, bool, dict[str, Any]]]:
-        return await asyncio.gather(
-            *[service.execute_action(session_id, 0) for _ in range(5)]
-        )
+        return await asyncio.gather(*[service.execute_action(session_id, 0) for _ in range(5)])
 
     results = asyncio.run(_run_steps())
     assert len(results) == 5

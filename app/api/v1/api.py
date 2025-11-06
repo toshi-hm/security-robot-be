@@ -1,11 +1,11 @@
 from app.api.v1.endpoints import (
-  environment,
-  files,
-  health,
-  jobs,
-  playback,
-  training,
-  websocket,
+    environment,
+    files,
+    health,
+    jobs,
+    playback,
+    training,
+    websocket,
 )
 from fastapi import APIRouter
 

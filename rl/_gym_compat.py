@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import importlib
 import importlib.util
 import random
-from dataclasses import dataclass
 from typing import Any
 
 _SPEC = importlib.util.find_spec("gymnasium")
@@ -14,6 +14,7 @@ if _SPEC is not None:  # pragma: no cover - exercised when gymnasium is installe
     gym = importlib.import_module("gymnasium")
     spaces = gym.spaces
 else:
+
     class _Env:
         """Minimal stand-in for :class:`gymnasium.Env`."""
 
@@ -39,7 +40,6 @@ else:
         def render(self, mode: str = "human") -> None:  # pragma: no cover - noop
             return None
 
-
     @dataclass(slots=True)
     class _Box:
         """Lightweight variant of :class:`gymnasium.spaces.Box`."""
@@ -64,12 +64,9 @@ else:
                     span_high = highs[min(idx, len(highs) - 1)]
                     return random.uniform(span_low, span_high)
 
-                return [
-                    _sample_dimension(idx + 1, dims[1:]) for _ in range(dims[0])
-                ]
+                return [_sample_dimension(idx + 1, dims[1:]) for _ in range(dims[0])]
 
             return _sample_dimension(0, self.shape)
-
 
     @dataclass(slots=True)
     class _Discrete:
@@ -85,19 +82,15 @@ else:
         def sample(self) -> int:
             return random.randrange(self.n)
 
-
     class _SpacesModule:
         Box = _Box
         Discrete = _Discrete
 
-
     class _GymModule:
         Env = _Env
-
 
     gym = _GymModule()
     spaces = _SpacesModule()
 
 
 __all__ = ["gym", "spaces"]
-

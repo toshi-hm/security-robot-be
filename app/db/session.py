@@ -14,17 +14,17 @@ async_session = async_sessionmaker(async_engine, expire_on_commit=False, class_=
 
 
 def get_session() -> AsyncIterator[AsyncSession]:
-  return async_session()
+    return async_session()
 
 
 # Celery workers operate in a synchronous context.  The async engine exposes a
 # synchronous facade that we reuse here to keep both execution models in sync.
 SessionLocal = sessionmaker(
-  bind=sync_engine,
-  class_=Session,
-  autoflush=False,
-  autocommit=False,
-  expire_on_commit=False,
+    bind=sync_engine,
+    class_=Session,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False,
 )
 
 

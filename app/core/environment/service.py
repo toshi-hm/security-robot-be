@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import logging
 from numbers import Integral
 from typing import Any
 from uuid import uuid4
@@ -50,17 +50,13 @@ class EnvironmentService:
         self._lock = asyncio.Lock()
         self._max_sessions = int(max_sessions)
         default_timeout = settings.environment_session_timeout_seconds
-        timeout = (
-            default_timeout if session_timeout_seconds is None else session_timeout_seconds
-        )
+        timeout = default_timeout if session_timeout_seconds is None else session_timeout_seconds
         self._session_timeout_seconds = int(timeout)
 
     async def list_definitions(self) -> list[EnvironmentDefinition]:
         return [self._build_definition(spec) for spec in self._registry.values()]
 
-    async def get_state(
-        self, environment_id: str, *, seed: int | None = None
-    ) -> EnvironmentState:
+    async def get_state(self, environment_id: str, *, seed: int | None = None) -> EnvironmentState:
         try:
             spec = self._registry[environment_id]
         except KeyError as exc:
@@ -113,9 +109,7 @@ class EnvironmentService:
 
         return session.id, state
 
-    async def reset_session(
-        self, session_id: str, *, seed: int | None = None
-    ) -> EnvironmentState:
+    async def reset_session(self, session_id: str, *, seed: int | None = None) -> EnvironmentState:
         """Reset an existing environment session."""
 
         await self._cleanup_expired_sessions()
@@ -163,9 +157,7 @@ class EnvironmentService:
             elif action < 0:
                 raise ValueError("action must be non-negative")
 
-            observation, reward, terminated, truncated, info = (
-                session.environment.step(int(action))
-            )
+            observation, reward, terminated, truncated, info = session.environment.step(int(action))
             session.last_accessed = datetime.now(tz=UTC)
             spec = session.spec
             environment = session.environment
@@ -181,9 +173,7 @@ class EnvironmentService:
                     info_payload[key] = self._json_safe(value)
                 else:
                     converted_key = str(key)
-                    logger.debug(
-                        "Converted non-string info key %r to %r", key, converted_key
-                    )
+                    logger.debug("Converted non-string info key %r to %r", key, converted_key)
                     info_payload[converted_key] = self._json_safe(value)
         else:
             info_payload = {"details": self._json_safe(info)}
@@ -245,9 +235,7 @@ class EnvironmentService:
             try:
                 close()
             except Exception:  # pragma: no cover - defensive cleanup
-                logger.exception(
-                    "Error while closing environment for session %s", session.id
-                )
+                logger.exception("Error while closing environment for session %s", session.id)
 
     def _build_definition(self, spec: EnvironmentSpec) -> EnvironmentDefinition:
         config = dict(spec.default_config)
@@ -302,9 +290,7 @@ class EnvironmentService:
             )
             total_cells = definition.width * definition.height
             if total_cells:
-                visited_count = sum(
-                    1 for column in visited_grid for cell in column if cell
-                )
+                visited_count = sum(1 for column in visited_grid for cell in column if cell)
                 coverage_ratio = visited_count / total_cells
 
         suspicious_list = sorted(
@@ -391,4 +377,3 @@ class EnvironmentService:
 
 
 environment_service = EnvironmentService()
-

@@ -47,7 +47,9 @@ async def start_training(
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - defensive guard
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task") from exc
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task"
+        ) from exc
 
     try:
         algorithm = (
@@ -97,7 +99,9 @@ async def stop_training(
 
     job = await service.get_session(session_id)
     if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+        )
 
     existing_queue_entry = job_manager.get(session_id)
     queue_entry = await job_manager.stop(session_id, reason="revoked" if force_flag else "stopped")
@@ -105,7 +109,9 @@ async def stop_training(
     try:
         stop_result = training_dispatcher.stop(session_id)
     except Exception as exc:  # pragma: no cover - defensive guard
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to stop training task") from exc
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail="Failed to stop training task"
+        ) from exc
 
     revoke_task_id: str | None = None
     target_entry = queue_entry or existing_queue_entry
@@ -158,7 +164,9 @@ async def pause_training(
     service = TrainingService(db)
     job = await service.get_session(session_id)
     if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+        )
 
     if job.status not in {TrainingJobStatus.running, TrainingJobStatus.queued}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Training session is not running")
@@ -195,10 +203,14 @@ async def resume_training(
     service = TrainingService(db)
     job = await service.get_session(session_id)
     if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+        )
 
     if job.status != TrainingJobStatus.paused:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Only paused sessions can be resumed")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="Only paused sessions can be resumed"
+        )
 
     training_config = service.build_training_config(job)
 
@@ -207,7 +219,9 @@ async def resume_training(
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - defensive guard
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task") from exc
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail="Failed to dispatch training task"
+        ) from exc
 
     try:
         algorithm = (
@@ -251,7 +265,9 @@ async def get_training_status(
     service = TrainingService(db)
     job = await service.get_session(session_id)
     if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+        )
 
     return TrainingSessionResponse.model_validate(job, from_attributes=True)
 
@@ -288,7 +304,9 @@ async def delete_training_session(
     service = TrainingService(db)
     job = await service.get_session(session_id)
     if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+        )
 
     await job_manager.discard(session_id)
     await service.delete_session(job)
@@ -311,7 +329,9 @@ async def get_metrics(
             detail=f"Training session {session_id} not found",
         )
 
-    total_stmt = select(func.count()).select_from(TrainingMetric).where(TrainingMetric.job_id == session_id)
+    total_stmt = (
+        select(func.count()).select_from(TrainingMetric).where(TrainingMetric.job_id == session_id)
+    )
     total_result = await db.execute(total_stmt)
     total = total_result.scalar_one()
 

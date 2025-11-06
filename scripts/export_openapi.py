@@ -1,10 +1,11 @@
 """Export the FastAPI application's OpenAPI schema to docs/openapi.json."""
+
 from __future__ import annotations
 
-import json
-import sys
 from importlib.machinery import ModuleSpec
+import json
 from pathlib import Path
+import sys
 from types import ModuleType, SimpleNamespace
 
 from fastapi import FastAPI
@@ -101,7 +102,8 @@ def _install_optional_dependency_stubs() -> None:
 
 _install_optional_dependency_stubs()
 
-# noqa: E402, delayed import until after dependency stubs are installed
+# ruff: noqa: E402
+# Delayed import until after dependency stubs are installed
 from app.main import app as fastapi_app
 
 

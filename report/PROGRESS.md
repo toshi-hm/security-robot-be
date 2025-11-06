@@ -313,6 +313,7 @@
   - [x] 学習実行機能 (非同期対応)
   - [x] モデル保存・ロード機能
   - [x] TensorBoardログ対応
+  - [x] 2025-11-05: PlaybackRecordingWrapperをGymnasium.Wrapper継承に変更し、Stable-Baselines3 DummyVecEnvとの互換性を確保。reset()戻り値をGymnasium API準拠に修正
 - [x] A3Cカスタム実装とサービス統合
   - [x] `rl/algorithms/a3c/network.py` / `worker.py` / `trainer.py` の本実装
   - [x] `app/core/training/a3c_service.py` で環境生成・非同期実行を提供

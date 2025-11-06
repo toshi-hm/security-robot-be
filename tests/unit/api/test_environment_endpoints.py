@@ -174,9 +174,7 @@ def test_reset_environment_session(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(environment_module, "environment_service", service)
 
     payload = EnvironmentSessionResetRequest(seed=123)
-    response = asyncio.run(
-        environment_module.reset_environment_session("session-1", payload)
-    )
+    response = asyncio.run(environment_module.reset_environment_session("session-1", payload))
     assert response["data"].session_id == "session-1"
 
 
@@ -197,9 +195,7 @@ def test_perform_environment_action(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(environment_module, "environment_service", service)
 
     payload = EnvironmentActionRequest(action=2)
-    response = asyncio.run(
-        environment_module.perform_environment_action("session-1", payload)
-    )
+    response = asyncio.run(environment_module.perform_environment_action("session-1", payload))
     result = response["data"]
     assert result.reward == pytest.approx(1.5)
     assert result.info["action"] == 2
