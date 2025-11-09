@@ -27,10 +27,19 @@ class SecurityEnvironment(gym.Env):
         self.enable_logging = enable_logging
         self.logger = None
 
+        # バッテリーシステム
+        self.initial_battery = 100.0
+        self.battery_percentage = 100.0
+        self.battery_drain_rate = 0.001  # 1ステップあたり0.001% (1000ステップで1%)
+        self.battery_charge_rate = 1.0  # 1ステップあたり1%
+        self.charging_station_x = 0  # reset()で設定
+        self.charging_station_y = 0  # reset()で設定
+        self.is_charging = False
+
         self.observation_space = spaces.Box(
             low=0,
             high=1,
-            shape=(width, height, 3),
+            shape=(width, height, 5),  # 3→5チャンネルに拡張
         )
         self.action_space = spaces.Discrete(4)
 
@@ -53,23 +62,49 @@ class SecurityEnvironment(gym.Env):
         self.obstacles = self._generate_obstacles()
         self.suspicious_objects: dict[tuple[int, int], int] = {}
 
-        self.robot_x = self.width // 2
-        self.robot_y = self.height // 2
+        # 充電ステーションをランダムな位置に配置
+        self._place_charging_station()
+
+        # ロボットを充電ステーション上に配置
+        self.robot_x = self.charging_station_x
+        self.robot_y = self.charging_station_y
         self.robot_direction = 0
         self.time_step = 0
 
-        return self._get_observation(), {}
+        # バッテリーを100%に初期化
+        self.battery_percentage = self.initial_battery
+        self.is_charging = False
+
+        return self._get_observation(), self._get_info()
 
     def step(self, action: int) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
         self.time_step += 1
 
+        # バッテリー更新
+        self._update_battery()
+
+        # バッテリー切れチェック
+        if self.battery_percentage <= 0.0:
+            # 特大ペナルティとエピソード終了
+            reward = -100.0
+            terminated = True
+            return self._get_observation(), reward, terminated, False, self._get_info()
+
         self._update_threat_levels()
         self._add_suspicious_objects()
 
-        reward = self._execute_action(action)
+        # 充電中は警備活動を制限
+        if self.is_charging:
+            reward = self._calculate_charging_reward()
+        else:
+            reward = self._execute_action(action)
+
+        # バッテリー関連の報酬調整
+        reward += self._calculate_battery_penalty()
+
         terminated = self.time_step >= 1000
 
-        return self._get_observation(), reward, terminated, False, {}
+        return self._get_observation(), reward, terminated, False, self._get_info()
 
     def render(self, mode: str = "human") -> None:
         if mode != "human":
@@ -79,6 +114,8 @@ class SecurityEnvironment(gym.Env):
         print(
             f"Robot position: ({self.robot_x}, {self.robot_y}), Direction: {self.robot_direction}"
         )
+        print(f"Battery: {self.battery_percentage:.1f}% {'[CHARGING]' if self.is_charging else ''}")
+        print(f"Charging station: ({self.charging_station_x}, {self.charging_station_y})")
         print(f"Threat levels: {self.threat_levels}")
         print(f"Suspicious objects: {len(self.suspicious_objects)}")
         print("-" * 50)
@@ -100,14 +137,26 @@ class SecurityEnvironment(gym.Env):
         return obstacles
 
     def _get_observation(self) -> list[list[list[float]]]:
-        observation = [[[0.0, 0.0, 0.0] for _ in range(self.height)] for _ in range(self.width)]
+        observation = [[[0.0] * 5 for _ in range(self.height)] for _ in range(self.width)]
 
         for x in range(self.width):
             for y in range(self.height):
+                # チャンネル0: 脅威レベル
                 observation[x][y][0] = float(self.threat_levels[x][y])
+
+                # チャンネル1: 障害物
                 observation[x][y][1] = 1.0 if self.obstacles[x][y] else 0.0
 
+                # チャンネル3: 充電ステーション
+                if x == self.charging_station_x and y == self.charging_station_y:
+                    observation[x][y][3] = 1.0
+
+                # チャンネル4: バッテリー残量（正規化）
+                observation[x][y][4] = self.battery_percentage / 100.0
+
+        # チャンネル2: ロボット位置・向き
         observation[self.robot_x][self.robot_y][2] = (self.robot_direction + 1) / 4.0
+
         return observation
 
     def _update_threat_levels(self) -> None:
@@ -210,3 +259,104 @@ class SecurityEnvironment(gym.Env):
                 self.last_patrolled[x][y] = self.time_step
 
         return total_reward
+
+    def _place_charging_station(self) -> None:
+        """充電ステーションをランダムな位置に配置"""
+        # 境界から1セル離れた範囲で配置可能な位置を探す
+        max_attempts = 100
+        for _ in range(max_attempts):
+            # 境界から1セル離れた位置をランダムに選択
+            x = random.randint(1, self.width - 2)
+            y = random.randint(1, self.height - 2)
+
+            # 障害物がない位置に配置
+            if not self.obstacles[x][y]:
+                self.charging_station_x = x
+                self.charging_station_y = y
+                return
+
+        # 配置できない場合は中央に配置（フォールバック）
+        self.charging_station_x = self.width // 2
+        self.charging_station_y = self.height // 2
+        # 中央の障害物を強制的に削除
+        self.obstacles[self.charging_station_x][self.charging_station_y] = False
+
+    # ------------------------------------------------------------------
+    # Battery management
+    # ------------------------------------------------------------------
+
+    def _update_battery(self) -> None:
+        """バッテリー残量を更新"""
+        # 充電ステーション上にいる場合
+        if (
+            self.robot_x == self.charging_station_x
+            and self.robot_y == self.charging_station_y
+        ):
+            # 充電
+            if self.battery_percentage < 100.0:
+                self.battery_percentage = min(
+                    100.0, self.battery_percentage + self.battery_charge_rate
+                )
+                self.is_charging = True
+            else:
+                self.is_charging = False
+        else:
+            # 充電ステーション外では消費
+            self.battery_percentage -= self.battery_drain_rate
+            self.battery_percentage = max(0.0, self.battery_percentage)
+            self.is_charging = False
+
+    def _calculate_battery_penalty(self) -> float:
+        """バッテリー関連のペナルティを計算"""
+        penalty = 0.0
+
+        # バッテリー低下警告
+        if self.battery_percentage < 20.0:
+            penalty -= 0.5 * (20.0 - self.battery_percentage) / 20.0
+
+        if self.battery_percentage < 10.0:
+            penalty -= 1.0 * (10.0 - self.battery_percentage) / 10.0
+
+        # 充電ステーションからの距離ペナルティ(バッテリー低下時)
+        if self.battery_percentage < 30.0:
+            distance = abs(self.robot_x - self.charging_station_x) + abs(
+                self.robot_y - self.charging_station_y
+            )
+            max_distance = self.width + self.height
+            penalty -= (
+                0.2
+                * (distance / max_distance)
+                * (1.0 - self.battery_percentage / 30.0)
+            )
+
+        return penalty
+
+    def _calculate_charging_reward(self) -> float:
+        """充電中の報酬を計算"""
+        # 平均脅威レベルに応じた機会損失コスト
+        avg_threat = sum(sum(row) for row in self.threat_levels) / (
+            self.width * self.height
+        )
+        reward = -0.1 * avg_threat
+
+        # バッテリーが低い場合はコスト減免
+        if self.battery_percentage < 30.0:
+            reward *= 0.5
+
+        return reward
+
+    def _get_info(self) -> dict:
+        """Info辞書を生成"""
+        distance_to_station = abs(self.robot_x - self.charging_station_x) + abs(
+            self.robot_y - self.charging_station_y
+        )
+
+        return {
+            "battery_percentage": self.battery_percentage,
+            "is_charging": self.is_charging,
+            "distance_to_charging_station": distance_to_station,
+            "charging_station_position": (
+                self.charging_station_x,
+                self.charging_station_y,
+            ),
+        }

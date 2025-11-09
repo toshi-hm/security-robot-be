@@ -333,6 +333,12 @@ CREATE TABLE environment_states (
     robot_y INTEGER NOT NULL,
     robot_orientation INTEGER NOT NULL CHECK (robot_orientation >= 0 AND robot_orientation <= 3),
 
+    -- バッテリー状態
+    battery_percentage FLOAT NOT NULL DEFAULT 100.0 CHECK (battery_percentage >= 0.0 AND battery_percentage <= 100.0),
+    is_charging BOOLEAN NOT NULL DEFAULT FALSE,
+    charging_station_x INTEGER,
+    charging_station_y INTEGER,
+
     -- 環境状態(JSONB)
     threat_grid JSONB NOT NULL,
     -- 例: [[0.2, 0.5, 0.3], [0.1, 0.8, 0.4], ...]
@@ -942,6 +948,10 @@ Content-Type: application/json
       "robot_x": 4,
       "robot_y": 4,
       "robot_orientation": 0,
+      "battery_percentage": 100.0,
+      "is_charging": false,
+      "charging_station_x": 4,
+      "charging_station_y": 4,
       "threat_grid": {"levels": [[0.1, 0.3], [0.0, 0.7]]},
       "coverage_map": {"counts": [[1, 0], [0, 0]]},
       "suspicious_objects": {"items": []},
