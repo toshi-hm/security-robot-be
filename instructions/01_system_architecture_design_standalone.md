@@ -435,23 +435,29 @@ volumes:
 
 - **空間表現**: W×Hの2次元グリッド(デフォルト8×8、最大50×50)
 - **セル状態**: 各セルは脅威レベル(0.0-1.0)、障害物フラグ、訪問カウントを保持
-- **ロボット状態**: (x, y)座標、向き(0=北, 1=東, 2=南, 3=西)、エネルギー残量
+- **ロボット状態**: (x, y)座標、向き(0=北, 1=東, 2=南, 3=西)、バッテリー残量(0.0-100.0%)
+- **充電ステーション**: マップ内の固定位置(デフォルト: マップ中央)、ロボットの初期位置
 
 **観測空間(Observation Space):**
 
-3次元テンソル: (W, H, 3)
+3次元テンソル: (W, H, 5)
 - チャンネル0: 脅威レベルマップ(0.0-1.0の連続値)
 - チャンネル1: 障害物マップ(0=通行可, 1=障害物)
 - チャンネル2: ロボット位置・向きエンコーディング
+- チャンネル3: 充電ステーション位置マップ(0.0 or 1.0)
+- チャンネル4: バッテリー残量(0.0-1.0、正規化済み)
 
 ```python
 # 例: 8x8環境の観測
 observation = np.array([
-  [[0.2, 0, 0], [0.5, 0, 0], [0.3, 1, 0], ...],  # y=0行
-  [[0.1, 0, 0], [0.8, 0, 1], [0.4, 0, 0], ...],  # y=1行(robot at (1,1), facing East)
+  [[0.2, 0, 0, 0, 0.85], [0.5, 0, 0, 0, 0.85], [0.3, 1, 0, 0, 0.85], ...],  # y=0行
+  [[0.1, 0, 0, 0, 0.85], [0.8, 0, 1, 0, 0.85], [0.4, 0, 0, 0, 0.85], ...],  # y=1行(robot at (1,1), facing East)
+  ...
+  [[0.3, 0, 0, 0, 0.85], [0.2, 0, 0, 1, 0.85], [0.1, 0, 0, 0, 0.85], ...],  # y=4行(charging station at (4,4))
   ...
 ])
-# shape: (8, 8, 3)
+# shape: (8, 8, 5)
+# チャンネル4の0.85は、バッテリー残量85%を表す
 ```
 
 **行動空間(Action Space):**
@@ -466,12 +472,12 @@ observation = np.array([
 
 標準環境の報酬:
 ```
-R = R_threat + R_suspicious - C_movement
+R = R_threat + R_suspicious - C_movement + R_battery_penalty + R_charging_efficiency
 ```
 
 拡張環境の報酬:
 ```
-R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity - C_movement
+R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity - C_movement + R_battery_penalty + R_charging_efficiency
 ```
 
 詳細計算式:
@@ -504,6 +510,30 @@ R_diversity = (unique_positions_last_N_steps / N) × diversity_weight
 # 移動コスト
 C_movement = 0.1 × is_forward + 0.05 × is_rotation
 # 前進: -0.1, 回転: -0.05, 巡回: 0
+
+# バッテリーペナルティ(新規)
+if battery_percentage <= 0.0:
+    R_battery_penalty = -100.0  # バッテリー切れ時の特大ペナルティ
+elif battery_percentage < 20.0:
+    R_battery_penalty = -0.5 × (20.0 - battery_percentage) / 20.0
+elif battery_percentage < 10.0:
+    R_battery_penalty -= 1.0 × (10.0 - battery_percentage) / 10.0
+else:
+    R_battery_penalty = 0.0
+
+# 充電ステーションからの距離ペナルティ(バッテリー低下時)
+if battery_percentage < 30.0:
+    distance_to_station = abs(robot_x - station_x) + abs(robot_y - station_y)
+    R_battery_penalty -= 0.2 × (distance_to_station / max_distance) × (1.0 - battery_percentage / 30.0)
+
+# 充電中の機会損失コスト
+if is_charging:
+    avg_threat = sum(sum(row) for row in threat_levels) / (width × height)
+    R_charging_efficiency = -0.1 × avg_threat
+    if battery_percentage < 30.0:
+        R_charging_efficiency *= 0.5  # 低バッテリー時はコスト減免
+else:
+    R_charging_efficiency = 0.0
 ```
 
 **動的脅威システム:**
@@ -527,6 +557,71 @@ for obj in suspicious_objects:
     spread_radius = min(age // 10, 3)  # 10ステップごとに1セル拡大、最大3セル
     for cell in cells_within_radius(obj['x'], obj['y'], spread_radius):
         cell.threat_level += 0.05
+```
+
+**バッテリー管理システム:**
+
+```python
+# バッテリー初期化(エピソード開始時)
+battery_percentage = 100.0
+charging_station_x = width // 2
+charging_station_y = height // 2
+robot_x = charging_station_x  # ロボットは充電ステーションから開始
+robot_y = charging_station_y
+
+# 各ステップでのバッテリー更新
+def update_battery():
+    # 充電ステーション上にいる場合
+    if robot_x == charging_station_x and robot_y == charging_station_y:
+        if battery_percentage < 100.0:
+            # 1ステップあたり1%充電
+            battery_percentage = min(100.0, battery_percentage + 1.0)
+            is_charging = True
+        else:
+            is_charging = False
+    else:
+        # 充電ステーション外では消費(1000ステップで1%消費)
+        battery_percentage -= 0.001
+        battery_percentage = max(0.0, battery_percentage)
+        is_charging = False
+
+# バッテリー切れ時の処理
+if battery_percentage <= 0.0:
+    # 全ての警備活動を停止
+    terminated = True
+    reward = -100.0  # 特大ペナルティ
+    return observation, reward, terminated, False, info
+
+# 充電中の制約
+if is_charging:
+    # 警備活動は実施しない(巡回アクションは無効)
+    # ただし移動は可能(充電を中断して移動可能)
+    reward = calculate_charging_reward()
+```
+
+**バッテリー最適化の学習目標:**
+
+強化学習エージェントは以下を学習する必要があります:
+
+1. **充電タイミングの判断**: 環境の脅威レベルとバッテリー残量のバランス
+2. **部分充電の最適化**: 100%まで充電せず、適切なタイミングで警備を再開
+3. **リスク管理**: 充電ステーションに戻れる十分なバッテリーを確保
+4. **効率的な経路計画**: バッテリー消費を考慮した警備経路の選択
+
+```python
+# 学習により期待される戦略例
+
+# 戦略1: 定期的な予防充電
+# - バッテリーが70%を下回ったら充電ステーションに戻る
+# - 環境全体の脅威レベルが低い時に充電を実施
+
+# 戦略2: 緊急対応優先
+# - 高脅威エリアが検出された場合、バッテリーが50%でも対応
+# - 対応後、すぐに充電ステーションへ戻る
+
+# 戦略3: 距離を考慮した早期帰還
+# - 充電ステーションから遠いエリアを警備中は、早めに帰還を開始
+# - 必要バッテリー = (距離 × 0.001) × 1.5(安全マージン)
 ```
 
 ### 3.2 PPOアルゴリズム実装
