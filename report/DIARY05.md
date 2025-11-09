@@ -91,7 +91,7 @@
 5. フロントエンドへのバッテリー情報表示機能の追加（将来タスク）
 
 ### 🔗 関連コミット
-- (このセッションのコミット確定後に追記予定)
+- 5811eef: feat(rl): add battery management system to security robot
 
 ---
 
