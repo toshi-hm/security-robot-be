@@ -114,6 +114,8 @@ class SecurityEnvironment(gym.Env):
         print(
             f"Robot position: ({self.robot_x}, {self.robot_y}), Direction: {self.robot_direction}"
         )
+        print(f"Battery: {self.battery_percentage:.1f}% {'[CHARGING]' if self.is_charging else ''}")
+        print(f"Charging station: ({self.charging_station_x}, {self.charging_station_y})")
         print(f"Threat levels: {self.threat_levels}")
         print(f"Suspicious objects: {len(self.suspicious_objects)}")
         print("-" * 50)

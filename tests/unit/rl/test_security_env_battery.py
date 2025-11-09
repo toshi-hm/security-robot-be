@@ -244,3 +244,39 @@ def test_battery_initialization_with_different_values(initial_battery, expected_
 
     # バッテリーが微減している
     assert expected_range[0] <= info["battery_percentage"] <= expected_range[1]
+
+
+def test_render_includes_battery_info(battery_env, capsys):
+    """render()がバッテリー情報と充電ステーション位置を表示することを確認"""
+    battery_env.reset()
+
+    # バッテリーを減らしてから充電中状態をテスト
+    battery_env.battery_percentage = 50.0
+
+    # 充電ステーション上で1ステップ実行（充電が開始される）
+    battery_env.step(3)  # patrol action on charging station
+
+    # 充電中状態でレンダリング
+    battery_env.render()
+    captured = capsys.readouterr()
+
+    # バッテリー残量が表示されている
+    assert "Battery:" in captured.out
+    assert "[CHARGING]" in captured.out
+
+    # 充電ステーション位置が表示されている
+    assert "Charging station:" in captured.out
+    assert f"({battery_env.charging_station_x}, {battery_env.charging_station_y})" in captured.out
+
+    # 充電ステーションから離れる
+    battery_env.robot_x = 0
+    battery_env.robot_y = 0
+    battery_env.is_charging = False
+
+    # 再度レンダリング（充電中でない）
+    battery_env.render()
+    captured = capsys.readouterr()
+
+    # バッテリー残量が表示されているが、充電中表示はない
+    assert "Battery:" in captured.out
+    assert "[CHARGING]" not in captured.out
