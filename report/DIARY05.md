@@ -79,7 +79,7 @@
 2. PPO/A3Cアルゴリズムでの充電戦略最適化の観察
 
 ### 🔗 関連コミット
-- (このセッションのコミット確定後に追記予定)
+- a27a662 feat(rl): randomize charging station placement per episode
 
 ---
 
