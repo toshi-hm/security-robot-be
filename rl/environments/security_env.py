@@ -32,8 +32,8 @@ class SecurityEnvironment(gym.Env):
         self.battery_percentage = 100.0
         self.battery_drain_rate = 0.001  # 1ステップあたり0.001% (1000ステップで1%)
         self.battery_charge_rate = 1.0  # 1ステップあたり1%
-        self.charging_station_x = width // 2
-        self.charging_station_y = height // 2
+        self.charging_station_x = 0  # reset()で設定
+        self.charging_station_y = 0  # reset()で設定
         self.is_charging = False
 
         self.observation_space = spaces.Box(
@@ -61,6 +61,9 @@ class SecurityEnvironment(gym.Env):
         self.last_patrolled = self._build_grid(0)
         self.obstacles = self._generate_obstacles()
         self.suspicious_objects: dict[tuple[int, int], int] = {}
+
+        # 充電ステーションをランダムな位置に配置
+        self._place_charging_station()
 
         # ロボットを充電ステーション上に配置
         self.robot_x = self.charging_station_x
@@ -254,6 +257,27 @@ class SecurityEnvironment(gym.Env):
                 self.last_patrolled[x][y] = self.time_step
 
         return total_reward
+
+    def _place_charging_station(self) -> None:
+        """充電ステーションをランダムな位置に配置"""
+        # 境界から1セル離れた範囲で配置可能な位置を探す
+        max_attempts = 100
+        for _ in range(max_attempts):
+            # 境界から1セル離れた位置をランダムに選択
+            x = random.randint(1, self.width - 2)
+            y = random.randint(1, self.height - 2)
+
+            # 障害物がない位置に配置
+            if not self.obstacles[x][y]:
+                self.charging_station_x = x
+                self.charging_station_y = y
+                return
+
+        # 配置できない場合は中央に配置（フォールバック）
+        self.charging_station_x = self.width // 2
+        self.charging_station_y = self.height // 2
+        # 中央の障害物を強制的に削除
+        self.obstacles[self.charging_station_x][self.charging_station_y] = False
 
     # ------------------------------------------------------------------
     # Battery management

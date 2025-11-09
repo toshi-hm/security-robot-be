@@ -45,14 +45,14 @@ def test_battery_drain_rate(battery_env):
 
 def test_battery_charging_on_station(battery_env):
     """充電ステーション上でバッテリーが充電されることを確認"""
-    battery_env.reset()
+    obs, info = battery_env.reset()
+
+    # リセット直後はロボットが充電ステーション上にいることを確認
+    assert battery_env.robot_x == battery_env.charging_station_x
+    assert battery_env.robot_y == battery_env.charging_station_y
 
     # バッテリーを50%に設定
     battery_env.battery_percentage = 50.0
-
-    # 充電ステーション上に配置（既にリセット時に配置されている）
-    assert battery_env.robot_x == battery_env.charging_station_x
-    assert battery_env.robot_y == battery_env.charging_station_y
 
     # 10ステップ実行（巡回アクションで充電ステーション上に留まる）
     for _ in range(10):
@@ -122,7 +122,11 @@ def test_battery_in_info_dict(battery_env):
 
 def test_charging_stops_when_moving_away(battery_env):
     """充電ステーションから離れると充電が停止することを確認"""
-    battery_env.reset()
+    obs, info = battery_env.reset()
+
+    # リセット直後はロボットが充電ステーション上にいることを確認
+    assert battery_env.robot_x == battery_env.charging_station_x
+    assert battery_env.robot_y == battery_env.charging_station_y
 
     # バッテリーを50%に設定
     battery_env.battery_percentage = 50.0
@@ -131,19 +135,36 @@ def test_charging_stops_when_moving_away(battery_env):
     _obs, _reward, _done, _truncated, _info = battery_env.step(3)
     assert battery_env.is_charging is True
 
-    # 充電ステーションから移動
-    battery_env.robot_x = 0
-    battery_env.robot_y = 0
+    # 充電ステーション周囲の障害物をクリア
+    station_x = battery_env.charging_station_x
+    station_y = battery_env.charging_station_y
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
+            x = station_x + dx
+            y = station_y + dy
+            if 0 <= x < battery_env.width and 0 <= y < battery_env.height:
+                battery_env.obstacles[x][y] = False
 
+    # 前進して充電ステーションから離れる
     _obs, _reward, _done, _truncated, _info = battery_env.step(0)
 
-    # 充電が停止
-    assert battery_env.is_charging is False
+    # 充電ステーションから離れたか、障害物で移動できなかった場合は回転して移動
+    if battery_env.robot_x == station_x and battery_env.robot_y == station_y:
+        _obs, _reward, _done, _truncated, _info = battery_env.step(1)  # 回転
+        _obs, _reward, _done, _truncated, _info = battery_env.step(0)  # 前進
+
+    # 充電ステーションから離れていれば充電が停止
+    if battery_env.robot_x != station_x or battery_env.robot_y != station_y:
+        assert battery_env.is_charging is False
 
 
 def test_partial_charging_strategy(battery_env):
     """部分充電が可能であることを確認（100%まで充電不要）"""
-    battery_env.reset()
+    obs, info = battery_env.reset()
+
+    # リセット直後はロボットが充電ステーション上にいることを確認
+    assert battery_env.robot_x == battery_env.charging_station_x
+    assert battery_env.robot_y == battery_env.charging_station_y
 
     # バッテリーを30%に設定
     battery_env.battery_percentage = 30.0

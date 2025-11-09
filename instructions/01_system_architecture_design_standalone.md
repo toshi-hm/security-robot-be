@@ -436,7 +436,7 @@ volumes:
 - **空間表現**: W×Hの2次元グリッド(デフォルト8×8、最大50×50)
 - **セル状態**: 各セルは脅威レベル(0.0-1.0)、障害物フラグ、訪問カウントを保持
 - **ロボット状態**: (x, y)座標、向き(0=北, 1=東, 2=南, 3=西)、バッテリー残量(0.0-100.0%)
-- **充電ステーション**: マップ内の固定位置(デフォルト: マップ中央)、ロボットの初期位置
+- **充電ステーション**: マップ内のランダムな位置(エピソードごとに変更、障害物を避けて配置)、ロボットの初期位置
 
 **観測空間(Observation Space):**
 
@@ -564,8 +564,18 @@ for obj in suspicious_objects:
 ```python
 # バッテリー初期化(エピソード開始時)
 battery_percentage = 100.0
-charging_station_x = width // 2
-charging_station_y = height // 2
+
+# 充電ステーションをランダムに配置（障害物と境界を避ける）
+def place_charging_station():
+    for _ in range(100):  # 最大100回試行
+        x = random.randint(1, width - 2)  # 境界から1セル離す
+        y = random.randint(1, height - 2)
+        if not obstacles[x][y]:  # 障害物のない場所
+            return x, y
+    # フォールバック: 中央に配置
+    return width // 2, height // 2
+
+charging_station_x, charging_station_y = place_charging_station()
 robot_x = charging_station_x  # ロボットは充電ステーションから開始
 robot_y = charging_station_y
 
@@ -607,6 +617,7 @@ if is_charging:
 2. **部分充電の最適化**: 100%まで充電せず、適切なタイミングで警備を再開
 3. **リスク管理**: 充電ステーションに戻れる十分なバッテリーを確保
 4. **効率的な経路計画**: バッテリー消費を考慮した警備経路の選択
+5. **位置の一般化**: エピソードごとに異なる充電ステーション位置に適応
 
 ```python
 # 学習により期待される戦略例
