@@ -325,7 +325,7 @@ class EnvironmentService:
         if _depth > 10:
             return str(value)
 
-        if value is None or isinstance(value, (bool, int, float, str)):
+        if value is None or isinstance(value, bool | int | float | str):
             return value
 
         if hasattr(value, "item") and callable(value.item):
@@ -346,10 +346,10 @@ class EnvironmentService:
                 for key, sub_value in value.items()
             }
 
-        if isinstance(value, (set, frozenset)):
+        if isinstance(value, set | frozenset):
             return [self._json_safe(item, _depth=_depth + 1) for item in value]
 
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
             return [self._json_safe(item, _depth=_depth + 1) for item in value]
 
         return str(value)

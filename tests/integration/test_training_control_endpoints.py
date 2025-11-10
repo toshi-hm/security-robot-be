@@ -5,7 +5,6 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -19,6 +18,7 @@ import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 class _DispatcherStub:

@@ -50,7 +50,7 @@ else:
         dtype: Any = float
 
         def _expand(self, value: Any) -> tuple[float, ...]:
-            if isinstance(value, (tuple, list)):
+            if isinstance(value, tuple | list):
                 return tuple(float(v) for v in value)
             return (float(value),) * len(self.shape)
 

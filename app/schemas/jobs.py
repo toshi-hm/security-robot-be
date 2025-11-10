@@ -17,8 +17,7 @@ class JobQueueEntry(BaseModel):
     forced: bool = Field(
         default=False,
         description=(
-            "Whether the most recent transition was triggered forcefully "
-            "(e.g. Celery revoke)."
+            "Whether the most recent transition was triggered forcefully (e.g. Celery revoke)."
         ),
     )
     enqueued_at: datetime = Field(..., description="Timestamp when the job was enqueued.")

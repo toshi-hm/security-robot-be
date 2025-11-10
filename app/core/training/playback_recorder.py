@@ -41,7 +41,7 @@ def _copy_grid(grid: Any) -> list[list[Any]]:
     for row in list(grid or []):
         row_list: list[Any] = []
         for value in list(row or []):
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 row_list.append(value)
             else:
                 try:
@@ -64,12 +64,12 @@ def _copy_mapping(mapping: Any) -> list[dict[str, Any]] | None:
 
     serialised: list[dict[str, Any]] = []
     for key, value in items:
-        if isinstance(key, (tuple, list)) and len(key) >= 2:
+        if isinstance(key, tuple | list) and len(key) >= 2:
             x, y = key[:2]
         else:
             x, y = key, None
-        payload: dict[str, Any] = {"x": int(x) if isinstance(x, (int, float)) else x}
-        if isinstance(y, (int, float)):
+        payload: dict[str, Any] = {"x": int(x) if isinstance(x, int | float) else x}
+        if isinstance(y, int | float):
             payload["y"] = int(y)
         elif y is not None:
             payload["y"] = y
@@ -77,7 +77,7 @@ def _copy_mapping(mapping: Any) -> list[dict[str, Any]] | None:
         if isinstance(value, dict):
             for attr, attr_value in value.items():
                 payload[attr] = attr_value
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, int | float):
             payload["spawn_time"] = int(value)
         else:
             payload["value"] = value
@@ -267,13 +267,13 @@ class PlaybackRecordingWrapper(gym.Wrapper):
                 payload["distance_to_charging_station"] = info["distance_to_charging_station"]
             if "charging_station_position" in info:
                 pos = info["charging_station_position"]
-                if isinstance(pos, (tuple, list)) and len(pos) == 2:
+                if isinstance(pos, tuple | list) and len(pos) == 2:
                     payload["charging_station_position_x"] = int(pos[0])
                     payload["charging_station_position_y"] = int(pos[1])
 
         for payload_key, (source_attr, default) in ATTR_MAPPING.items():
             value = getattr(self.env, source_attr, default)
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 payload[payload_key] = int(value)
             else:
                 payload[payload_key] = value
@@ -286,7 +286,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
         if coverage_source is not None:
             payload["coverage_map"] = {"counts": _copy_grid(coverage_source)}
 
-        if payload["reward_received"] is None and isinstance(reward, (int, float)):
+        if payload["reward_received"] is None and isinstance(reward, int | float):
             payload["reward_received"] = float(reward)
 
         self._recorder.record(payload)
@@ -294,9 +294,9 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     def _normalise_action(self, action: Any) -> int | None:
         if action is None:
             return None
-        if isinstance(action, (int, float)):
+        if isinstance(action, int | float):
             return int(action)
-        if isinstance(action, (list, tuple)) and action:
+        if isinstance(action, list | tuple) and action:
             return self._normalise_action(action[0])
         if hasattr(action, "item"):
             try:
