@@ -33,6 +33,12 @@ class EnvironmentStateCreate(BaseModel):
     )
     reward_received: float | None = None
 
+    # Battery system
+    battery_percentage: float | None = None
+    is_charging: bool = False
+    distance_to_charging_station: int | None = None
+    charging_station_position: tuple[int, int] | None = None
+
 
 class EnvironmentStateResponse(BaseModel):
     """Response schema for environment state snapshot."""
@@ -57,6 +63,12 @@ class EnvironmentStateResponse(BaseModel):
     # Action information
     action_taken: int | None
     reward_received: float | None
+
+    # Battery system
+    battery_percentage: float | None = None
+    is_charging: bool = False
+    distance_to_charging_station: int | None = None
+    charging_station_position: tuple[int, int] | None = None
 
     # Timestamps
     created_at: datetime

@@ -3,6 +3,7 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-11 セッション101](#2025-11-11-セッション101)
 - [2025-11-09 セッション100](#2025-11-09-セッション100)
 - [2025-11-09 セッション99](#2025-11-09-セッション99)
 - [2025-11-05 セッション98](#2025-11-05-セッション98)
@@ -34,6 +35,61 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-11 セッション101
+
+### 🎯 セッション目標
+- バッテリーシステムのAPI Schema統合を完了し、Frontend UIへデータを連携する
+
+### ✅ 実施内容
+- API スキーマ層へバッテリーフィールドを追加 (`app/schemas/environment.py`)
+  - `EnvironmentStateCreate` に4つのバッテリーフィールドを追加
+  - `EnvironmentStateResponse` に同様のフィールドを追加
+  - 後方互換性を維持するため全てオプショナル
+- コアスキーマへバッテリーフィールドを追加 (`app/core/environment/schemas.py`)
+  - `EnvironmentState` クラスへ同じフィールドを追加
+- DBモデルへバッテリーフィールドを追加 (`app/models/environment.py`)
+  - `battery_percentage`: FLOAT NULL
+  - `is_charging`: BOOLEAN DEFAULT FALSE
+  - `distance_to_charging_station`: INTEGER NULL
+  - `charging_station_position_x`: INTEGER NULL
+  - `charging_station_position_y`: INTEGER NULL
+- Alembicマイグレーション作成 (`alembic/versions/20251111_add_battery_system_to_environment_state.py`)
+  - 既存テーブル `environmentstate` へカラム追加
+  - downgrade 対応も実装
+- データ保存ロジック修正 (`app/core/training/playback_recorder.py`)
+  - `PlaybackRecordingWrapper.step()` から `info` を `_record_snapshot()` へ渡すように変更
+  - `_record_snapshot()` で `info` 辞書からバッテリー情報を抽出してペイロードに追加
+  - タプル型の充電ステーション位置を `x`, `y` に分割して保存
+- 全テスト実行 (36 passed)
+  - バッテリーユニットテスト (14 passed)
+  - プレイバックレコーダーテスト (7 passed)
+  - プレイバックAPIテスト (5 passed)
+  - ファイルタスクテスト (6 passed)
+  - 統合テスト (4 passed)
+
+### 📊 成果物
+- `app/schemas/environment.py`: バッテリーフィールド追加
+- `app/core/environment/schemas.py`: バッテリーフィールド追加
+- `app/models/environment.py`: DBカラム定義追加
+- `alembic/versions/20251111_add_battery_system_to_environment_state.py`: マイグレーションスクリプト
+- `app/core/training/playback_recorder.py`: バッテリー情報保存ロジック実装
+
+### 🧠 学んだこと・課題
+1. **tupleとリスト型の保存処理**: 環境の `_get_info()` がtupleで返す `charging_station_position` をDBでは `x`, `y` に分割保存する必要があった
+2. **info辞書の活用**: Gymnasium環境の `step()` が返す `info` 辞書を活用することで、環境固有の情報をAPIスキーマとDB へ柔軟に伝播できる
+3. **オプショナルフィールドによる後方互換性**: 既存セッションがバッテリー情報を持たない場合でも、オプショナル (NULL許容) にすることでスキーマ変更の影響を最小化
+4. **テスト駆動の重要性**: 実装前に既存テストを確認し、実装後に全テスト実行することで回帰を防止
+
+### ⏭️ 次回セッションの予定
+1. マイグレーション適用とPlayback API動作確認
+2. Frontend UIでバッテリー情報の表示を確認
+3. 実際のトレーニングセッションでバッテリー情報が正しく記録・再生されるかE2Eテスト
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 

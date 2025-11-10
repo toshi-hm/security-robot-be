@@ -220,6 +220,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
                 action=action,
                 reward=reward,
                 step=step_value,
+                info=info,
             )
             self._steps_since_record = 0
 
@@ -243,6 +244,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
         action: Any,
         reward: Any,
         step: int,
+        info: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "session_id": self._session_id,
@@ -254,6 +256,20 @@ class PlaybackRecordingWrapper(gym.Wrapper):
             "action_taken": self._normalise_action(action),
             "reward_received": float(reward) if reward is not None else None,
         }
+
+        # Extract battery information from info dict if available
+        if info:
+            if "battery_percentage" in info:
+                payload["battery_percentage"] = info["battery_percentage"]
+            if "is_charging" in info:
+                payload["is_charging"] = info["is_charging"]
+            if "distance_to_charging_station" in info:
+                payload["distance_to_charging_station"] = info["distance_to_charging_station"]
+            if "charging_station_position" in info:
+                pos = info["charging_station_position"]
+                if isinstance(pos, (tuple, list)) and len(pos) == 2:
+                    payload["charging_station_position_x"] = int(pos[0])
+                    payload["charging_station_position_y"] = int(pos[1])
 
         for payload_key, (source_attr, default) in ATTR_MAPPING.items():
             value = getattr(self.env, source_attr, default)

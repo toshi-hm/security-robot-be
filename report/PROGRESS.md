@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-09 バッテリーシステム・充電ステーションランダム配置実装完了
+**最終更新:** 2025-11-11 バッテリーシステムAPI Schema統合完了
 
 ### 2025-10-30 10:13:52 /diary-rotate 実行
 - 対象DIARY: DIARY04.md
@@ -330,7 +330,7 @@
 - [x] rl/environments/ - 既存環境確認
   - [x] SecurityEnvironment - Gymnasium互換確認
   - [x] EnhancedSecurityEnvironment - 動作確認予定
-- [x] バッテリーシステム統合 (2025-11-09完了)
+- [x] バッテリーシステム統合 (2025-11-11完了)
   - [x] 要件定義書作成 (`instructions/06_battery_system_requirements.md`)
   - [x] SecurityEnvironmentへのバッテリーシステム実装
     - [x] 観測空間の5チャンネル化（脅威、障害物、ロボット、充電ステーション、バッテリー）
@@ -339,8 +339,15 @@
     - [x] バッテリー切れペナルティ（-100ポイント）
     - [x] バッテリー関連報酬調整（低下警告、充電コスト、距離ペナルティ）
     - [x] 強化学習による位置一般化（エピソードごとに異なる充電ステーション位置に適応）
-  - [x] ユニットテスト実装（13テストケース、全てパス）
+  - [x] ユニットテスト実装（14テストケース、全てパス）
   - [x] システムアーキテクチャ・API・テスト設計書の更新
+  - [x] API Schema統合 (2025-11-11完了)
+    - [x] `app/schemas/environment.py`: `EnvironmentStateCreate`/`Response`へバッテリーフィールド追加
+    - [x] `app/core/environment/schemas.py`: `EnvironmentState`へバッテリーフィールド追加
+    - [x] `app/models/environment.py`: DBモデルへバッテリーカラム追加 (battery_percentage, is_charging, distance_to_charging_station, charging_station_position_x/y)
+    - [x] Alembicマイグレーション作成 (`20251111_add_battery_system_to_environment_state.py`)
+    - [x] `app/core/training/playback_recorder.py`: バッテリー情報をinfo辞書から取得してDB保存
+    - [x] 全テスト実行で36テストパス (バッテリー14+プレイバック12+統合4+その他6)
 
 #### TODO
 - [ ] 学習実行・エンドツーエンド検証

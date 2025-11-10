@@ -40,3 +40,9 @@ class EnvironmentState(BaseModel):
     suspicious_objects: list[SuspiciousObject]
     time_step: int
     coverage_ratio: float | None = None
+
+    # Battery system
+    battery_percentage: float | None = None
+    is_charging: bool = False
+    distance_to_charging_station: int | None = None
+    charging_station_position: tuple[int, int] | None = None
