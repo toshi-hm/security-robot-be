@@ -37,7 +37,8 @@ class EnvironmentStateCreate(BaseModel):
     battery_percentage: float | None = None
     is_charging: bool = False
     distance_to_charging_station: int | None = None
-    charging_station_position: tuple[int, int] | None = None
+    charging_station_position_x: int | None = None
+    charging_station_position_y: int | None = None
 
 
 class EnvironmentStateResponse(BaseModel):
@@ -68,7 +69,8 @@ class EnvironmentStateResponse(BaseModel):
     battery_percentage: float | None = None
     is_charging: bool = False
     distance_to_charging_station: int | None = None
-    charging_station_position: tuple[int, int] | None = None
+    charging_station_position_x: int | None = None
+    charging_station_position_y: int | None = None
 
     # Timestamps
     created_at: datetime
