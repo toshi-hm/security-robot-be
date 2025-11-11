@@ -75,7 +75,19 @@
 3. Pull Requestを作成し、変更をレビュー依頼
 
 ### 🔗 関連コミット
-- (コミット確定後に追記予定)
+- fc0b39b: docs(report): add session 102 - fix playback battery migration error
+
+### 📝 追加修正 (同セッション内)
+**問題**: PPO trainingを開始したところ、以下のエラーが発生:
+```
+ImportError: You must install tqdm and rich in order to use the progress bar callback.
+```
+
+**原因**: `ppo_service.py`で`progress_bar=True`が設定されていたが、Celery環境では`tqdm`と`rich`パッケージが不要
+
+**修正**: `app/core/training/ppo_service.py:183`で`progress_bar=False`に変更
+
+**結果**: Training開始時のエラーが解消され、正常に実行可能に
 
 ---
 

@@ -180,7 +180,7 @@ class PPOTrainingService:
             logger.info(f"Starting PPO training for {total_timesteps} timesteps")
 
             self.model.learn(
-                total_timesteps=total_timesteps, callback=callback_list, progress_bar=True
+                total_timesteps=total_timesteps, callback=callback_list, progress_bar=False
             )
 
             # Save model
