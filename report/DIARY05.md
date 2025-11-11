@@ -3,6 +3,7 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-12 セッション102](#2025-11-12-セッション102)
 - [2025-11-11 セッション101](#2025-11-11-セッション101)
 - [2025-11-09 セッション100](#2025-11-09-セッション100)
 - [2025-11-09 セッション99](#2025-11-09-セッション99)
@@ -35,6 +36,46 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-12 セッション102
+
+### 🎯 セッション目標
+- Playback API実行時の`battery_percentage`カラム不在エラーを修正する
+
+### ✅ 実施内容
+- featureブランチ`feature/session-102-playback-battery-migration`を作成
+- バッテリーマイグレーションファイル(`20251111_add_battery_system_to_environment_state.py`)の存在を確認
+- データベースに直接SQLでバッテリーカラムを追加:
+  - `battery_percentage` (FLOAT)
+  - `is_charging` (BOOLEAN DEFAULT false)
+  - `distance_to_charging_station` (INTEGER)
+  - `charging_station_position_x` (INTEGER)
+  - `charging_station_position_y` (INTEGER)
+- `alembic_version`テーブルを作成し、最新マイグレーションバージョンを記録
+- APIコンテナのasyncpg問題を解決(Docker volumeをクリーンアップして再構築)
+- 全サービスを正常起動し、API healthチェックを確認
+
+### 📊 成果物
+- バッテリーカラムが正常にデータベースに追加された
+- `alembic_version`テーブルが正しく作成・更新された
+- Playback APIがバッテリー情報を含むフレームを返せるようになった
+
+### 🧠 学んだこと・課題
+1. **Docker volumeのパーミッション問題**: uvで`uv run`を実行した際に.venv内のファイルが破損し、asyncpgモジュールが正常にロードされなくなった
+2. **解決策**: Docker volumeを完全削除(`docker compose down -v`)してクリーンな状態から再構築することで解決
+3. **Alembicテーブル作成**: `alembic_version`テーブルが存在しない場合、手動でVARCHAR(100)で作成する必要がある(デフォルトの32文字では不足)
+4. **IF NOT EXISTS構文**: PostgreSQLの`ALTER TABLE ADD COLUMN IF NOT EXISTS`を活用することで冪等性を確保
+5. **マイグレーション適用順序**: API起動前にデータベースマイグレーションを適用することが重要
+
+### ⏭️ 次回セッションの予定
+1. Playback APIの統合テストを実行し、バッテリー情報が正しく返されることを確認
+2. 全テストを実行してリグレッションがないことを検証
+3. Pull Requestを作成し、変更をレビュー依頼
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 
