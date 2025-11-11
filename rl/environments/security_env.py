@@ -288,10 +288,7 @@ class SecurityEnvironment(gym.Env):
     def _update_battery(self) -> None:
         """バッテリー残量を更新"""
         # 充電ステーション上にいる場合
-        if (
-            self.robot_x == self.charging_station_x
-            and self.robot_y == self.charging_station_y
-        ):
+        if self.robot_x == self.charging_station_x and self.robot_y == self.charging_station_y:
             # 充電
             if self.battery_percentage < 100.0:
                 self.battery_percentage = min(
@@ -323,20 +320,14 @@ class SecurityEnvironment(gym.Env):
                 self.robot_y - self.charging_station_y
             )
             max_distance = self.width + self.height
-            penalty -= (
-                0.2
-                * (distance / max_distance)
-                * (1.0 - self.battery_percentage / 30.0)
-            )
+            penalty -= 0.2 * (distance / max_distance) * (1.0 - self.battery_percentage / 30.0)
 
         return penalty
 
     def _calculate_charging_reward(self) -> float:
         """充電中の報酬を計算"""
         # 平均脅威レベルに応じた機会損失コスト
-        avg_threat = sum(sum(row) for row in self.threat_levels) / (
-            self.width * self.height
-        )
+        avg_threat = sum(sum(row) for row in self.threat_levels) / (self.width * self.height)
         reward = -0.1 * avg_threat
 
         # バッテリーが低い場合はコスト減免

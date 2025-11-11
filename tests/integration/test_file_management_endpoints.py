@@ -6,7 +6,6 @@ import asyncio
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -16,6 +15,7 @@ from app.db import session as session_module
 import app.main as main_module
 from app.main import create_app
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture()

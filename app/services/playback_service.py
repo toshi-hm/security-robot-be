@@ -145,6 +145,11 @@ class PlaybackService:
             suspicious_objects=payload.suspicious_objects,
             action_taken=payload.action_taken,
             reward_received=payload.reward_received,
+            battery_percentage=payload.battery_percentage,
+            is_charging=payload.is_charging,
+            distance_to_charging_station=payload.distance_to_charging_station,
+            charging_station_position_x=payload.charging_station_position_x,
+            charging_station_position_y=payload.charging_station_position_y,
         )
         self._db.add(state)
         await self._db.commit()

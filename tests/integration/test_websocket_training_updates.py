@@ -4,7 +4,6 @@ import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.websockets import WebSocketDisconnect
@@ -20,6 +19,7 @@ from app.db import session as session_module
 import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob
+from fastapi.testclient import TestClient
 
 
 class FakeRedisPubSub:

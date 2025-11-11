@@ -301,6 +301,23 @@ class EnvironmentService:
             key=lambda obj: (obj.x, obj.y),
         )
 
+        # Extract battery system information
+        battery_percentage = getattr(env, "battery_percentage", None)
+        is_charging = getattr(env, "is_charging", False)
+        charging_station_x = getattr(env, "charging_station_x", None)
+        charging_station_y = getattr(env, "charging_station_y", None)
+
+        # Calculate distance to charging station if position is available
+        distance_to_charging_station = None
+        charging_station_position = None
+        if charging_station_x is not None and charging_station_y is not None:
+            charging_station_position = (int(charging_station_x), int(charging_station_y))
+            robot_x = int(env.robot_x)
+            robot_y = int(env.robot_y)
+            distance_to_charging_station = abs(robot_x - charging_station_x) + abs(
+                robot_y - charging_station_y
+            )
+
         return EnvironmentState(
             environment_id=spec.id,
             definition=definition,
@@ -313,6 +330,10 @@ class EnvironmentService:
             suspicious_objects=suspicious_list,
             time_step=int(getattr(env, "time_step", 0)),
             coverage_ratio=coverage_ratio,
+            battery_percentage=battery_percentage,
+            is_charging=is_charging,
+            distance_to_charging_station=distance_to_charging_station,
+            charging_station_position=charging_station_position,
         )
 
     @staticmethod
@@ -325,7 +346,7 @@ class EnvironmentService:
         if _depth > 10:
             return str(value)
 
-        if value is None or isinstance(value, (bool, int, float, str)):
+        if value is None or isinstance(value, bool | int | float | str):
             return value
 
         if hasattr(value, "item") and callable(value.item):
@@ -346,10 +367,10 @@ class EnvironmentService:
                 for key, sub_value in value.items()
             }
 
-        if isinstance(value, (set, frozenset)):
+        if isinstance(value, set | frozenset):
             return [self._json_safe(item, _depth=_depth + 1) for item in value]
 
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
             return [self._json_safe(item, _depth=_depth + 1) for item in value]
 
         return str(value)

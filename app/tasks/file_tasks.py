@@ -95,6 +95,11 @@ def _serialize_environment_state(state: EnvironmentState) -> dict[str, Any]:
         "suspicious_objects": state.suspicious_objects,
         "action_taken": state.action_taken,
         "reward_received": state.reward_received,
+        "battery_percentage": state.battery_percentage,
+        "is_charging": state.is_charging,
+        "distance_to_charging_station": state.distance_to_charging_station,
+        "charging_station_position_x": state.charging_station_position_x,
+        "charging_station_position_y": state.charging_station_position_y,
         "created_at": state.created_at.isoformat() if state.created_at else None,
         "updated_at": state.updated_at.isoformat() if state.updated_at else None,
     }

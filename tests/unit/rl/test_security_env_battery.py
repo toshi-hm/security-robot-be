@@ -116,7 +116,7 @@ def test_battery_in_info_dict(battery_env):
 
     assert 0.0 <= info["battery_percentage"] <= 100.0
     assert isinstance(info["is_charging"], bool)
-    assert isinstance(info["distance_to_charging_station"], (int, float))
+    assert isinstance(info["distance_to_charging_station"], int | float)
     assert isinstance(info["charging_station_position"], tuple)
 
 

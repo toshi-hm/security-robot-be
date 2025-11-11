@@ -46,3 +46,10 @@ class EnvironmentState(Base):
     # Action information
     action_taken: Mapped[int | None] = mapped_column(default=None)  # 0-3: Up, Right, Down, Left
     reward_received: Mapped[float | None] = mapped_column(default=None)
+
+    # Battery system
+    battery_percentage: Mapped[float | None] = mapped_column(default=None)
+    is_charging: Mapped[bool] = mapped_column(default=False)
+    distance_to_charging_station: Mapped[int | None] = mapped_column(default=None)
+    charging_station_position_x: Mapped[int | None] = mapped_column(default=None)
+    charging_station_position_y: Mapped[int | None] = mapped_column(default=None)
