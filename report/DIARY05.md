@@ -3,6 +3,7 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-14 セッション107](#2025-11-14-セッション107)
 - [2025-11-12 セッション106](#2025-11-12-セッション106)
 - [2025-11-11 セッション101](#2025-11-11-セッション101)
 - [2025-11-09 セッション100](#2025-11-09-セッション100)
@@ -36,6 +37,48 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-14 セッション107
+
+### 🎯 セッション目標
+- PPOトレーニング実行時の `ImportError` を解決する
+  - エラー内容: `You must install tqdm and rich in order to use the progress bar callback`
+
+### ✅ 実施内容
+- `/start-dev` コマンド実行時のPPOトレーニングエラーを分析
+  - Celery worker内でStable-Baselines3がプログレスバーコールバックを使用する際に、`tqdm` と `rich` パッケージが不足していることを特定
+- 新しいfeatureブランチを作成 (`feature/session-107-add-missing-ppo-dependencies`)
+- 不足パッケージの追加
+  - `requirements.txt`: `tqdm==4.67.1` と `rich==13.9.4` を追加
+  - `pyproject.toml`: `"tqdm>=4.67.0"` と `"rich>=13.9.0"` を dependencies に追加
+- Docker環境での検証
+  - `docker compose down -v` でクリーンアップ
+  - `docker compose up --build -d` でリビルド
+  - ビルドログで両パッケージが正常にインストールされたことを確認（90パッケージ中に含まれる）
+  - 全コンテナ（api, celery-worker, postgres, redis）が healthy 状態で起動を確認
+  - Celery worker ログでインポートエラーが発生していないことを確認
+
+### 📊 成果物
+- `requirements.txt`: tqdm==4.67.1, rich==13.9.4 追加
+- `pyproject.toml`: tqdm>=4.67.0, rich>=13.9.0 を dependencies に追加
+- Docker環境での動作確認完了（全サービスが healthy 状態）
+
+### 🧠 学んだこと・課題
+1. **Stable-Baselines3の依存関係**: `stable-baselines3[extra]` を使わず base パッケージのみインストールしていたため、プログレスバー機能に必要な `tqdm` と `rich` が不足していた
+2. **Docker ビルド時間の最適化**: 依存パッケージのインストール（185.7秒）と `chown` 操作（64.7秒）が主なボトルネック。将来的にはビルドキャッシュの活用でさらなる高速化が可能
+3. **明示的な依存管理の重要性**: extra依存に頼らず、必要なパッケージを明示的に `requirements.txt` と `pyproject.toml` の両方に記載することで、環境の再現性が向上
+4. **Docker Compose の健全性**: すべてのサービスに適切なヘルスチェックが設定されており、起動時の問題を早期に検出できる
+
+### ⏭️ 次回セッションの予定
+1. PROGRESS.md とDIARY05.md を更新
+2. `/git-commit-push` でコミット・プッシュ
+3. 実際のPPOトレーニングを実行して、プログレスバーが正常に動作することを確認
+4. `/create-pr` で Pull Request を作成
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 

@@ -11,73 +11,73 @@ from app.models.training import TrainingAlgorithm
 
 
 class FileMetadataResponse(BaseModel):
-    """Response schema for file metadata."""
+  """Response schema for file metadata."""
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+  model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    id: int
-    filename: str
-    original_filename: str
-    file_path: str
-    file_size: int
-    file_type: str
-    content_type: str
-    training_job_id: int | None
-    description: str | None
-    metadata: dict[str, Any] | None = Field(
-        default=None, alias="metadata_", serialization_alias="metadata"
-    )
-    created_at: datetime
-    updated_at: datetime
+  id: int
+  filename: str
+  original_filename: str
+  file_path: str
+  file_size: int
+  file_type: str
+  content_type: str
+  training_job_id: int | None
+  description: str | None
+  metadata: dict[str, Any] | None = Field(
+    default=None, alias="metadata_", serialization_alias="metadata"
+  )
+  created_at: datetime
+  updated_at: datetime
 
 
 class FileUploadResponse(FileMetadataResponse):
-    """Response schema for file uploads."""
+  """Response schema for file uploads."""
 
-    upload_url: str | None = None
+  upload_url: str | None = None
 
 
 class FileListResponse(BaseModel):
-    """Response schema for file list."""
+  """Response schema for file list."""
 
-    total: int
-    page: int
-    page_size: int
-    files: list[FileMetadataResponse]
+  total: int
+  page: int
+  page_size: int
+  files: list[FileMetadataResponse]
 
 
 class FileDeleteResponse(BaseModel):
-    """Response schema for file deletion."""
+  """Response schema for file deletion."""
 
-    id: int
-    filename: str
-    message: str
+  id: int
+  filename: str
+  message: str
 
 
 class ModelFileInfo(BaseModel):
-    """Information about a saved model file."""
+  """Information about a saved model file."""
 
-    model_config = ConfigDict(from_attributes=True)
+  model_config = ConfigDict(from_attributes=True)
 
-    filename: str
-    file_size: int
-    algorithm: TrainingAlgorithm
-    training_session_id: int | None = None
-    created_at: datetime
-    metadata: dict[str, Any] | None = None
+  filename: str
+  file_size: int
+  algorithm: TrainingAlgorithm
+  training_session_id: int | None = None
+  created_at: datetime
+  metadata: dict[str, Any] | None = None
 
 
 class ModelListResponse(BaseModel):
-    """Response schema for model list."""
+  """Response schema for model list."""
 
-    total: int
-    models: list[ModelFileInfo]
+  total: int
+  models: list[ModelFileInfo]
 
 
 class ModelDownloadResponse(BaseModel):
-    """Response schema for model download."""
+  """Response schema for model download."""
 
-    filename: str
-    download_url: str
-    content_type: str
-    file_size: int
+  filename: str
+  download_url: str
+  content_type: str
+  file_size: int

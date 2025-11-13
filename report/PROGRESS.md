@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-12 Docker Compose起動エラー修正完了
+**最終更新:** 2025-11-14 PPOトレーニング依存パッケージ (tqdm, rich) 追加完了
 
 ### 2025-10-30 10:13:52 /diary-rotate 実行
 - 対象DIARY: DIARY04.md
@@ -127,6 +127,7 @@
   - Redis 5.0.8 → 5.2.1
   - Gymnasium 0.29.1 → 1.0.0
   - **新規追加:** Stable-Baselines3 2.4.0, PyTorch 2.5.1
+  - **2025-11-14追加:** tqdm 4.67.1, rich 13.9.4 (Stable-Baselines3プログレスバーコールバック用)
 - [x] requirements.txt更新
 - [x] 設計書のバージョン情報更新
   - instructions/prompts/00_implementation_guide.md
