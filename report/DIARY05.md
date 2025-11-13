@@ -3,6 +3,7 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-12 セッション106](#2025-11-12-セッション106)
 - [2025-11-11 セッション101](#2025-11-11-セッション101)
 - [2025-11-09 セッション100](#2025-11-09-セッション100)
 - [2025-11-09 セッション99](#2025-11-09-セッション99)
@@ -35,6 +36,51 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-12 セッション106
+
+### 🎯 セッション目標
+- Docker Compose起動時の2つのエラーを解決する
+  1. PostgreSQL: `FATAL: role "root" does not exist`
+  2. API: `PermissionError: [Errno 13] Permission denied: 'storage'`
+
+### ✅ 実施内容
+- エラーログを分析し、2つの問題を特定
+  1. **PostgreSQL ヘルスチェックの問題**: `pg_isready` の環境変数展開が機能せず、`root` ユーザーで接続試行
+  2. **storage ディレクトリの権限問題**: appuser権限でホストマウントされたディレクトリへの書き込みができない
+- docker-compose.yml の修正
+  - PostgreSQL ヘルスチェックの環境変数参照を `$$` エスケープ形式に変更
+  - API と celery-worker サービスに storage_data ボリュームを追加
+  - 名前付きボリューム `storage_data` を volumes セクションに追加
+  - 廃止された `version` フィールドを削除
+- 動作確認
+  - `docker compose down -v` で既存環境をクリーンアップ
+  - `docker compose up --build -d` で全サービスを起動
+  - 全コンテナが healthy 状態で起動を確認
+  - API ヘルスチェックエンドポイント (`/api/v1/health/`) が正常応答を確認
+  - ログでエラーが出ていないことを確認
+
+### 📊 成果物
+- `docker/docker-compose.yml`:
+  - PostgreSQL ヘルスチェック修正 (`pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}`)
+  - storage_data ボリュームマウント追加 (api, celery-worker)
+  - storage_data ボリューム定義追加
+  - version フィールド削除
+
+### 🧠 学んだこと・課題
+1. **Docker Compose の環境変数展開**: healthcheck の `test` では環境変数を `$${VAR}` 形式でエスケープする必要がある（`$$` は Docker Compose の変数展開を回避し、コンテナ内の環境変数を参照）
+2. **Docker ボリューム戦略**: ホストマウントではなく名前付きボリュームを使用することで、権限問題を回避できる
+3. **docker-compose.yml の version フィールド**: Compose V2 では廃止されており、指定すると警告が出る
+4. **段階的なデバッグ**: ログを確認 → 原因特定 → 修正 → 動作確認のサイクルが効果的
+
+### ⏭️ 次回セッションの予定
+1. バッテリーシステムの統合テストとE2E動作確認
+2. Docker環境での完全なトレーニング実行テスト
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 
