@@ -11,6 +11,8 @@ numpy==1.26.4
 gymnasium==1.0.0
 stable-baselines3==2.4.0
 torch==2.5.1
+tqdm==4.67.1
+rich==13.9.4
 python-multipart==0.0.9
 pytest-asyncio==1.2.0
 httpx==0.27.2
