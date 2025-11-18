@@ -82,3 +82,8 @@ indent-style = "space"
 known-first-party = ["app", "rl", "tests"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 force-sort-within-sections = true
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: tests that interact with multiple components or longer-running flows",
+]

@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
   health,
   jobs,
   playback,
+  template_agents,
   training,
   websocket,
 )
@@ -17,3 +18,4 @@ api_router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
 api_router.include_router(files.router, prefix="/files", tags=["files"])
 api_router.include_router(playback.router, prefix="/playback", tags=["playback"])
 api_router.include_router(websocket.router, prefix="/ws", tags=["websocket"])
+api_router.include_router(template_agents.router)

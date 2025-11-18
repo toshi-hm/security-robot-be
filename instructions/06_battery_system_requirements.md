@@ -646,7 +646,7 @@ class EnvironmentStateResponse(BaseModel):
 
 - [ ] プロジェクト進捗の更新
   - [ ] `report/PROGRESS.md` の更新
-  - [ ] `report/DIARY05.md` の新規セッション記録
+  - [ ] `report/DIARY06.md` の新規セッション記録
 
 ---
 

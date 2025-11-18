@@ -1,6 +1,17 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-14 PPOトレーニング依存パッケージ (tqdm, rich) 追加完了
+**最終更新:** 2025-11-18 テンプレートエージェント実行API追加完了（環境サイズ可変、複数エージェント比較機能）
+
+### 2025-11-18 09:55:44 /diary-rotate 実行
+- 対象DIARY: DIARY05.md
+- 目次エントリ数: 13件 (閾値10以上につきローテーション実行)
+- 個別サマリー生成: `report/summary/DIARY05_SUMMARY.md` (AI要約、13セッション)
+- 次DIARY作成: `report/DIARY06.md` (テンプレート付き)
+- 統合サマリー: `report/summary/ARCHIVE_20251118-100019.md` を生成 (対象: DIARY01〜04計4件) → 個別サマリー4件を削除
+- 参照更新:
+  - `instructions/prompts/02_codex_review_prompt.md` (2箇所: 最新サマリー/DIARY06導線)
+  - `instructions/prompts/01_backend_implementation_guide.md` (3箇所: 最新サマリー/DIARY6導線)
+  - `instructions/06_battery_system_requirements.md` (1箇所: 最新DIARYタスク)
 
 ### 2025-10-30 10:13:52 /diary-rotate 実行
 - 対象DIARY: DIARY04.md
@@ -349,6 +360,37 @@
     - [x] Alembicマイグレーション作成 (`20251111_add_battery_system_to_environment_state.py`)
     - [x] `app/core/training/playback_recorder.py`: バッテリー情報をinfo辞書から取得してDB保存
     - [x] 全テスト実行で36テストパス (バッテリー14+プレイバック12+統合4+その他6)
+- [x] テンプレートベースの巡回パターンエージェント (2025-11-18完了)
+  - [x] `rl/agents/template_agents.py`: 基底クラスと4種類のテンプレートエージェントを実装
+    - [x] `HorizontalScanAgent`: 水平方向ジグザグスキャン（左上から開始、横1列を往復しながら下へ）
+    - [x] `SpiralAgent`: 渦巻き状パターン（外側から内側へ時計回り）
+    - [x] `VerticalScanAgent`: 垂直方向ジグザグスキャン（上から下へ列ごとに）
+    - [x] `RandomWalkAgent`: ランダムウォーク（ベースライン比較用）
+  - [x] `rl/utils/comparison.py`: テンプレートエージェント評価・比較機能
+    - [x] エージェント性能評価（報酬、カバレッジ、バッテリー管理）
+    - [x] 複数エージェント間の比較レポート生成
+    - [x] ベンチマーク実行ユーティリティ
+  - [x] ユニットテスト実装（46テストケース、全てパス）
+    - [x] パス生成検証（全セル網羅、パターン正確性）
+    - [x] ナビゲーションロジック検証（回転、障害物回避）
+    - [x] 評価メトリクス収集検証
+  - [x] 強化学習エージェントとの比較基盤を整備し、学習効果の定量評価が可能に
+  - [x] テンプレートエージェント実行API (2025-11-18完了)
+    - [x] `app/schemas/template_agents.py`: APIスキーマ定義
+      - [x] `TemplateAgentType`: エージェント種別Enum
+      - [x] `TemplateAgentExecuteRequest/Response`: 単一エージェント実行
+      - [x] `TemplateAgentCompareRequest/Response`: 複数エージェント比較
+      - [x] `TemplateAgentEpisodeMetrics`: エピソード単位メトリクス
+    - [x] `app/services/template_agent_service.py`: サービス層実装
+      - [x] `execute_template_agent()`: エージェント実行・評価
+      - [x] `compare_template_agents()`: 複数エージェント比較・ランキング
+    - [x] `app/api/v1/endpoints/template_agents.py`: APIエンドポイント
+      - [x] `GET /template-agents/types`: 利用可能エージェント種別一覧
+      - [x] `POST /template-agents/execute`: 単一エージェント実行（環境サイズ、エピソード数、シード指定可能）
+      - [x] `POST /template-agents/compare`: 複数エージェント比較（パフォーマンスランキング付き）
+    - [x] `tests/unit/api/test_template_agents_endpoints.py`: ユニットテスト（20テストケース）
+    - [x] `app/api/v1/api.py`: メインルーターへの登録完了
+    - [x] 全223テストパス（新規20テスト追加）
 
 #### TODO
 - [ ] 学習実行・エンドツーエンド検証

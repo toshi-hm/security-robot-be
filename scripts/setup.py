@@ -2,8 +2,8 @@
 
 
 def main() -> None:
-    print("Initialize local development environment")
+  print("Initialize local development environment")
 
 
 if __name__ == "__main__":
-    main()
+  main()

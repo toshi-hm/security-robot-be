@@ -3,6 +3,7 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-18 セッション108](#2025-11-18-セッション108)
 - [2025-11-14 セッション107](#2025-11-14-セッション107)
 - [2025-11-12 セッション106](#2025-11-12-セッション106)
 - [2025-11-11 セッション101](#2025-11-11-セッション101)
@@ -37,6 +38,101 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-18 セッション108
+
+### 🎯 セッション目標
+- 強化学習エージェントとの比較のために、テンプレートベースの巡回パターンを複数実装する
+  1. 水平スキャンパターン（左上から横1列ずつジグザグに下へ）
+  2. 渦巻きパターン（外側から内側へ時計回り）
+
+### ✅ 実施内容
+- feature branch `feature/session-108-template-patrol-patterns` を作成
+- `rl/agents/` ディレクトリを新設し、テンプレートエージェントモジュールを実装
+  - `rl/agents/template_agents.py`: 基底クラスと4種類の具象エージェント
+    - `BaseTemplateAgent`: 共通インターフェースと移動ロジック
+    - `HorizontalScanAgent`: 水平ジグザグスキャン
+    - `SpiralAgent`: 渦巻きパターン（時計回り）
+    - `VerticalScanAgent`: 垂直ジグザグスキャン
+    - `RandomWalkAgent`: ランダムウォーク（ベースライン）
+  - `rl/agents/__init__.py`: モジュールエクスポート
+- `rl/utils/comparison.py`: エージェント評価・比較フレームワークを実装
+  - `EvaluationMetrics`: エピソード単位のメトリクス（報酬、カバレッジ、バッテリー管理）
+  - `ComparisonResult`: エージェント評価結果の集約
+  - `evaluate_template_agent()`: 単一エージェントの評価実行
+  - `compare_agents()`: 複数エージェント間の比較
+  - `run_benchmark()`: ベンチマーク実行ユーティリティ
+  - `generate_comparison_report()`: 人間可読なレポート生成
+- ユニットテストを実装
+  - `tests/unit/rl/test_template_agents.py`: 27テストケース
+    - パス生成の正確性（全セル網羅、順序、ジグザグパターン）
+    - ナビゲーションロジック（方向転換、前進、障害物回避）
+    - アクション選択（ターゲット到達時のパトロール、循環）
+  - `tests/unit/rl/test_comparison.py`: 19テストケース
+    - メトリクス収集（報酬、カバレッジ、バッテリー追跡）
+    - レポート生成（ランキング、サマリー）
+    - ベンチマーク実行（全エージェント評価）
+- 全テスト実行で203テストパス（新規46テスト含む）
+- **Backend APIの追加実装** (継続作業)
+  - `app/schemas/template_agents.py`: APIスキーマ定義
+    - `TemplateAgentType`: エージェント種別Enum (horizontal_scan, vertical_scan, spiral, random_walk)
+    - `TemplateAgentExecuteRequest`: 単一エージェント実行リクエスト（環境サイズ3-100、エピソード数1-100、最大ステップ数10-10000）
+    - `TemplateAgentExecuteResponse`: 実行結果（集計メトリクス+エピソード別詳細）
+    - `TemplateAgentCompareRequest`: 複数エージェント比較リクエスト（最大4種類）
+    - `TemplateAgentCompareResponse`: 比較結果（パフォーマンスランキング、最高/最低性能エージェント、性能差）
+    - `TemplateAgentEpisodeMetrics`: エピソード単位の詳細メトリクス
+  - `app/services/template_agent_service.py`: サービス層
+    - `execute_template_agent()`: エージェント実行・評価（RLコンポーネントとAPIの架け橋）
+    - `compare_template_agents()`: 複数エージェント比較・ランキング生成
+    - `_create_agent()`: エージェントタイプに基づくインスタンス生成
+  - `app/api/v1/endpoints/template_agents.py`: APIエンドポイント
+    - `GET /template-agents/types`: 利用可能エージェント種別一覧（名前、説明付き）
+    - `POST /template-agents/execute`: 単一エージェント実行
+    - `POST /template-agents/compare`: 複数エージェント比較
+  - `app/api/v1/api.py`: メインルーターへの登録
+  - `tests/unit/api/test_template_agents_endpoints.py`: 20テストケース
+    - エージェントタイプ一覧の検証
+    - 各エージェントタイプの実行テスト
+    - レスポンス構造・メトリクス妥当性検証
+    - 複数エージェント比較・ランキングテスト
+    - 環境サイズ可変性検証（小規模〜大規模）
+  - 全テスト実行で223テストパス（新規20テスト追加）
+
+### 📊 成果物
+- `rl/agents/__init__.py`: テンプレートエージェントモジュール
+- `rl/agents/template_agents.py`: 4種類のテンプレートエージェント実装（約400行）
+- `rl/utils/comparison.py`: エージェント評価・比較機能（約320行）
+- `tests/unit/rl/test_template_agents.py`: エージェントユニットテスト（27ケース）
+- `tests/unit/rl/test_comparison.py`: 比較機能ユニットテスト（19ケース）
+- `app/schemas/template_agents.py`: APIスキーマ定義（約250行）
+- `app/services/template_agent_service.py`: サービス層実装（約160行）
+- `app/api/v1/endpoints/template_agents.py`: APIエンドポイント（約75行）
+- `tests/unit/api/test_template_agents_endpoints.py`: APIテスト（20ケース）
+- `report/PROGRESS.md`: Phase 7にテンプレートエージェント実装とAPI追加を追記
+
+### 🧠 学んだこと・課題
+1. **抽象基底クラスの設計**: `BaseTemplateAgent`を抽象クラスとして設計することで、各パターンの実装が容易になり、共通のナビゲーションロジックを再利用できた
+2. **パス生成アルゴリズム**:
+   - 水平スキャン: 偶数行は左→右、奇数行は右→左で効率的なジグザグ
+   - 渦巻き: 境界を狭めながら4方向を順に処理
+3. **環境のランダム性への対応**: `SecurityEnvironment`の充電ステーションがリセットごとにランダム配置されるため、完全な再現性テストは困難。代わりに結果の妥当性検証に焦点を当てた
+4. **座標系の理解**: 環境の座標系（x=列、y=行、方向0=北）を正確に理解することで、ナビゲーションロジックを正しく実装できた
+5. **メトリクス設計**: カバレッジ率、バッテリー消費、パトロール回数など、多角的なメトリクスで評価することで、各パターンの特性が明確になる
+6. **API階層設計**: RLコンポーネント→サービス層→APIエンドポイントという明確な層分離により、ビジネスロジックとプレゼンテーション層を分離
+7. **Pydanticスキーマ設計**: Field constraintsを活用することで、入力バリデーションと自己文書化を同時に実現
+
+### ⏭️ 次回セッションの予定
+1. `/git-commit-push` でコミット・プッシュ
+2. `/create-pr` で Pull Request を作成
+3. APIを実際に起動してSwagger UIで動作確認
+4. 実際のベンチマーク実行で各パターンの性能を比較
+5. PPO/A3C学習済みモデルとテンプレートパターンの性能比較
+6. 比較結果の可視化（グラフ、ヒートマップ）
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 

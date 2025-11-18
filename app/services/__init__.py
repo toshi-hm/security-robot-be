@@ -6,9 +6,9 @@ from .training_dispatcher import TrainingDispatcher, training_dispatcher
 from .training_service import TrainingService
 
 __all__ = [
-    "FileService",
-    "PlaybackService",
-    "TrainingService",
-    "TrainingDispatcher",
-    "training_dispatcher",
+  "FileService",
+  "PlaybackService",
+  "TrainingService",
+  "TrainingDispatcher",
+  "training_dispatcher",
 ]
