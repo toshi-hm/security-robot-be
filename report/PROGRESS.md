@@ -2,6 +2,17 @@
 
 **最終更新:** 2025-11-18 テンプレートエージェント実行API追加完了（環境サイズ可変、複数エージェント比較機能）
 
+### 2025-11-18 09:55:44 /diary-rotate 実行
+- 対象DIARY: DIARY05.md
+- 目次エントリ数: 13件 (閾値10以上につきローテーション実行)
+- 個別サマリー生成: `report/summary/DIARY05_SUMMARY.md` (AI要約、13セッション)
+- 次DIARY作成: `report/DIARY06.md` (テンプレート付き)
+- 統合サマリー: `report/summary/ARCHIVE_20251118-100019.md` を生成 (対象: DIARY01〜04計4件) → 個別サマリー4件を削除
+- 参照更新:
+  - `instructions/prompts/02_codex_review_prompt.md` (2箇所: 最新サマリー/DIARY06導線)
+  - `instructions/prompts/01_backend_implementation_guide.md` (3箇所: 最新サマリー/DIARY6導線)
+  - `instructions/06_battery_system_requirements.md` (1箇所: 最新DIARYタスク)
+
 ### 2025-10-30 10:13:52 /diary-rotate 実行
 - 対象DIARY: DIARY04.md
 - 目次エントリ数: 15件 (閾値10以上につきローテーション実行)
