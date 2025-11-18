@@ -1,4 +1,4 @@
-"""API endpoints for template agent execution and comparison."""
+"""テンプレートエージェント実行・比較APIエンドポイント"""
 
 from app.schemas.template_agents import (
     TemplateAgentCompareRequest,
@@ -19,30 +19,30 @@ router = APIRouter(prefix="/template-agents", tags=["template-agents"])
 @router.get("/types", response_model=list[dict])
 def list_agent_types() -> list[dict]:
     """
-    List all available template agent types.
+    利用可能なテンプレートエージェント種別一覧を取得
 
-    Returns a list of agent types with their descriptions.
+    各エージェント種別の名前と説明を含むリストを返します。
     """
     return [
         {
             "type": TemplateAgentType.HORIZONTAL_SCAN.value,
             "name": "HorizontalScanAgent",
-            "description": "Scans horizontally row by row in a zigzag pattern",
+            "description": "水平方向に行ごとジグザグスキャン",
         },
         {
             "type": TemplateAgentType.VERTICAL_SCAN.value,
             "name": "VerticalScanAgent",
-            "description": "Scans vertically column by column in a zigzag pattern",
+            "description": "垂直方向に列ごとジグザグスキャン",
         },
         {
             "type": TemplateAgentType.SPIRAL.value,
             "name": "SpiralAgent",
-            "description": "Spirals inward from outside to center in clockwise direction",
+            "description": "外側から中心へ時計回りに渦巻きスキャン",
         },
         {
             "type": TemplateAgentType.RANDOM_WALK.value,
             "name": "RandomWalkAgent",
-            "description": "Performs random walk (baseline for comparison)",
+            "description": "ランダムウォーク（比較用ベースライン）",
         },
     ]
 
@@ -50,13 +50,13 @@ def list_agent_types() -> list[dict]:
 @router.post("/execute", response_model=TemplateAgentExecuteResponse)
 def execute_agent(request: TemplateAgentExecuteRequest) -> TemplateAgentExecuteResponse:
     """
-    Execute a single template agent and return performance metrics.
+    単一のテンプレートエージェントを実行してパフォーマンスメトリクスを取得
 
-    This endpoint runs the specified template agent in the security environment
-    for the given number of episodes and returns detailed performance metrics.
+    指定されたテンプレートエージェントをセキュリティ環境で実行し、
+    指定されたエピソード数分の詳細なパフォーマンスメトリクスを返します。
 
-    The agent will follow its predetermined patrol pattern, and metrics such as
-    coverage ratio, battery management, and rewards will be tracked.
+    エージェントは事前定義された巡回パターンに従い、カバレッジ率、
+    バッテリー管理、報酬などのメトリクスが追跡されます。
     """
     return execute_template_agent(request)
 
@@ -64,11 +64,11 @@ def execute_agent(request: TemplateAgentExecuteRequest) -> TemplateAgentExecuteR
 @router.post("/compare", response_model=TemplateAgentCompareResponse)
 def compare_agents(request: TemplateAgentCompareRequest) -> TemplateAgentCompareResponse:
     """
-    Compare multiple template agents on the same environment.
+    複数のテンプレートエージェントを同一環境で比較
 
-    This endpoint evaluates multiple template agents on the same environment
-    configuration and returns a ranked comparison of their performance.
+    同じ環境設定で複数のテンプレートエージェントを評価し、
+    パフォーマンスのランキング付き比較結果を返します。
 
-    Results are sorted by average reward, with the best performing agent ranked first.
+    結果は平均報酬の降順でソートされ、最高性能のエージェントが1位になります。
     """
     return compare_template_agents(request)

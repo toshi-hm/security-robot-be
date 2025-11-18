@@ -1154,7 +1154,7 @@
           "template-agents"
         ],
         "summary": "List Agent Types",
-        "description": "List all available template agent types.\n\nReturns a list of agent types with their descriptions.",
+        "description": "利用可能なテンプレートエージェント種別一覧を取得\n\n各エージェント種別の名前と説明を含むリストを返します。",
         "operationId": "list_agent_types_api_v1_template_agents_types_get",
         "responses": {
           "200": {
@@ -1181,7 +1181,7 @@
           "template-agents"
         ],
         "summary": "Execute Agent",
-        "description": "Execute a single template agent and return performance metrics.\n\nThis endpoint runs the specified template agent in the security environment\nfor the given number of episodes and returns detailed performance metrics.\n\nThe agent will follow its predetermined patrol pattern, and metrics such as\ncoverage ratio, battery management, and rewards will be tracked.",
+        "description": "単一のテンプレートエージェントを実行してパフォーマンスメトリクスを取得\n\n指定されたテンプレートエージェントをセキュリティ環境で実行し、\n指定されたエピソード数分の詳細なパフォーマンスメトリクスを返します。\n\nエージェントは事前定義された巡回パターンに従い、カバレッジ率、\nバッテリー管理、報酬などのメトリクスが追跡されます。",
         "operationId": "execute_agent_api_v1_template_agents_execute_post",
         "requestBody": {
           "content": {
@@ -1223,7 +1223,7 @@
           "template-agents"
         ],
         "summary": "Compare Agents",
-        "description": "Compare multiple template agents on the same environment.\n\nThis endpoint evaluates multiple template agents on the same environment\nconfiguration and returns a ranked comparison of their performance.\n\nResults are sorted by average reward, with the best performing agent ranked first.",
+        "description": "複数のテンプレートエージェントを同一環境で比較\n\n同じ環境設定で複数のテンプレートエージェントを評価し、\nパフォーマンスのランキング付き比較結果を返します。\n\n結果は平均報酬の降順でソートされ、最高性能のエージェントが1位になります。",
         "operationId": "compare_agents_api_v1_template_agents_compare_post",
         "requestBody": {
           "content": {
@@ -2503,7 +2503,7 @@
             "maxItems": 4,
             "minItems": 1,
             "title": "Agent Types",
-            "description": "List of agent types to compare",
+            "description": "比較するエージェント種別のリスト",
             "default": [
               "horizontal_scan",
               "vertical_scan",
@@ -2515,7 +2515,7 @@
             "maximum": 100.0,
             "minimum": 3.0,
             "title": "Width",
-            "description": "Environment grid width",
+            "description": "環境グリッドの幅",
             "default": 10
           },
           "height": {
@@ -2523,7 +2523,7 @@
             "maximum": 100.0,
             "minimum": 3.0,
             "title": "Height",
-            "description": "Environment grid height",
+            "description": "環境グリッドの高さ",
             "default": 10
           },
           "episodes": {
@@ -2531,7 +2531,7 @@
             "maximum": 100.0,
             "minimum": 1.0,
             "title": "Episodes",
-            "description": "Number of episodes per agent",
+            "description": "エージェントごとのエピソード数",
             "default": 10
           },
           "max_steps": {
@@ -2539,7 +2539,7 @@
             "maximum": 10000.0,
             "minimum": 10.0,
             "title": "Max Steps",
-            "description": "Maximum steps per episode",
+            "description": "エピソードあたりの最大ステップ数",
             "default": 1000
           },
           "seed": {
@@ -2552,12 +2552,12 @@
               }
             ],
             "title": "Seed",
-            "description": "Random seed for reproducibility"
+            "description": "再現性のための乱数シード"
           }
         },
         "type": "object",
         "title": "TemplateAgentCompareRequest",
-        "description": "Request schema for comparing multiple template agents."
+        "description": "複数テンプレートエージェント比較リクエストスキーマ"
       },
       "TemplateAgentCompareResponse": {
         "properties": {
@@ -2565,17 +2565,17 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Environment",
-            "description": "Environment configuration"
+            "description": "環境設定"
           },
           "episodes": {
             "type": "integer",
             "title": "Episodes",
-            "description": "Number of episodes per agent"
+            "description": "エージェントごとのエピソード数"
           },
           "max_steps": {
             "type": "integer",
             "title": "Max Steps",
-            "description": "Maximum steps per episode"
+            "description": "エピソードあたりの最大ステップ数"
           },
           "results": {
             "items": {
@@ -2583,22 +2583,22 @@
             },
             "type": "array",
             "title": "Results",
-            "description": "Comparison results sorted by rank"
+            "description": "ランク順にソートされた比較結果"
           },
           "best_agent": {
             "type": "string",
             "title": "Best Agent",
-            "description": "Name of the best performing agent"
+            "description": "最高性能エージェントの名前"
           },
           "worst_agent": {
             "type": "string",
             "title": "Worst Agent",
-            "description": "Name of the worst performing agent"
+            "description": "最低性能エージェントの名前"
           },
           "performance_gap": {
             "type": "number",
             "title": "Performance Gap",
-            "description": "Difference in average reward between best and worst"
+            "description": "最高と最低の平均報酬の差"
           }
         },
         "type": "object",
@@ -2612,66 +2612,66 @@
           "performance_gap"
         ],
         "title": "TemplateAgentCompareResponse",
-        "description": "Response schema for comparing multiple template agents."
+        "description": "複数テンプレートエージェント比較レスポンススキーマ"
       },
       "TemplateAgentComparisonSummary": {
         "properties": {
           "agent_type": {
             "$ref": "#/components/schemas/TemplateAgentType",
-            "description": "Type of agent"
+            "description": "エージェント種別"
           },
           "agent_name": {
             "type": "string",
             "title": "Agent Name",
-            "description": "Class name of the agent"
+            "description": "エージェントのクラス名"
           },
           "rank": {
             "type": "integer",
             "minimum": 1.0,
             "title": "Rank",
-            "description": "Rank by average reward"
+            "description": "平均報酬によるランク"
           },
           "average_reward": {
             "type": "number",
             "title": "Average Reward",
-            "description": "Average total reward"
+            "description": "平均合計報酬"
           },
           "std_reward": {
             "type": "number",
             "minimum": 0.0,
             "title": "Std Reward",
-            "description": "Standard deviation of rewards"
+            "description": "報酬の標準偏差"
           },
           "average_coverage": {
             "type": "number",
             "minimum": 0.0,
             "title": "Average Coverage",
-            "description": "Average coverage ratio"
+            "description": "平均カバレッジ率"
           },
           "average_episode_length": {
             "type": "number",
             "exclusiveMinimum": 0.0,
             "title": "Average Episode Length",
-            "description": "Average episode length"
+            "description": "平均エピソード長"
           },
           "average_patrol_count": {
             "type": "number",
             "minimum": 0.0,
             "title": "Average Patrol Count",
-            "description": "Average patrol count"
+            "description": "平均パトロール回数"
           },
           "average_min_battery": {
             "type": "number",
             "maximum": 100.0,
             "minimum": 0.0,
             "title": "Average Min Battery",
-            "description": "Average minimum battery"
+            "description": "平均最小バッテリー残量"
           },
           "total_battery_deaths": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Total Battery Deaths",
-            "description": "Total battery deaths"
+            "description": "バッテリー切れ合計回数"
           }
         },
         "type": "object",
@@ -2688,67 +2688,67 @@
           "total_battery_deaths"
         ],
         "title": "TemplateAgentComparisonSummary",
-        "description": "Summary of a single agent's performance in comparison."
+        "description": "比較における単一エージェントの性能サマリー"
       },
       "TemplateAgentEpisodeMetrics": {
         "properties": {
           "episode": {
             "type": "integer",
             "title": "Episode",
-            "description": "Episode number"
+            "description": "エピソード番号"
           },
           "total_reward": {
             "type": "number",
             "title": "Total Reward",
-            "description": "Total reward for the episode"
+            "description": "エピソードの合計報酬"
           },
           "episode_length": {
             "type": "integer",
             "title": "Episode Length",
-            "description": "Number of steps in the episode"
+            "description": "エピソードのステップ数"
           },
           "coverage_ratio": {
             "type": "number",
             "minimum": 0.0,
             "title": "Coverage Ratio",
-            "description": "Ratio of patrolled cells"
+            "description": "巡回済みセルの割合"
           },
           "patrol_count": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Patrol Count",
-            "description": "Number of patrol actions"
+            "description": "パトロールアクション回数"
           },
           "move_count": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Move Count",
-            "description": "Number of move forward actions"
+            "description": "前進アクション回数"
           },
           "turn_count": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Turn Count",
-            "description": "Number of turn actions"
+            "description": "回転アクション回数"
           },
           "min_battery": {
             "type": "number",
             "maximum": 100.0,
             "minimum": 0.0,
             "title": "Min Battery",
-            "description": "Minimum battery percentage"
+            "description": "最小バッテリー残量（%）"
           },
           "battery_deaths": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Battery Deaths",
-            "description": "Number of battery deaths"
+            "description": "バッテリー切れ回数"
           },
           "charging_events": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Charging Events",
-            "description": "Number of charging events"
+            "description": "充電イベント回数"
           }
         },
         "type": "object",
@@ -2765,20 +2765,20 @@
           "charging_events"
         ],
         "title": "TemplateAgentEpisodeMetrics",
-        "description": "Metrics for a single episode."
+        "description": "単一エピソードのメトリクス"
       },
       "TemplateAgentExecuteRequest": {
         "properties": {
           "agent_type": {
             "$ref": "#/components/schemas/TemplateAgentType",
-            "description": "Type of template agent to execute"
+            "description": "実行するテンプレートエージェントの種別"
           },
           "width": {
             "type": "integer",
             "maximum": 100.0,
             "minimum": 3.0,
             "title": "Width",
-            "description": "Environment grid width",
+            "description": "環境グリッドの幅",
             "default": 10
           },
           "height": {
@@ -2786,7 +2786,7 @@
             "maximum": 100.0,
             "minimum": 3.0,
             "title": "Height",
-            "description": "Environment grid height",
+            "description": "環境グリッドの高さ",
             "default": 10
           },
           "episodes": {
@@ -2794,7 +2794,7 @@
             "maximum": 100.0,
             "minimum": 1.0,
             "title": "Episodes",
-            "description": "Number of episodes to run",
+            "description": "実行するエピソード数",
             "default": 10
           },
           "max_steps": {
@@ -2802,7 +2802,7 @@
             "maximum": 10000.0,
             "minimum": 10.0,
             "title": "Max Steps",
-            "description": "Maximum steps per episode",
+            "description": "エピソードあたりの最大ステップ数",
             "default": 1000
           },
           "seed": {
@@ -2815,7 +2815,7 @@
               }
             ],
             "title": "Seed",
-            "description": "Random seed for reproducibility"
+            "description": "再現性のための乱数シード"
           }
         },
         "type": "object",
@@ -2823,7 +2823,7 @@
           "agent_type"
         ],
         "title": "TemplateAgentExecuteRequest",
-        "description": "Request schema for executing a template agent.",
+        "description": "テンプレートエージェント実行リクエストスキーマ",
         "examples": [
           {
             "agent_type": "horizontal_scan",
@@ -2839,65 +2839,65 @@
         "properties": {
           "agent_type": {
             "$ref": "#/components/schemas/TemplateAgentType",
-            "description": "Type of template agent executed"
+            "description": "実行されたテンプレートエージェントの種別"
           },
           "agent_name": {
             "type": "string",
             "title": "Agent Name",
-            "description": "Class name of the agent"
+            "description": "エージェントのクラス名"
           },
           "environment": {
             "additionalProperties": true,
             "type": "object",
             "title": "Environment",
-            "description": "Environment configuration"
+            "description": "環境設定"
           },
           "episodes": {
             "type": "integer",
             "title": "Episodes",
-            "description": "Number of episodes executed"
+            "description": "実行されたエピソード数"
           },
           "average_reward": {
             "type": "number",
             "title": "Average Reward",
-            "description": "Average total reward across episodes"
+            "description": "エピソード間の平均合計報酬"
           },
           "std_reward": {
             "type": "number",
             "minimum": 0.0,
             "title": "Std Reward",
-            "description": "Standard deviation of rewards"
+            "description": "報酬の標準偏差"
           },
           "average_coverage": {
             "type": "number",
             "minimum": 0.0,
             "title": "Average Coverage",
-            "description": "Average coverage ratio"
+            "description": "平均カバレッジ率"
           },
           "average_episode_length": {
             "type": "number",
             "exclusiveMinimum": 0.0,
             "title": "Average Episode Length",
-            "description": "Average episode length"
+            "description": "平均エピソード長"
           },
           "average_patrol_count": {
             "type": "number",
             "minimum": 0.0,
             "title": "Average Patrol Count",
-            "description": "Average number of patrol actions"
+            "description": "平均パトロールアクション回数"
           },
           "average_min_battery": {
             "type": "number",
             "maximum": 100.0,
             "minimum": 0.0,
             "title": "Average Min Battery",
-            "description": "Average minimum battery percentage"
+            "description": "平均最小バッテリー残量（%）"
           },
           "total_battery_deaths": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Total Battery Deaths",
-            "description": "Total number of battery deaths across all episodes"
+            "description": "全エピソードでのバッテリー切れ合計回数"
           },
           "episode_metrics": {
             "items": {
@@ -2905,7 +2905,7 @@
             },
             "type": "array",
             "title": "Episode Metrics",
-            "description": "Detailed metrics for each episode"
+            "description": "各エピソードの詳細メトリクス"
           }
         },
         "type": "object",
@@ -2924,7 +2924,7 @@
           "episode_metrics"
         ],
         "title": "TemplateAgentExecuteResponse",
-        "description": "Response schema for template agent execution.",
+        "description": "テンプレートエージェント実行レスポンススキーマ",
         "examples": [
           {
             "agent_name": "HorizontalScanAgent",
@@ -2967,7 +2967,7 @@
           "random_walk"
         ],
         "title": "TemplateAgentType",
-        "description": "Available template agent types."
+        "description": "利用可能なテンプレートエージェント種別"
       },
       "TrainingActionResponse": {
         "properties": {

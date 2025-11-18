@@ -1,4 +1,4 @@
-"""Schemas for template agent execution API."""
+"""テンプレートエージェント実行API用スキーマ"""
 
 from enum import Enum
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class TemplateAgentType(str, Enum):
-    """Available template agent types."""
+    """利用可能なテンプレートエージェント種別"""
 
     HORIZONTAL_SCAN = "horizontal_scan"
     VERTICAL_SCAN = "vertical_scan"
@@ -15,39 +15,39 @@ class TemplateAgentType(str, Enum):
 
 
 class TemplateAgentExecuteRequest(BaseModel):
-    """Request schema for executing a template agent."""
+    """テンプレートエージェント実行リクエストスキーマ"""
 
     agent_type: TemplateAgentType = Field(
         ...,
-        description="Type of template agent to execute",
+        description="実行するテンプレートエージェントの種別",
     )
     width: int = Field(
         default=10,
         ge=3,
         le=100,
-        description="Environment grid width",
+        description="環境グリッドの幅",
     )
     height: int = Field(
         default=10,
         ge=3,
         le=100,
-        description="Environment grid height",
+        description="環境グリッドの高さ",
     )
     episodes: int = Field(
         default=10,
         ge=1,
         le=100,
-        description="Number of episodes to run",
+        description="実行するエピソード数",
     )
     max_steps: int = Field(
         default=1000,
         ge=10,
         le=10000,
-        description="Maximum steps per episode",
+        description="エピソードあたりの最大ステップ数",
     )
     seed: int | None = Field(
         default=None,
-        description="Random seed for reproducibility",
+        description="再現性のための乱数シード",
     )
 
     model_config = {
@@ -67,79 +67,79 @@ class TemplateAgentExecuteRequest(BaseModel):
 
 
 class TemplateAgentEpisodeMetrics(BaseModel):
-    """Metrics for a single episode."""
+    """単一エピソードのメトリクス"""
 
-    episode: int = Field(..., description="Episode number")
-    total_reward: float = Field(..., description="Total reward for the episode")
-    episode_length: int = Field(..., description="Number of steps in the episode")
+    episode: int = Field(..., description="エピソード番号")
+    total_reward: float = Field(..., description="エピソードの合計報酬")
+    episode_length: int = Field(..., description="エピソードのステップ数")
     coverage_ratio: float = Field(
-        ..., ge=0.0, description="Ratio of patrolled cells"
+        ..., ge=0.0, description="巡回済みセルの割合"
     )
-    patrol_count: int = Field(..., ge=0, description="Number of patrol actions")
-    move_count: int = Field(..., ge=0, description="Number of move forward actions")
-    turn_count: int = Field(..., ge=0, description="Number of turn actions")
-    min_battery: float = Field(..., ge=0.0, le=100.0, description="Minimum battery percentage")
-    battery_deaths: int = Field(..., ge=0, description="Number of battery deaths")
-    charging_events: int = Field(..., ge=0, description="Number of charging events")
+    patrol_count: int = Field(..., ge=0, description="パトロールアクション回数")
+    move_count: int = Field(..., ge=0, description="前進アクション回数")
+    turn_count: int = Field(..., ge=0, description="回転アクション回数")
+    min_battery: float = Field(..., ge=0.0, le=100.0, description="最小バッテリー残量（%）")
+    battery_deaths: int = Field(..., ge=0, description="バッテリー切れ回数")
+    charging_events: int = Field(..., ge=0, description="充電イベント回数")
 
 
 class TemplateAgentExecuteResponse(BaseModel):
-    """Response schema for template agent execution."""
+    """テンプレートエージェント実行レスポンススキーマ"""
 
     agent_type: TemplateAgentType = Field(
         ...,
-        description="Type of template agent executed",
+        description="実行されたテンプレートエージェントの種別",
     )
     agent_name: str = Field(
         ...,
-        description="Class name of the agent",
+        description="エージェントのクラス名",
     )
     environment: dict = Field(
         ...,
-        description="Environment configuration",
+        description="環境設定",
     )
     episodes: int = Field(
         ...,
-        description="Number of episodes executed",
+        description="実行されたエピソード数",
     )
     average_reward: float = Field(
         ...,
-        description="Average total reward across episodes",
+        description="エピソード間の平均合計報酬",
     )
     std_reward: float = Field(
         ...,
         ge=0.0,
-        description="Standard deviation of rewards",
+        description="報酬の標準偏差",
     )
     average_coverage: float = Field(
         ...,
         ge=0.0,
-        description="Average coverage ratio",
+        description="平均カバレッジ率",
     )
     average_episode_length: float = Field(
         ...,
         gt=0,
-        description="Average episode length",
+        description="平均エピソード長",
     )
     average_patrol_count: float = Field(
         ...,
         ge=0.0,
-        description="Average number of patrol actions",
+        description="平均パトロールアクション回数",
     )
     average_min_battery: float = Field(
         ...,
         ge=0.0,
         le=100.0,
-        description="Average minimum battery percentage",
+        description="平均最小バッテリー残量（%）",
     )
     total_battery_deaths: int = Field(
         ...,
         ge=0,
-        description="Total number of battery deaths across all episodes",
+        description="全エピソードでのバッテリー切れ合計回数",
     )
     episode_metrics: list[TemplateAgentEpisodeMetrics] = Field(
         ...,
-        description="Detailed metrics for each episode",
+        description="各エピソードの詳細メトリクス",
     )
 
     model_config = {
@@ -178,7 +178,7 @@ class TemplateAgentExecuteResponse(BaseModel):
 
 
 class TemplateAgentCompareRequest(BaseModel):
-    """Request schema for comparing multiple template agents."""
+    """複数テンプレートエージェント比較リクエストスキーマ"""
 
     agent_types: list[TemplateAgentType] = Field(
         default=[
@@ -188,66 +188,66 @@ class TemplateAgentCompareRequest(BaseModel):
         ],
         min_length=1,
         max_length=4,
-        description="List of agent types to compare",
+        description="比較するエージェント種別のリスト",
     )
     width: int = Field(
         default=10,
         ge=3,
         le=100,
-        description="Environment grid width",
+        description="環境グリッドの幅",
     )
     height: int = Field(
         default=10,
         ge=3,
         le=100,
-        description="Environment grid height",
+        description="環境グリッドの高さ",
     )
     episodes: int = Field(
         default=10,
         ge=1,
         le=100,
-        description="Number of episodes per agent",
+        description="エージェントごとのエピソード数",
     )
     max_steps: int = Field(
         default=1000,
         ge=10,
         le=10000,
-        description="Maximum steps per episode",
+        description="エピソードあたりの最大ステップ数",
     )
     seed: int | None = Field(
         default=None,
-        description="Random seed for reproducibility",
+        description="再現性のための乱数シード",
     )
 
 
 class TemplateAgentComparisonSummary(BaseModel):
-    """Summary of a single agent's performance in comparison."""
+    """比較における単一エージェントの性能サマリー"""
 
-    agent_type: TemplateAgentType = Field(..., description="Type of agent")
-    agent_name: str = Field(..., description="Class name of the agent")
-    rank: int = Field(..., ge=1, description="Rank by average reward")
-    average_reward: float = Field(..., description="Average total reward")
-    std_reward: float = Field(..., ge=0.0, description="Standard deviation of rewards")
-    average_coverage: float = Field(..., ge=0.0, description="Average coverage ratio")
-    average_episode_length: float = Field(..., gt=0, description="Average episode length")
-    average_patrol_count: float = Field(..., ge=0.0, description="Average patrol count")
-    average_min_battery: float = Field(..., ge=0.0, le=100.0, description="Average minimum battery")
-    total_battery_deaths: int = Field(..., ge=0, description="Total battery deaths")
+    agent_type: TemplateAgentType = Field(..., description="エージェント種別")
+    agent_name: str = Field(..., description="エージェントのクラス名")
+    rank: int = Field(..., ge=1, description="平均報酬によるランク")
+    average_reward: float = Field(..., description="平均合計報酬")
+    std_reward: float = Field(..., ge=0.0, description="報酬の標準偏差")
+    average_coverage: float = Field(..., ge=0.0, description="平均カバレッジ率")
+    average_episode_length: float = Field(..., gt=0, description="平均エピソード長")
+    average_patrol_count: float = Field(..., ge=0.0, description="平均パトロール回数")
+    average_min_battery: float = Field(..., ge=0.0, le=100.0, description="平均最小バッテリー残量")
+    total_battery_deaths: int = Field(..., ge=0, description="バッテリー切れ合計回数")
 
 
 class TemplateAgentCompareResponse(BaseModel):
-    """Response schema for comparing multiple template agents."""
+    """複数テンプレートエージェント比較レスポンススキーマ"""
 
-    environment: dict = Field(..., description="Environment configuration")
-    episodes: int = Field(..., description="Number of episodes per agent")
-    max_steps: int = Field(..., description="Maximum steps per episode")
+    environment: dict = Field(..., description="環境設定")
+    episodes: int = Field(..., description="エージェントごとのエピソード数")
+    max_steps: int = Field(..., description="エピソードあたりの最大ステップ数")
     results: list[TemplateAgentComparisonSummary] = Field(
         ...,
-        description="Comparison results sorted by rank",
+        description="ランク順にソートされた比較結果",
     )
-    best_agent: str = Field(..., description="Name of the best performing agent")
-    worst_agent: str = Field(..., description="Name of the worst performing agent")
+    best_agent: str = Field(..., description="最高性能エージェントの名前")
+    worst_agent: str = Field(..., description="最低性能エージェントの名前")
     performance_gap: float = Field(
         ...,
-        description="Difference in average reward between best and worst",
+        description="最高と最低の平均報酬の差",
     )

@@ -44,7 +44,7 @@ class TestListAgentTypes:
         )
         assert horizontal is not None
         assert horizontal["name"] == "HorizontalScanAgent"
-        assert "zigzag" in horizontal["description"].lower()
+        assert "ジグザグ" in horizontal["description"]
 
     def test_spiral_type(self) -> None:
         """Test spiral agent type information."""
@@ -53,7 +53,7 @@ class TestListAgentTypes:
         spiral = next((item for item in result if item["type"] == "spiral"), None)
         assert spiral is not None
         assert spiral["name"] == "SpiralAgent"
-        assert "clockwise" in spiral["description"].lower()
+        assert "時計回り" in spiral["description"]
 
 
 class TestExecuteAgent:
