@@ -122,7 +122,7 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {
-                    "$ref": "#/components/schemas/EnvironmentSessionState-Output"
+                    "$ref": "#/components/schemas/EnvironmentSessionState"
                   },
                   "type": "object",
                   "title": "Response Create Environment Session Api V1 Environment Sessions Post"
@@ -186,7 +186,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {
-                    "$ref": "#/components/schemas/EnvironmentSessionState-Output"
+                    "$ref": "#/components/schemas/EnvironmentSessionState"
                   },
                   "title": "Response Reset Environment Session Api V1 Environment Sessions  Session Id  Reset Post"
                 }
@@ -242,7 +242,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {
-                    "$ref": "#/components/schemas/EnvironmentStepResponse-Output"
+                    "$ref": "#/components/schemas/EnvironmentStepResponse"
                   },
                   "title": "Response Perform Environment Action Api V1 Environment Sessions  Session Id  Action Post"
                 }
@@ -1147,6 +1147,117 @@
           }
         }
       }
+    },
+    "/api/v1/template-agents/types": {
+      "get": {
+        "tags": [
+          "template-agents"
+        ],
+        "summary": "List Agent Types",
+        "description": "List all available template agent types.\n\nReturns a list of agent types with their descriptions.",
+        "operationId": "list_agent_types_api_v1_template_agents_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Agent Types Api V1 Template Agents Types Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template-agents/execute": {
+      "post": {
+        "tags": [
+          "template-agents"
+        ],
+        "summary": "Execute Agent",
+        "description": "Execute a single template agent and return performance metrics.\n\nThis endpoint runs the specified template agent in the security environment\nfor the given number of episodes and returns detailed performance metrics.\n\nThe agent will follow its predetermined patrol pattern, and metrics such as\ncoverage ratio, battery management, and rewards will be tracked.",
+        "operationId": "execute_agent_api_v1_template_agents_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateAgentExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAgentExecuteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template-agents/compare": {
+      "post": {
+        "tags": [
+          "template-agents"
+        ],
+        "summary": "Compare Agents",
+        "description": "Compare multiple template agents on the same environment.\n\nThis endpoint evaluates multiple template agents on the same environment\nconfiguration and returns a ranked comparison of their performance.\n\nResults are sorted by average reward, with the best performing agent ranked first.",
+        "operationId": "compare_agents_api_v1_template_agents_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateAgentCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAgentCompareResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1348,30 +1459,7 @@
         "title": "EnvironmentSessionResetRequest",
         "description": "Request payload for resetting an environment session."
       },
-      "EnvironmentSessionState-Input": {
-        "properties": {
-          "session_id": {
-            "type": "string",
-            "title": "Session Id"
-          },
-          "environment_id": {
-            "type": "string",
-            "title": "Environment Id"
-          },
-          "state": {
-            "$ref": "#/components/schemas/EnvironmentState"
-          }
-        },
-        "type": "object",
-        "required": [
-          "session_id",
-          "environment_id",
-          "state"
-        ],
-        "title": "EnvironmentSessionState",
-        "description": "State information for an interactive environment session."
-      },
-      "EnvironmentSessionState-Output": {
+      "EnvironmentSessionState": {
         "properties": {
           "session_id": {
             "type": "string",
@@ -1460,6 +1548,54 @@
               }
             ],
             "title": "Coverage Ratio"
+          },
+          "battery_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Percentage"
+          },
+          "is_charging": {
+            "type": "boolean",
+            "title": "Is Charging",
+            "default": false
+          },
+          "distance_to_charging_station": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance To Charging Station"
+          },
+          "charging_station_position": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charging Station Position"
           }
         },
         "type": "object",
@@ -1525,8 +1661,11 @@
           "suspicious_objects": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
@@ -1555,6 +1694,55 @@
               }
             ],
             "title": "Reward Received"
+          },
+          "battery_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Percentage"
+          },
+          "is_charging": {
+            "type": "boolean",
+            "title": "Is Charging",
+            "default": false
+          },
+          "distance_to_charging_station": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance To Charging Station"
+          },
+          "charging_station_position_x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charging Station Position X"
+          },
+          "charging_station_position_y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charging Station Position Y"
           },
           "created_at": {
             "type": "string",
@@ -1587,50 +1775,7 @@
         "title": "EnvironmentStateResponse",
         "description": "Response schema for environment state snapshot."
       },
-      "EnvironmentStepResponse-Input": {
-        "properties": {
-          "session_id": {
-            "type": "string",
-            "title": "Session Id"
-          },
-          "environment_id": {
-            "type": "string",
-            "title": "Environment Id"
-          },
-          "state": {
-            "$ref": "#/components/schemas/EnvironmentState"
-          },
-          "reward": {
-            "type": "number",
-            "title": "Reward"
-          },
-          "terminated": {
-            "type": "boolean",
-            "title": "Terminated"
-          },
-          "truncated": {
-            "type": "boolean",
-            "title": "Truncated"
-          },
-          "info": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Info"
-          }
-        },
-        "type": "object",
-        "required": [
-          "session_id",
-          "environment_id",
-          "state",
-          "reward",
-          "terminated",
-          "truncated"
-        ],
-        "title": "EnvironmentStepResponse",
-        "description": "Response model for a single environment step."
-      },
-      "EnvironmentStepResponse-Output": {
+      "EnvironmentStepResponse": {
         "properties": {
           "session_id": {
             "type": "string",
@@ -2347,6 +2492,482 @@
           "spawned_at"
         ],
         "title": "SuspiciousObject"
+      },
+      "TemplateAgentCompareRequest": {
+        "properties": {
+          "agent_types": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateAgentType"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Agent Types",
+            "description": "List of agent types to compare",
+            "default": [
+              "horizontal_scan",
+              "vertical_scan",
+              "spiral"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 3.0,
+            "title": "Width",
+            "description": "Environment grid width",
+            "default": 10
+          },
+          "height": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 3.0,
+            "title": "Height",
+            "description": "Environment grid height",
+            "default": 10
+          },
+          "episodes": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Episodes",
+            "description": "Number of episodes per agent",
+            "default": 10
+          },
+          "max_steps": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 10.0,
+            "title": "Max Steps",
+            "description": "Maximum steps per episode",
+            "default": 1000
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed",
+            "description": "Random seed for reproducibility"
+          }
+        },
+        "type": "object",
+        "title": "TemplateAgentCompareRequest",
+        "description": "Request schema for comparing multiple template agents."
+      },
+      "TemplateAgentCompareResponse": {
+        "properties": {
+          "environment": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Environment",
+            "description": "Environment configuration"
+          },
+          "episodes": {
+            "type": "integer",
+            "title": "Episodes",
+            "description": "Number of episodes per agent"
+          },
+          "max_steps": {
+            "type": "integer",
+            "title": "Max Steps",
+            "description": "Maximum steps per episode"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateAgentComparisonSummary"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Comparison results sorted by rank"
+          },
+          "best_agent": {
+            "type": "string",
+            "title": "Best Agent",
+            "description": "Name of the best performing agent"
+          },
+          "worst_agent": {
+            "type": "string",
+            "title": "Worst Agent",
+            "description": "Name of the worst performing agent"
+          },
+          "performance_gap": {
+            "type": "number",
+            "title": "Performance Gap",
+            "description": "Difference in average reward between best and worst"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment",
+          "episodes",
+          "max_steps",
+          "results",
+          "best_agent",
+          "worst_agent",
+          "performance_gap"
+        ],
+        "title": "TemplateAgentCompareResponse",
+        "description": "Response schema for comparing multiple template agents."
+      },
+      "TemplateAgentComparisonSummary": {
+        "properties": {
+          "agent_type": {
+            "$ref": "#/components/schemas/TemplateAgentType",
+            "description": "Type of agent"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "description": "Class name of the agent"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Rank by average reward"
+          },
+          "average_reward": {
+            "type": "number",
+            "title": "Average Reward",
+            "description": "Average total reward"
+          },
+          "std_reward": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Std Reward",
+            "description": "Standard deviation of rewards"
+          },
+          "average_coverage": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Coverage",
+            "description": "Average coverage ratio"
+          },
+          "average_episode_length": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Average Episode Length",
+            "description": "Average episode length"
+          },
+          "average_patrol_count": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Patrol Count",
+            "description": "Average patrol count"
+          },
+          "average_min_battery": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Average Min Battery",
+            "description": "Average minimum battery"
+          },
+          "total_battery_deaths": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Battery Deaths",
+            "description": "Total battery deaths"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_type",
+          "agent_name",
+          "rank",
+          "average_reward",
+          "std_reward",
+          "average_coverage",
+          "average_episode_length",
+          "average_patrol_count",
+          "average_min_battery",
+          "total_battery_deaths"
+        ],
+        "title": "TemplateAgentComparisonSummary",
+        "description": "Summary of a single agent's performance in comparison."
+      },
+      "TemplateAgentEpisodeMetrics": {
+        "properties": {
+          "episode": {
+            "type": "integer",
+            "title": "Episode",
+            "description": "Episode number"
+          },
+          "total_reward": {
+            "type": "number",
+            "title": "Total Reward",
+            "description": "Total reward for the episode"
+          },
+          "episode_length": {
+            "type": "integer",
+            "title": "Episode Length",
+            "description": "Number of steps in the episode"
+          },
+          "coverage_ratio": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Coverage Ratio",
+            "description": "Ratio of patrolled cells"
+          },
+          "patrol_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Patrol Count",
+            "description": "Number of patrol actions"
+          },
+          "move_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Move Count",
+            "description": "Number of move forward actions"
+          },
+          "turn_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Turn Count",
+            "description": "Number of turn actions"
+          },
+          "min_battery": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Min Battery",
+            "description": "Minimum battery percentage"
+          },
+          "battery_deaths": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Battery Deaths",
+            "description": "Number of battery deaths"
+          },
+          "charging_events": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Charging Events",
+            "description": "Number of charging events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "episode",
+          "total_reward",
+          "episode_length",
+          "coverage_ratio",
+          "patrol_count",
+          "move_count",
+          "turn_count",
+          "min_battery",
+          "battery_deaths",
+          "charging_events"
+        ],
+        "title": "TemplateAgentEpisodeMetrics",
+        "description": "Metrics for a single episode."
+      },
+      "TemplateAgentExecuteRequest": {
+        "properties": {
+          "agent_type": {
+            "$ref": "#/components/schemas/TemplateAgentType",
+            "description": "Type of template agent to execute"
+          },
+          "width": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 3.0,
+            "title": "Width",
+            "description": "Environment grid width",
+            "default": 10
+          },
+          "height": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 3.0,
+            "title": "Height",
+            "description": "Environment grid height",
+            "default": 10
+          },
+          "episodes": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Episodes",
+            "description": "Number of episodes to run",
+            "default": 10
+          },
+          "max_steps": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 10.0,
+            "title": "Max Steps",
+            "description": "Maximum steps per episode",
+            "default": 1000
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed",
+            "description": "Random seed for reproducibility"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_type"
+        ],
+        "title": "TemplateAgentExecuteRequest",
+        "description": "Request schema for executing a template agent.",
+        "examples": [
+          {
+            "agent_type": "horizontal_scan",
+            "episodes": 10,
+            "height": 10,
+            "max_steps": 1000,
+            "seed": 42,
+            "width": 10
+          }
+        ]
+      },
+      "TemplateAgentExecuteResponse": {
+        "properties": {
+          "agent_type": {
+            "$ref": "#/components/schemas/TemplateAgentType",
+            "description": "Type of template agent executed"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "description": "Class name of the agent"
+          },
+          "environment": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Environment",
+            "description": "Environment configuration"
+          },
+          "episodes": {
+            "type": "integer",
+            "title": "Episodes",
+            "description": "Number of episodes executed"
+          },
+          "average_reward": {
+            "type": "number",
+            "title": "Average Reward",
+            "description": "Average total reward across episodes"
+          },
+          "std_reward": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Std Reward",
+            "description": "Standard deviation of rewards"
+          },
+          "average_coverage": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Coverage",
+            "description": "Average coverage ratio"
+          },
+          "average_episode_length": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Average Episode Length",
+            "description": "Average episode length"
+          },
+          "average_patrol_count": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Patrol Count",
+            "description": "Average number of patrol actions"
+          },
+          "average_min_battery": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Average Min Battery",
+            "description": "Average minimum battery percentage"
+          },
+          "total_battery_deaths": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Battery Deaths",
+            "description": "Total number of battery deaths across all episodes"
+          },
+          "episode_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateAgentEpisodeMetrics"
+            },
+            "type": "array",
+            "title": "Episode Metrics",
+            "description": "Detailed metrics for each episode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_type",
+          "agent_name",
+          "environment",
+          "episodes",
+          "average_reward",
+          "std_reward",
+          "average_coverage",
+          "average_episode_length",
+          "average_patrol_count",
+          "average_min_battery",
+          "total_battery_deaths",
+          "episode_metrics"
+        ],
+        "title": "TemplateAgentExecuteResponse",
+        "description": "Response schema for template agent execution.",
+        "examples": [
+          {
+            "agent_name": "HorizontalScanAgent",
+            "agent_type": "horizontal_scan",
+            "average_coverage": 0.85,
+            "average_episode_length": 950.0,
+            "average_min_battery": 45.0,
+            "average_patrol_count": 80.5,
+            "average_reward": 125.5,
+            "environment": {
+              "height": 10,
+              "width": 10
+            },
+            "episode_metrics": [
+              {
+                "battery_deaths": 0,
+                "charging_events": 3,
+                "coverage_ratio": 0.82,
+                "episode": 1,
+                "episode_length": 1000,
+                "min_battery": 42.5,
+                "move_count": 750,
+                "patrol_count": 78,
+                "total_reward": 120.0,
+                "turn_count": 172
+              }
+            ],
+            "episodes": 10,
+            "std_reward": 15.2,
+            "total_battery_deaths": 0
+          }
+        ]
+      },
+      "TemplateAgentType": {
+        "type": "string",
+        "enum": [
+          "horizontal_scan",
+          "vertical_scan",
+          "spiral",
+          "random_walk"
+        ],
+        "title": "TemplateAgentType",
+        "description": "Available template agent types."
       },
       "TrainingActionResponse": {
         "properties": {
