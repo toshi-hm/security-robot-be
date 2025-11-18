@@ -127,6 +127,14 @@ def evaluate_template_agent(
         env.reset(seed=episode_seed)
         agent.reset()
 
+        # Convert 2D boolean obstacle grid to set of coordinates
+        obstacle_coords = {
+            (x, y)
+            for x in range(env.width)
+            for y in range(env.height)
+            if env.obstacles[x][y]
+        }
+
         metrics = EvaluationMetrics()
 
         for step in range(max_steps):  # noqa: B007
@@ -135,7 +143,7 @@ def evaluate_template_agent(
                 env.robot_x,
                 env.robot_y,
                 env.robot_direction,
-                env.obstacles,
+                obstacle_coords,
             )
 
             # Track action types
@@ -163,10 +171,10 @@ def evaluate_template_agent(
                 break
 
         # Calculate final coverage
-        total_cells = env.width * env.height - len(env.obstacles)
+        total_cells = env.width * env.height - len(obstacle_coords)
         patrolled_cells = sum(
             1 for x in range(env.width) for y in range(env.height)
-            if env.last_patrolled[x][y] > 0 and (x, y) not in env.obstacles
+            if env.last_patrolled[x][y] > 0 and (x, y) not in obstacle_coords
         )
         metrics.coverage_ratio = patrolled_cells / total_cells if total_cells > 0 else 0.0
         metrics.episode_length = step + 1
