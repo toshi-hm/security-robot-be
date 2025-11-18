@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
 import importlib.util
 import random
+from dataclasses import dataclass
 from typing import Any
 
 _SPEC = importlib.util.find_spec("gymnasium")

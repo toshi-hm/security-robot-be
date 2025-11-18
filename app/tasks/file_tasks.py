@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import logging
+import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import uuid4
-import zipfile
 
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import select
@@ -22,7 +22,8 @@ from app.models.environment import EnvironmentState
 from app.models.files import FileMetadata
 from app.models.training import TrainingJob
 from app.tasks.celery_app import celery_app
-from app.tasks.training_tasks import _create_redis_client, _publish_training_event
+from app.tasks.training_tasks import (_create_redis_client,
+                                      _publish_training_event)
 
 logger = logging.getLogger(__name__)
 

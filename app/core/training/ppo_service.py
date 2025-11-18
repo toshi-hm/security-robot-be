@@ -1,5 +1,5 @@
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +44,8 @@ class PPOTrainingService:
                 width=env_config.get("env_width", 8), height=env_config.get("env_height", 8)
             )
         elif env_type == "enhanced":
-            from rl.environments.enhanced_env import EnhancedSecurityEnvironment
+            from rl.environments.enhanced_env import \
+                EnhancedSecurityEnvironment
 
             env = EnhancedSecurityEnvironment(
                 width=env_config.get("env_width", 8),

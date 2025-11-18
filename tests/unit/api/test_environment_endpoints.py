@@ -6,17 +6,12 @@ from typing import Any
 import pytest
 
 from app.api.v1.endpoints import environment as environment_module
-from app.core.environment.schemas import (
-    EnvironmentDefinition,
-    EnvironmentState,
-    RobotState,
-    SuspiciousObject,
-)
-from app.schemas.environment import (
-    EnvironmentActionRequest,
-    EnvironmentSessionCreate,
-    EnvironmentSessionResetRequest,
-)
+from app.core.environment.schemas import (EnvironmentDefinition,
+                                          EnvironmentState, RobotState,
+                                          SuspiciousObject)
+from app.schemas.environment import (EnvironmentActionRequest,
+                                     EnvironmentSessionCreate,
+                                     EnvironmentSessionResetRequest)
 from fastapi import HTTPException, status
 
 

@@ -12,7 +12,8 @@ from sqlalchemy.orm import sessionmaker
 from app.models.base import Base
 from app.models.environment import EnvironmentState
 from app.models.files import FileMetadata
-from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
+from app.models.training import (TrainingAlgorithm, TrainingJob,
+                                 TrainingJobStatus)
 from app.tasks import file_tasks
 
 

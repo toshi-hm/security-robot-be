@@ -1,20 +1,12 @@
 """Unit tests for template-based patrol agents."""
 
 
-from rl.agents.template_agents import (
-    ACTION_MOVE_FORWARD,
-    ACTION_PATROL,
-    ACTION_TURN_LEFT,
-    ACTION_TURN_RIGHT,
-    DIRECTION_EAST,
-    DIRECTION_NORTH,
-    DIRECTION_SOUTH,
-    DIRECTION_WEST,
-    HorizontalScanAgent,
-    RandomWalkAgent,
-    SpiralAgent,
-    VerticalScanAgent,
-)
+from rl.agents.template_agents import (ACTION_MOVE_FORWARD, ACTION_PATROL,
+                                       ACTION_TURN_LEFT, ACTION_TURN_RIGHT,
+                                       DIRECTION_EAST, DIRECTION_NORTH,
+                                       DIRECTION_SOUTH, DIRECTION_WEST,
+                                       HorizontalScanAgent, RandomWalkAgent,
+                                       SpiralAgent, VerticalScanAgent)
 
 
 class TestHorizontalScanAgent:

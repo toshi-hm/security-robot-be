@@ -6,11 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.schemas.environment import EnvironmentStateResponse
-from app.schemas.playback import (
-  PlaybackFramesListResponse,
-  PlaybackSessionListResponse,
-  PlaybackSessionSummary,
-)
+from app.schemas.playback import (PlaybackFramesListResponse,
+                                  PlaybackSessionListResponse,
+                                  PlaybackSessionSummary)
 from app.services import PlaybackService
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 

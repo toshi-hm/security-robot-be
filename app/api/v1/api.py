@@ -1,13 +1,5 @@
-from app.api.v1.endpoints import (
-  environment,
-  files,
-  health,
-  jobs,
-  playback,
-  template_agents,
-  training,
-  websocket,
-)
+from app.api.v1.endpoints import (environment, files, health, jobs, playback,
+                                  template_agents, training, websocket)
 from fastapi import APIRouter
 
 api_router = APIRouter()

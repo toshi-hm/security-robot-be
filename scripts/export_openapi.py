@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from importlib.machinery import ModuleSpec
 import json
-from pathlib import Path
 import sys
+from importlib.machinery import ModuleSpec
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 from fastapi import FastAPI

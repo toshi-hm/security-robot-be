@@ -7,7 +7,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
+from app.models.training import (TrainingAlgorithm, TrainingJob,
+                                 TrainingJobStatus)
 from app.schemas.training import TrainingSessionCreate
 from app.utils.datetime import utcnow
 

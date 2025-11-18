@@ -8,8 +8,8 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy.orm import Session
 import torch
+from sqlalchemy.orm import Session
 
 from app.core.training.playback_recorder import wrap_environment_for_playback
 from rl.algorithms.a3c.trainer import A3CTrainer

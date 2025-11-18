@@ -1,16 +1,12 @@
 """テンプレートエージェント実行・比較APIエンドポイント"""
 
-from app.schemas.template_agents import (
-    TemplateAgentCompareRequest,
-    TemplateAgentCompareResponse,
-    TemplateAgentExecuteRequest,
-    TemplateAgentExecuteResponse,
-    TemplateAgentType,
-)
-from app.services.template_agent_service import (
-    compare_template_agents,
-    execute_template_agent,
-)
+from app.schemas.template_agents import (TemplateAgentCompareRequest,
+                                         TemplateAgentCompareResponse,
+                                         TemplateAgentExecuteRequest,
+                                         TemplateAgentExecuteResponse,
+                                         TemplateAgentType)
+from app.services.template_agent_service import (compare_template_agents,
+                                                 execute_template_agent)
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/template-agents", tags=["template-agents"])

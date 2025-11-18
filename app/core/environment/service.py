@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import logging
 from numbers import Integral
 from typing import Any
 from uuid import uuid4
 
 from app.core.config import settings
-from app.core.environment.schemas import (
-  EnvironmentDefinition,
-  EnvironmentState,
-  RobotState,
-  SuspiciousObject,
-)
+from app.core.environment.schemas import (EnvironmentDefinition,
+                                          EnvironmentState, RobotState,
+                                          SuspiciousObject)
 from rl.environments import EnvironmentSpec, available_environments
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from rl.environments import EnvironmentSpec, available_environments, get_environment_spec
+from rl.environments import (EnvironmentSpec, available_environments,
+                             get_environment_spec)
 
 
 def test_environment_spec_create_merges_overrides() -> None:
