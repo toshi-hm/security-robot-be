@@ -226,7 +226,7 @@ def archive_playback_session(session_id: int) -> dict[str, Any]:
       max_expanded_bytes = max_archive_size * max_expansion_ratio
       if uncompressed_size > max_expanded_bytes:
         logger.error(
-          "Playback archive payload for session %s exceeds expansion limit " "(%d > %d bytes)",
+          "Playback archive payload for session %s exceeds expansion limit (%d > %d bytes)",
           session_id,
           uncompressed_size,
           max_expanded_bytes,

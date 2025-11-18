@@ -231,8 +231,7 @@ def _validate_algorithm(job: TrainingJob, expected: TrainingAlgorithm) -> None:
     raise ValueError(f"Unsupported training algorithm: {job.algorithm}") from exc
   if algorithm != expected:
     raise ValueError(
-      f"Training session {job.id} is configured for {algorithm.value}, "
-      f"expected {expected.value}"
+      f"Training session {job.id} is configured for {algorithm.value}, expected {expected.value}"
     )
 
 

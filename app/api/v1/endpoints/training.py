@@ -1,5 +1,6 @@
 from typing import Any
 
+from fastapi.params import Query as QueryInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +17,6 @@ from app.schemas.training import (
 )
 from app.services import TrainingService, training_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.params import Query as QueryInfo
 
 router = APIRouter()
 

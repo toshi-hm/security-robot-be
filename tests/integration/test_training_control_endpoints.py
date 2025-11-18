@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -18,7 +19,6 @@ import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 
 class _DispatcherStub:
@@ -64,9 +64,9 @@ def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
   """Assert that a timestamp is within ``window_seconds`` of now."""
 
   delta = abs((datetime.now(UTC) - timestamp).total_seconds())
-  assert (
-    delta < window_seconds
-  ), f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
+  assert delta < window_seconds, (
+    f"Expected {timestamp!r} to be within {window_seconds}s of now (delta={delta:.4f})"
+  )
 
 
 @pytest.fixture()

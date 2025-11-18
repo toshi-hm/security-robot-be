@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 
+from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -19,7 +20,6 @@ from app.models.environment import EnvironmentState
 from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
 from app.utils.datetime import utcnow
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
