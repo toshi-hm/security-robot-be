@@ -19,33 +19,33 @@ depends_on: tuple[str, ...] | None = None
 
 
 def upgrade() -> None:
-    """Add battery system columns to environmentstate table."""
-    op.add_column(
-        "environmentstate",
-        sa.Column("battery_percentage", sa.Float(), nullable=True),
-    )
-    op.add_column(
-        "environmentstate",
-        sa.Column("is_charging", sa.Boolean(), nullable=False, server_default="false"),
-    )
-    op.add_column(
-        "environmentstate",
-        sa.Column("distance_to_charging_station", sa.Integer(), nullable=True),
-    )
-    op.add_column(
-        "environmentstate",
-        sa.Column("charging_station_position_x", sa.Integer(), nullable=True),
-    )
-    op.add_column(
-        "environmentstate",
-        sa.Column("charging_station_position_y", sa.Integer(), nullable=True),
-    )
+  """Add battery system columns to environmentstate table."""
+  op.add_column(
+    "environmentstate",
+    sa.Column("battery_percentage", sa.Float(), nullable=True),
+  )
+  op.add_column(
+    "environmentstate",
+    sa.Column("is_charging", sa.Boolean(), nullable=False, server_default="false"),
+  )
+  op.add_column(
+    "environmentstate",
+    sa.Column("distance_to_charging_station", sa.Integer(), nullable=True),
+  )
+  op.add_column(
+    "environmentstate",
+    sa.Column("charging_station_position_x", sa.Integer(), nullable=True),
+  )
+  op.add_column(
+    "environmentstate",
+    sa.Column("charging_station_position_y", sa.Integer(), nullable=True),
+  )
 
 
 def downgrade() -> None:
-    """Remove battery system columns from environmentstate table."""
-    op.drop_column("environmentstate", "charging_station_position_y")
-    op.drop_column("environmentstate", "charging_station_position_x")
-    op.drop_column("environmentstate", "distance_to_charging_station")
-    op.drop_column("environmentstate", "is_charging")
-    op.drop_column("environmentstate", "battery_percentage")
+  """Remove battery system columns from environmentstate table."""
+  op.drop_column("environmentstate", "charging_station_position_y")
+  op.drop_column("environmentstate", "charging_station_position_x")
+  op.drop_column("environmentstate", "distance_to_charging_station")
+  op.drop_column("environmentstate", "is_charging")
+  op.drop_column("environmentstate", "battery_percentage")

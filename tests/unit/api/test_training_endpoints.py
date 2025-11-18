@@ -23,452 +23,452 @@ from app.schemas.training import TrainingSessionCreate
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncSession:
-    """Create an isolated in-memory database session for each test."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+  """Create an isolated in-memory database session for each test."""
+  engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
+  async with engine.begin() as conn:
+    await conn.run_sync(Base.metadata.create_all)
 
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+  session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    async with session_factory() as session:
-        yield session
+  async with session_factory() as session:
+    yield session
 
-    await engine.dispose()
+  await engine.dispose()
 
 
 @pytest.fixture
 def job_manager_stub(monkeypatch: pytest.MonkeyPatch) -> JobManager:
-    """Provide a fresh in-memory job manager for each test."""
+  """Provide a fresh in-memory job manager for each test."""
 
-    manager = JobManager()
-    monkeypatch.setattr(training_module, "job_manager", manager)
-    return manager
+  manager = JobManager()
+  monkeypatch.setattr(training_module, "job_manager", manager)
+  return manager
 
 
 @dataclass
 class _StubTaskResult:
-    """Mimic Celery's AsyncResult interface for predictable IDs."""
+  """Mimic Celery's AsyncResult interface for predictable IDs."""
 
-    id: str
+  id: str
 
 
 class _TrainingDispatcherStub:
-    """Capture dispatch/stop calls without requiring a Celery broker."""
+  """Capture dispatch/stop calls without requiring a Celery broker."""
 
-    def __init__(self) -> None:
-        self.dispatch_calls: list[tuple[int, dict[str, object]]] = []
-        self.stop_calls: list[int] = []
-        self.revoke_calls: list[dict[str, object]] = []
+  def __init__(self) -> None:
+    self.dispatch_calls: list[tuple[int, dict[str, object]]] = []
+    self.stop_calls: list[int] = []
+    self.revoke_calls: list[dict[str, object]] = []
 
-    def dispatch(self, job: TrainingJob, config: dict[str, object]) -> _StubTaskResult:
-        self.dispatch_calls.append((job.id, config))
-        return _StubTaskResult(id=f"celery-task-{job.id}")
+  def dispatch(self, job: TrainingJob, config: dict[str, object]) -> _StubTaskResult:
+    self.dispatch_calls.append((job.id, config))
+    return _StubTaskResult(id=f"celery-task-{job.id}")
 
-    def stop(self, session_id: int) -> _StubTaskResult:
-        self.stop_calls.append(session_id)
-        return _StubTaskResult(id=f"celery-stop-{session_id}")
+  def stop(self, session_id: int) -> _StubTaskResult:
+    self.stop_calls.append(session_id)
+    return _StubTaskResult(id=f"celery-stop-{session_id}")
 
-    def revoke(
-        self,
-        task_id: str,
-        *,
-        terminate: bool = True,
-        signal: str | None = "SIGTERM",
-    ) -> None:
-        self.revoke_calls.append(
-            {
-                "task_id": task_id,
-                "terminate": terminate,
-                "signal": signal,
-            }
-        )
+  def revoke(
+    self,
+    task_id: str,
+    *,
+    terminate: bool = True,
+    signal: str | None = "SIGTERM",
+  ) -> None:
+    self.revoke_calls.append(
+      {
+        "task_id": task_id,
+        "terminate": terminate,
+        "signal": signal,
+      }
+    )
 
 
 @pytest.fixture
 def dispatcher_stub(monkeypatch: pytest.MonkeyPatch) -> _TrainingDispatcherStub:
-    """Replace the real training dispatcher with an in-memory stub."""
+  """Replace the real training dispatcher with an in-memory stub."""
 
-    dispatcher = _TrainingDispatcherStub()
-    monkeypatch.setattr(training_module, "training_dispatcher", dispatcher)
-    return dispatcher
+  dispatcher = _TrainingDispatcherStub()
+  monkeypatch.setattr(training_module, "training_dispatcher", dispatcher)
+  return dispatcher
 
 
 def _session_payload(**overrides: object) -> TrainingSessionCreate:
-    """Build a valid training session payload with optional overrides."""
+  """Build a valid training session payload with optional overrides."""
 
-    base: dict[str, object] = {
-        "name": "Queue job",
-        "algorithm": "ppo",
-        "environment_type": "standard",
-        "total_timesteps": 1_000,
-        "env_width": 8,
-        "env_height": 8,
-        "coverage_weight": 1.5,
-        "exploration_weight": 3.0,
-        "diversity_weight": 2.0,
-        "learning_rate": 0.0003,
-        "batch_size": 64,
-        "num_workers": 1,
-        "config": {"seed": 42},
-    }
-    base.update(overrides)
-    return TrainingSessionCreate(**base)
+  base: dict[str, object] = {
+    "name": "Queue job",
+    "algorithm": "ppo",
+    "environment_type": "standard",
+    "total_timesteps": 1_000,
+    "env_width": 8,
+    "env_height": 8,
+    "coverage_weight": 1.5,
+    "exploration_weight": 3.0,
+    "diversity_weight": 2.0,
+    "learning_rate": 0.0003,
+    "batch_size": 64,
+    "num_workers": 1,
+    "config": {"seed": 42},
+  }
+  base.update(overrides)
+  return TrainingSessionCreate(**base)
 
 
 async def _create_job(session: AsyncSession) -> TrainingJob:
-    job = TrainingJob(
-        name="Test Job",
-        algorithm="ppo",
-        environment_type="standard",
-        status=TrainingJobStatus.running,
-        total_timesteps=1000,
-        current_timestep=200,
-        episodes_completed=10,
-    )
-    session.add(job)
-    await session.flush()
-    return job
+  job = TrainingJob(
+    name="Test Job",
+    algorithm="ppo",
+    environment_type="standard",
+    status=TrainingJobStatus.running,
+    total_timesteps=1000,
+    current_timestep=200,
+    episodes_completed=10,
+  )
+  session.add(job)
+  await session.flush()
+  return job
 
 
 async def _create_metrics(session: AsyncSession, job_id: int, count: int = 3) -> None:
-    now = datetime.now(UTC)
-    metrics = [
-        TrainingMetric(
-            job_id=job_id,
-            timestep=100 * idx,
-            episode=idx,
-            reward=1.5 * idx,
-            loss=0.01 * idx,
-            timestamp=now - timedelta(minutes=idx),
-        )
-        for idx in range(count)
-    ]
-    session.add_all(metrics)
-    await session.commit()
+  now = datetime.now(UTC)
+  metrics = [
+    TrainingMetric(
+      job_id=job_id,
+      timestep=100 * idx,
+      episode=idx,
+      reward=1.5 * idx,
+      loss=0.01 * idx,
+      timestamp=now - timedelta(minutes=idx),
+    )
+    for idx in range(count)
+  ]
+  session.add_all(metrics)
+  await session.commit()
 
 
 @pytest.mark.asyncio
 async def test_start_training_enqueues_job_and_returns_response(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    dispatcher_stub: _TrainingDispatcherStub,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
-    config = _session_payload(total_timesteps=500, coverage_weight=2.0)
+  config = _session_payload(total_timesteps=500, coverage_weight=2.0)
 
-    response = await training_module.start_training(config=config, db=db_session)
+  response = await training_module.start_training(config=config, db=db_session)
 
-    assert response.status == TrainingJobStatus.queued
-    queue_entries = job_manager_stub.snapshot()
-    assert len(queue_entries) == 1
-    entry = queue_entries[0]
-    assert entry["session_id"] == response.id
-    assert entry["payload"]["config"]["total_timesteps"] == config.total_timesteps
-    assert entry["task_id"] == f"celery-task-{response.id}"
+  assert response.status == TrainingJobStatus.queued
+  queue_entries = job_manager_stub.snapshot()
+  assert len(queue_entries) == 1
+  entry = queue_entries[0]
+  assert entry["session_id"] == response.id
+  assert entry["payload"]["config"]["total_timesteps"] == config.total_timesteps
+  assert entry["task_id"] == f"celery-task-{response.id}"
 
-    assert dispatcher_stub.dispatch_calls == [(response.id, entry["payload"]["config"])]
+  assert dispatcher_stub.dispatch_calls == [(response.id, entry["payload"]["config"])]
 
-    persisted = await db_session.get(TrainingJob, response.id)
-    assert persisted is not None
-    assert persisted.status is TrainingJobStatus.queued
+  persisted = await db_session.get(TrainingJob, response.id)
+  assert persisted is not None
+  assert persisted.status is TrainingJobStatus.queued
 
 
 @pytest.mark.asyncio
 async def test_start_training_bubbles_service_validation_error(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    monkeypatch: pytest.MonkeyPatch,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = _session_payload()
+  config = _session_payload()
 
-    class RejectingTrainingService:
-        def __init__(self, *_: object, **__: object) -> None:
-            pass
+  class RejectingTrainingService:
+    def __init__(self, *_: object, **__: object) -> None:
+      pass
 
-        async def create_session(self, *_: object, **__: object) -> TrainingJob:
-            raise ValueError("invalid configuration")
+    async def create_session(self, *_: object, **__: object) -> TrainingJob:
+      raise ValueError("invalid configuration")
 
-    monkeypatch.setattr(training_module, "TrainingService", RejectingTrainingService)
+  monkeypatch.setattr(training_module, "TrainingService", RejectingTrainingService)
 
-    with pytest.raises(HTTPException) as excinfo:
-        await training_module.start_training(config=config, db=db_session)
+  with pytest.raises(HTTPException) as excinfo:
+    await training_module.start_training(config=config, db=db_session)
 
-    assert excinfo.value.status_code == status.HTTP_400_BAD_REQUEST
-    assert job_manager_stub.snapshot() == []
+  assert excinfo.value.status_code == status.HTTP_400_BAD_REQUEST
+  assert job_manager_stub.snapshot() == []
 
 
 @pytest.mark.asyncio
 async def test_pause_training_requires_active_status(
-    db_session: AsyncSession,
+  db_session: AsyncSession,
 ) -> None:
-    job = await _create_job(db_session)
-    job.status = TrainingJobStatus.completed
-    await db_session.commit()
+  job = await _create_job(db_session)
+  job.status = TrainingJobStatus.completed
+  await db_session.commit()
 
-    with pytest.raises(HTTPException) as excinfo:
-        await training_module.pause_training(session_id=job.id, db=db_session)
+  with pytest.raises(HTTPException) as excinfo:
+    await training_module.pause_training(session_id=job.id, db=db_session)
 
-    assert excinfo.value.status_code == status.HTTP_400_BAD_REQUEST
+  assert excinfo.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.asyncio
 async def test_pause_training_updates_status_and_queue(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
 ) -> None:
-    job = await _create_job(db_session)
-    await db_session.commit()
-    await job_manager_stub.enqueue({"session_id": job.id})
+  job = await _create_job(db_session)
+  await db_session.commit()
+  await job_manager_stub.enqueue({"session_id": job.id})
 
-    response = await training_module.pause_training(session_id=job.id, db=db_session)
+  response = await training_module.pause_training(session_id=job.id, db=db_session)
 
-    assert response.status == TrainingJobStatus.paused
-    refreshed = await db_session.get(TrainingJob, job.id)
-    assert refreshed is not None
-    assert refreshed.status is TrainingJobStatus.paused
-    entry = job_manager_stub.snapshot()[0]
-    assert entry["status"] == "paused"
-    assert entry["session_id"] == job.id
+  assert response.status == TrainingJobStatus.paused
+  refreshed = await db_session.get(TrainingJob, job.id)
+  assert refreshed is not None
+  assert refreshed.status is TrainingJobStatus.paused
+  entry = job_manager_stub.snapshot()[0]
+  assert entry["status"] == "paused"
+  assert entry["session_id"] == job.id
 
 
 @pytest.mark.asyncio
 async def test_resume_training_requeues_existing_job(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    dispatcher_stub: _TrainingDispatcherStub,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
-    job = await _create_job(db_session)
-    job.status = TrainingJobStatus.paused
-    job.completed_at = datetime.now(UTC)
-    await db_session.commit()
+  job = await _create_job(db_session)
+  job.status = TrainingJobStatus.paused
+  job.completed_at = datetime.now(UTC)
+  await db_session.commit()
 
-    await job_manager_stub.enqueue({"session_id": job.id})
-    await job_manager_stub.stop(job.id)
+  await job_manager_stub.enqueue({"session_id": job.id})
+  await job_manager_stub.stop(job.id)
 
-    response = await training_module.resume_training(session_id=job.id, db=db_session)
+  response = await training_module.resume_training(session_id=job.id, db=db_session)
 
-    assert response.status == TrainingJobStatus.queued
-    refreshed = await db_session.get(TrainingJob, job.id)
-    assert refreshed is not None
-    assert refreshed.status is TrainingJobStatus.queued
-    assert refreshed.completed_at is None
+  assert response.status == TrainingJobStatus.queued
+  refreshed = await db_session.get(TrainingJob, job.id)
+  assert refreshed is not None
+  assert refreshed.status is TrainingJobStatus.queued
+  assert refreshed.completed_at is None
 
-    entry = job_manager_stub.snapshot()[0]
-    assert entry["status"] == "queued"
-    assert entry["payload"]["session_id"] == job.id
-    assert entry["task_id"] == f"celery-task-{job.id}"
+  entry = job_manager_stub.snapshot()[0]
+  assert entry["status"] == "queued"
+  assert entry["payload"]["session_id"] == job.id
+  assert entry["task_id"] == f"celery-task-{job.id}"
 
-    assert dispatcher_stub.dispatch_calls[-1][0] == job.id
+  assert dispatcher_stub.dispatch_calls[-1][0] == job.id
 
 
 @pytest.mark.asyncio
 async def test_resume_training_enqueues_when_missing_from_queue(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    dispatcher_stub: _TrainingDispatcherStub,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
-    job = await _create_job(db_session)
-    job.status = TrainingJobStatus.paused
-    await db_session.commit()
+  job = await _create_job(db_session)
+  job.status = TrainingJobStatus.paused
+  await db_session.commit()
 
-    response = await training_module.resume_training(session_id=job.id, db=db_session)
+  response = await training_module.resume_training(session_id=job.id, db=db_session)
 
-    assert response.status == TrainingJobStatus.queued
-    entry = job_manager_stub.snapshot()[0]
-    assert entry["session_id"] == job.id
-    assert entry["task_id"] == f"celery-task-{job.id}"
+  assert response.status == TrainingJobStatus.queued
+  entry = job_manager_stub.snapshot()[0]
+  assert entry["session_id"] == job.id
+  assert entry["task_id"] == f"celery-task-{job.id}"
 
-    assert dispatcher_stub.dispatch_calls[-1][0] == job.id
+  assert dispatcher_stub.dispatch_calls[-1][0] == job.id
 
 
 @pytest.mark.asyncio
 async def test_stop_training_marks_job_failed_and_updates_queue(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    dispatcher_stub: _TrainingDispatcherStub,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
-    job = await _create_job(db_session)
-    await db_session.commit()
-    queue_entry = await job_manager_stub.enqueue({"session_id": job.id})
+  job = await _create_job(db_session)
+  await db_session.commit()
+  queue_entry = await job_manager_stub.enqueue({"session_id": job.id})
 
-    response = await training_module.stop_training(session_id=job.id, db=db_session)
+  response = await training_module.stop_training(session_id=job.id, db=db_session)
 
-    assert response.status == TrainingJobStatus.failed
-    assert response.forced is False
-    assert response.revoked_task_id is None
-    refreshed = await db_session.get(TrainingJob, job.id)
-    assert refreshed is not None
-    assert refreshed.status is TrainingJobStatus.failed
-    assert refreshed.completed_at is not None
-    entry = job_manager_stub.snapshot()[0]
-    assert entry["status"] == "stopped"
-    assert response.celery_task_id == f"celery-stop-{job.id}"
-    assert response.queue_task_id == queue_entry["task_id"]
+  assert response.status == TrainingJobStatus.failed
+  assert response.forced is False
+  assert response.revoked_task_id is None
+  refreshed = await db_session.get(TrainingJob, job.id)
+  assert refreshed is not None
+  assert refreshed.status is TrainingJobStatus.failed
+  assert refreshed.completed_at is not None
+  entry = job_manager_stub.snapshot()[0]
+  assert entry["status"] == "stopped"
+  assert response.celery_task_id == f"celery-stop-{job.id}"
+  assert response.queue_task_id == queue_entry["task_id"]
 
-    assert dispatcher_stub.stop_calls == [job.id]
-    assert dispatcher_stub.revoke_calls == []
+  assert dispatcher_stub.stop_calls == [job.id]
+  assert dispatcher_stub.revoke_calls == []
 
 
 @pytest.mark.asyncio
 async def test_stop_training_forcefully_revokes_task(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
-    dispatcher_stub: _TrainingDispatcherStub,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
+  dispatcher_stub: _TrainingDispatcherStub,
 ) -> None:
-    job = await _create_job(db_session)
-    await db_session.commit()
-    queue_entry = await job_manager_stub.enqueue({"session_id": job.id, "task_id": "queue-task"})
+  job = await _create_job(db_session)
+  await db_session.commit()
+  queue_entry = await job_manager_stub.enqueue({"session_id": job.id, "task_id": "queue-task"})
 
-    response = await training_module.stop_training(session_id=job.id, force=True, db=db_session)
+  response = await training_module.stop_training(session_id=job.id, force=True, db=db_session)
 
-    assert response.status == TrainingJobStatus.failed
-    assert response.forced is True
-    assert response.queue_task_id == queue_entry["task_id"]
-    assert response.revoked_task_id == queue_entry["task_id"]
+  assert response.status == TrainingJobStatus.failed
+  assert response.forced is True
+  assert response.queue_task_id == queue_entry["task_id"]
+  assert response.revoked_task_id == queue_entry["task_id"]
 
-    refreshed = await db_session.get(TrainingJob, job.id)
-    assert refreshed is not None
-    assert refreshed.status is TrainingJobStatus.failed
+  refreshed = await db_session.get(TrainingJob, job.id)
+  assert refreshed is not None
+  assert refreshed.status is TrainingJobStatus.failed
 
-    entry = job_manager_stub.snapshot()[0]
-    assert entry["status"] == "revoked"
-    assert entry["forced"] is True
+  entry = job_manager_stub.snapshot()[0]
+  assert entry["status"] == "revoked"
+  assert entry["forced"] is True
 
-    assert dispatcher_stub.stop_calls[-1] == job.id
-    assert dispatcher_stub.revoke_calls[-1]["task_id"] == queue_entry["task_id"]
-    assert dispatcher_stub.revoke_calls[-1]["terminate"] is True
+  assert dispatcher_stub.stop_calls[-1] == job.id
+  assert dispatcher_stub.revoke_calls[-1]["task_id"] == queue_entry["task_id"]
+  assert dispatcher_stub.revoke_calls[-1]["terminate"] is True
 
 
 @pytest.mark.asyncio
 async def test_get_training_status_returns_serialized_job(
-    db_session: AsyncSession,
+  db_session: AsyncSession,
 ) -> None:
-    job = await _create_job(db_session)
-    await db_session.commit()
+  job = await _create_job(db_session)
+  await db_session.commit()
 
-    response = await training_module.get_training_status(session_id=job.id, db=db_session)
+  response = await training_module.get_training_status(session_id=job.id, db=db_session)
 
-    assert response.id == job.id
-    assert response.status == job.status
+  assert response.id == job.id
+  assert response.status == job.status
 
 
 @pytest.mark.asyncio
 async def test_list_training_sessions_returns_latest_first(
-    db_session: AsyncSession,
+  db_session: AsyncSession,
 ) -> None:
-    _first = await _create_job(db_session)
-    second = await _create_job(db_session)
-    third = await _create_job(db_session)
-    await db_session.commit()
+  _first = await _create_job(db_session)
+  second = await _create_job(db_session)
+  third = await _create_job(db_session)
+  await db_session.commit()
 
-    response = await training_module.list_training_sessions(
-        page=1,
-        page_size=2,
-        db=db_session,
-    )
+  response = await training_module.list_training_sessions(
+    page=1,
+    page_size=2,
+    db=db_session,
+  )
 
-    assert response.total == 3
-    assert len(response.sessions) == 2
-    assert response.sessions[0].id == third.id
-    assert response.sessions[1].id == second.id
+  assert response.total == 3
+  assert len(response.sessions) == 2
+  assert response.sessions[0].id == third.id
+  assert response.sessions[1].id == second.id
 
 
 @pytest.mark.asyncio
 async def test_delete_training_session_removes_from_db_and_queue(
-    db_session: AsyncSession,
-    job_manager_stub: JobManager,
+  db_session: AsyncSession,
+  job_manager_stub: JobManager,
 ) -> None:
-    job = await _create_job(db_session)
-    await db_session.commit()
-    await job_manager_stub.enqueue({"session_id": job.id})
+  job = await _create_job(db_session)
+  await db_session.commit()
+  await job_manager_stub.enqueue({"session_id": job.id})
 
-    response = await training_module.delete_training_session(session_id=job.id, db=db_session)
+  response = await training_module.delete_training_session(session_id=job.id, db=db_session)
 
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-    deleted = await db_session.get(TrainingJob, job.id)
-    assert deleted is None
-    assert job_manager_stub.snapshot() == []
+  assert response.status_code == status.HTTP_204_NO_CONTENT
+  deleted = await db_session.get(TrainingJob, job.id)
+  assert deleted is None
+  assert job_manager_stub.snapshot() == []
 
 
 @pytest.mark.asyncio
 async def test_get_metrics_returns_paginated_data(db_session: AsyncSession) -> None:
-    job = await _create_job(db_session)
-    await _create_metrics(db_session, job.id, count=3)
+  job = await _create_job(db_session)
+  await _create_metrics(db_session, job.id, count=3)
 
-    response = await training_module.get_metrics(
-        session_id=job.id,
-        page=1,
-        page_size=2,
-        db=db_session,
-    )
+  response = await training_module.get_metrics(
+    session_id=job.id,
+    page=1,
+    page_size=2,
+    db=db_session,
+  )
 
-    assert response.total == 3
-    assert response.page == 1
-    assert response.page_size == 2
-    # Metrics should be returned in descending timestamp order
-    assert len(response.metrics) == 2
-    timestamps = [metric.timestamp for metric in response.metrics]
-    assert timestamps == sorted(timestamps, reverse=True)
+  assert response.total == 3
+  assert response.page == 1
+  assert response.page_size == 2
+  # Metrics should be returned in descending timestamp order
+  assert len(response.metrics) == 2
+  timestamps = [metric.timestamp for metric in response.metrics]
+  assert timestamps == sorted(timestamps, reverse=True)
 
 
 @pytest.mark.asyncio
 async def test_get_metrics_raises_when_session_missing(db_session: AsyncSession) -> None:
-    with pytest.raises(HTTPException) as excinfo:
-        await training_module.get_metrics(session_id=999, db=db_session)
+  with pytest.raises(HTTPException) as excinfo:
+    await training_module.get_metrics(session_id=999, db=db_session)
 
-    assert excinfo.value.status_code == 404
-    assert "not found" in excinfo.value.detail.lower()
+  assert excinfo.value.status_code == 404
+  assert "not found" in excinfo.value.detail.lower()
 
 
 @pytest.mark.asyncio
 async def test_get_metrics_respects_page_offset(db_session: AsyncSession) -> None:
-    job = await _create_job(db_session)
-    await _create_metrics(db_session, job.id, count=5)
+  job = await _create_job(db_session)
+  await _create_metrics(db_session, job.id, count=5)
 
-    response = await training_module.get_metrics(
-        session_id=job.id,
-        page=2,
-        page_size=2,
-        db=db_session,
-    )
+  response = await training_module.get_metrics(
+    session_id=job.id,
+    page=2,
+    page_size=2,
+    db=db_session,
+  )
 
-    assert response.total == 5
-    assert response.page == 2
-    assert len(response.metrics) == 2
+  assert response.total == 5
+  assert response.page == 2
+  assert len(response.metrics) == 2
 
-    # Ensure returned metrics correspond to proper offset by checking timesteps
-    metric_timesteps = [metric.timestep for metric in response.metrics]
+  # Ensure returned metrics correspond to proper offset by checking timesteps
+  metric_timesteps = [metric.timestep for metric in response.metrics]
 
-    stmt = (
-        select(TrainingMetric)
-        .where(TrainingMetric.job_id == job.id)
-        .order_by(TrainingMetric.timestamp.desc())
-        .offset(2)
-        .limit(2)
-    )
-    result = await db_session.execute(stmt)
-    expected_timesteps = [metric.timestep for metric in result.scalars().all()]
+  stmt = (
+    select(TrainingMetric)
+    .where(TrainingMetric.job_id == job.id)
+    .order_by(TrainingMetric.timestamp.desc())
+    .offset(2)
+    .limit(2)
+  )
+  result = await db_session.execute(stmt)
+  expected_timesteps = [metric.timestep for metric in result.scalars().all()]
 
-    assert metric_timesteps == expected_timesteps
+  assert metric_timesteps == expected_timesteps
 
 
 @pytest.mark.asyncio
 async def test_training_metric_timestamp_is_timezone_aware(db_session: AsyncSession) -> None:
-    job = await _create_job(db_session)
+  job = await _create_job(db_session)
 
-    metric = TrainingMetric(
-        job_id=job.id,
-        timestep=1,
-        reward=1.0,
-    )
-    db_session.add(metric)
-    await db_session.flush()
+  metric = TrainingMetric(
+    job_id=job.id,
+    timestep=1,
+    reward=1.0,
+  )
+  db_session.add(metric)
+  await db_session.flush()
 
-    assert metric.timestamp.tzinfo is UTC
+  assert metric.timestamp.tzinfo is UTC
 
 
 @pytest.mark.asyncio
 async def test_training_job_audit_timestamps_are_timezone_aware(db_session: AsyncSession) -> None:
-    job = await _create_job(db_session)
+  job = await _create_job(db_session)
 
-    assert job.created_at.tzinfo is UTC
-    assert job.updated_at.tzinfo is UTC
+  assert job.created_at.tzinfo is UTC
+  assert job.updated_at.tzinfo is UTC
