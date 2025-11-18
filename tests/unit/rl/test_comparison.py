@@ -1,12 +1,16 @@
 """Unit tests for template agent comparison functionality."""
 
 
-from rl.agents.template_agents import (HorizontalScanAgent, SpiralAgent,
-                                       VerticalScanAgent)
+from rl.agents.template_agents import HorizontalScanAgent, SpiralAgent, VerticalScanAgent
 from rl.environments.security_env import SecurityEnvironment
-from rl.utils.comparison import (ComparisonResult, EvaluationMetrics,
-                                 compare_agents, evaluate_template_agent,
-                                 generate_comparison_report, run_benchmark)
+from rl.utils.comparison import (
+    ComparisonResult,
+    EvaluationMetrics,
+    compare_agents,
+    evaluate_template_agent,
+    generate_comparison_report,
+    run_benchmark,
+)
 
 
 class TestEvaluationMetrics:

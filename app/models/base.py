@@ -1,8 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime
-from sqlalchemy.orm import (DeclarativeBase, Mapped, declared_attr,
-                            mapped_column)
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from app.utils.datetime import utcnow
 

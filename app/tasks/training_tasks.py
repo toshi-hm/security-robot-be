@@ -7,17 +7,16 @@ import json
 import logging
 from typing import Any, Protocol
 
-import torch
 from redis import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
+import torch
 
 from app.core.config import settings
 from app.core.training.a3c_service import A3CTrainingService
 from app.core.training.ppo_service import PPOTrainingService
 from app.db.session import SessionLocal
-from app.models.training import (TrainingAlgorithm, TrainingJob,
-                                 TrainingJobStatus, TrainingMetric)
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus, TrainingMetric
 from app.tasks.celery_app import celery_app
 from app.utils.datetime import utcnow
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback

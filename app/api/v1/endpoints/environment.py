@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from app.core.environment.schemas import (EnvironmentDefinition,
-                                          EnvironmentState)
+from app.core.environment.schemas import EnvironmentDefinition, EnvironmentState
 from app.core.environment.service import environment_service
-from app.schemas.environment import (EnvironmentActionRequest,
-                                     EnvironmentSessionCreate,
-                                     EnvironmentSessionResetRequest,
-                                     EnvironmentSessionState,
-                                     EnvironmentStepResponse)
+from app.schemas.environment import (
+    EnvironmentActionRequest,
+    EnvironmentSessionCreate,
+    EnvironmentSessionResetRequest,
+    EnvironmentSessionState,
+    EnvironmentStepResponse,
+)
 from fastapi import APIRouter, Body, HTTPException, Response, status
 
 router = APIRouter()

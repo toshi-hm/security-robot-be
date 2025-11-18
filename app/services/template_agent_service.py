@@ -1,15 +1,21 @@
 """Service for executing and comparing template agents."""
 
-from app.schemas.template_agents import (TemplateAgentCompareRequest,
-                                         TemplateAgentCompareResponse,
-                                         TemplateAgentComparisonSummary,
-                                         TemplateAgentEpisodeMetrics,
-                                         TemplateAgentExecuteRequest,
-                                         TemplateAgentExecuteResponse,
-                                         TemplateAgentType)
-from rl.agents.template_agents import (BaseTemplateAgent, HorizontalScanAgent,
-                                       RandomWalkAgent, SpiralAgent,
-                                       VerticalScanAgent)
+from app.schemas.template_agents import (
+    TemplateAgentCompareRequest,
+    TemplateAgentCompareResponse,
+    TemplateAgentComparisonSummary,
+    TemplateAgentEpisodeMetrics,
+    TemplateAgentExecuteRequest,
+    TemplateAgentExecuteResponse,
+    TemplateAgentType,
+)
+from rl.agents.template_agents import (
+    BaseTemplateAgent,
+    HorizontalScanAgent,
+    RandomWalkAgent,
+    SpiralAgent,
+    VerticalScanAgent,
+)
 from rl.environments.security_env import SecurityEnvironment
 from rl.utils.comparison import evaluate_template_agent
 

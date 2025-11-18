@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.websocket.manager import websocket_manager
 from app.db.database import database_engine
 from app.models import Base
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 
 @asynccontextmanager

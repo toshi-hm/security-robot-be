@@ -5,9 +5,13 @@ These agents follow predetermined patrol patterns and serve as baselines
 for evaluating reinforcement learning approaches.
 """
 
-from rl.agents.template_agents import (BaseTemplateAgent, HorizontalScanAgent,
-                                       RandomWalkAgent, SpiralAgent,
-                                       VerticalScanAgent)
+from rl.agents.template_agents import (
+    BaseTemplateAgent,
+    HorizontalScanAgent,
+    RandomWalkAgent,
+    SpiralAgent,
+    VerticalScanAgent,
+)
 
 __all__ = [
     "BaseTemplateAgent",

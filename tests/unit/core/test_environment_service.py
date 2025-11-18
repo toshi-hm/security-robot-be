@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from datetime import timedelta
+import logging
 from typing import Any
 
 import pytest

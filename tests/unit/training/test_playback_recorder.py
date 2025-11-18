@@ -8,8 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.training.playback_recorder import (MAX_BUFFER_SIZE,
-                                                 wrap_environment_for_playback)
+from app.core.training.playback_recorder import MAX_BUFFER_SIZE, wrap_environment_for_playback
 from app.models.base import Base
 from app.models.environment import EnvironmentState
 

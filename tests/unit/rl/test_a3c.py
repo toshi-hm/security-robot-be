@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from gymnasium import spaces
 import numpy as np
 import pytest
 import torch
-from gymnasium import spaces
 
 from app.core.training.a3c_service import A3CTrainingService
 from rl.algorithms.a3c.network import A3CNetwork

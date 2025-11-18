@@ -5,8 +5,7 @@ import pytest
 from redis.exceptions import RedisError
 
 from app.models.training import TrainingJobStatus
-from rl.callbacks.redis_pubsub_callback import (RedisTrainingCallback,
-                                                TrainingCancelled)
+from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback, TrainingCancelled
 
 
 class _DummyRedis:

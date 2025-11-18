@@ -1,12 +1,11 @@
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import sys
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from fastapi import HTTPException, status
 
@@ -15,8 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from app.api.v1.endpoints import playback as playback_module
 from app.models.base import Base
 from app.models.environment import EnvironmentState
-from app.models.training import (TrainingAlgorithm, TrainingJob,
-                                 TrainingJobStatus)
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
 
 
 @pytest_asyncio.fixture

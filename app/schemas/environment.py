@@ -3,8 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.environment.schemas import \
-    EnvironmentState as CoreEnvironmentState
+from app.core.environment.schemas import EnvironmentState as CoreEnvironmentState
 
 # Environment State Snapshot Schemas
 

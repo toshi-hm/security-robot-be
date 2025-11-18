@@ -5,9 +5,11 @@ from __future__ import annotations
 import pytest
 
 from app.api.v1.endpoints import template_agents as template_agents_module
-from app.schemas.template_agents import (TemplateAgentCompareRequest,
-                                         TemplateAgentExecuteRequest,
-                                         TemplateAgentType)
+from app.schemas.template_agents import (
+    TemplateAgentCompareRequest,
+    TemplateAgentExecuteRequest,
+    TemplateAgentType,
+)
 
 
 class TestListAgentTypes:

@@ -6,20 +6,19 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-import app.main as main_module
 from app.api.deps import get_db
 from app.api.v1.endpoints import jobs as jobs_module
 from app.api.v1.endpoints import training as training_module
 from app.core.training.job_manager import JobManager
 from app.db import database as database_module
 from app.db import session as session_module
+import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 class _DispatcherStub:

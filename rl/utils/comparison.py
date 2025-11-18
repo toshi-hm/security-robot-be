@@ -302,9 +302,12 @@ def run_benchmark(
     Returns:
         Tuple of (results dictionary, formatted report string)
     """
-    from rl.agents.template_agents import (HorizontalScanAgent,
-                                           RandomWalkAgent, SpiralAgent,
-                                           VerticalScanAgent)
+    from rl.agents.template_agents import (
+        HorizontalScanAgent,
+        RandomWalkAgent,
+        SpiralAgent,
+        VerticalScanAgent,
+    )
 
     agents: dict[str, BaseTemplateAgent] = {
         "horizontal": HorizontalScanAgent(width, height),
