@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-14 PPOトレーニング依存パッケージ (tqdm, rich) 追加完了
+**最終更新:** 2025-11-18 テンプレートエージェント実行API追加完了（環境サイズ可変、複数エージェント比較機能）
 
 ### 2025-10-30 10:13:52 /diary-rotate 実行
 - 対象DIARY: DIARY04.md
@@ -364,6 +364,22 @@
     - [x] ナビゲーションロジック検証（回転、障害物回避）
     - [x] 評価メトリクス収集検証
   - [x] 強化学習エージェントとの比較基盤を整備し、学習効果の定量評価が可能に
+  - [x] テンプレートエージェント実行API (2025-11-18完了)
+    - [x] `app/schemas/template_agents.py`: APIスキーマ定義
+      - [x] `TemplateAgentType`: エージェント種別Enum
+      - [x] `TemplateAgentExecuteRequest/Response`: 単一エージェント実行
+      - [x] `TemplateAgentCompareRequest/Response`: 複数エージェント比較
+      - [x] `TemplateAgentEpisodeMetrics`: エピソード単位メトリクス
+    - [x] `app/services/template_agent_service.py`: サービス層実装
+      - [x] `execute_template_agent()`: エージェント実行・評価
+      - [x] `compare_template_agents()`: 複数エージェント比較・ランキング
+    - [x] `app/api/v1/endpoints/template_agents.py`: APIエンドポイント
+      - [x] `GET /template-agents/types`: 利用可能エージェント種別一覧
+      - [x] `POST /template-agents/execute`: 単一エージェント実行（環境サイズ、エピソード数、シード指定可能）
+      - [x] `POST /template-agents/compare`: 複数エージェント比較（パフォーマンスランキング付き）
+    - [x] `tests/unit/api/test_template_agents_endpoints.py`: ユニットテスト（20テストケース）
+    - [x] `app/api/v1/api.py`: メインルーターへの登録完了
+    - [x] 全223テストパス（新規20テスト追加）
 
 #### TODO
 - [ ] 学習実行・エンドツーエンド検証
