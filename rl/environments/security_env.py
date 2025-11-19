@@ -7,6 +7,27 @@ import random
 from rl._gym_compat import gym, spaces
 
 
+def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -> int:
+  """
+  Calculate dynamic maximum episode steps based on grid dimensions.
+
+  The formula is: max(1000, width * height * coefficient)
+
+  This ensures smaller environments (10x10) maintain the legacy 1000 step limit
+  while larger environments (20x20, 30x30) get proportionally more steps to
+  allow for multiple patrol cycles, obstacle avoidance, and charging behavior.
+
+  Args:
+      width: Environment width
+      height: Environment height
+      coefficient: Multiplier for area (default 4 = ~4 patrol cycles)
+
+  Returns:
+      Maximum episode steps
+  """
+  return max(1000, width * height * coefficient)
+
+
 class SecurityEnvironment(gym.Env):
   """Grid-based environment modelling a security patrol robot."""
 
@@ -18,6 +39,7 @@ class SecurityEnvironment(gym.Env):
     height: int = 20,
     robot_vision_range: int = 2,
     enable_logging: bool = False,
+    max_episode_steps: int | None = None,
   ) -> None:
     super().__init__()
 
@@ -26,6 +48,12 @@ class SecurityEnvironment(gym.Env):
     self.robot_vision_range = robot_vision_range
     self.enable_logging = enable_logging
     self.logger = None
+
+    # エピソードステップ上限（None の場合は動的に計算）
+    if max_episode_steps is None:
+      self.max_episode_steps = calculate_dynamic_max_steps(width, height)
+    else:
+      self.max_episode_steps = max_episode_steps
 
     # バッテリーシステム
     self.initial_battery = 100.0
@@ -102,7 +130,7 @@ class SecurityEnvironment(gym.Env):
     # バッテリー関連の報酬調整
     reward += self._calculate_battery_penalty()
 
-    terminated = self.time_step >= 1000
+    terminated = self.time_step >= self.max_episode_steps
 
     return self._get_observation(), reward, terminated, False, self._get_info()
 

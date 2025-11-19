@@ -170,7 +170,9 @@ class TestExecuteAgent:
     assert isinstance(response.environment_info.threat_grid, list)
     assert 0.0 <= response.environment_info.average_threat_level <= 1.0
     assert response.environment_info.max_threat_level >= response.environment_info.min_threat_level
-    assert response.environment_info.max_threat_level >= response.environment_info.average_threat_level
+    max_threat = response.environment_info.max_threat_level
+    avg_threat = response.environment_info.average_threat_level
+    assert max_threat >= avg_threat
     assert len(response.environment_info.threat_histogram) == 5
     assert all(isinstance(v, int) for v in response.environment_info.threat_histogram)
     assert isinstance(response.environment_info.high_threat_tiles, list)

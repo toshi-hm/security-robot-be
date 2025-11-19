@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-18 テンプレートエージェント実行API追加完了（環境サイズ可変、複数エージェント比較機能）
+**最終更新:** 2025-11-20 動的エピソードステップ上限実装完了（環境サイズに応じた自動計算、従来互換性維持）
 
 ### 2025-11-18 09:55:44 /diary-rotate 実行
 - 対象DIARY: DIARY05.md
@@ -391,6 +391,15 @@
     - [x] `tests/unit/api/test_template_agents_endpoints.py`: ユニットテスト（20テストケース）
     - [x] `app/api/v1/api.py`: メインルーターへの登録完了
     - [x] 全223テストパス（新規20テスト追加）
+  - [x] 動的エピソードステップ上限 (2025-11-20完了)
+    - [x] `rl/environments/security_env.py`: `calculate_dynamic_max_steps()` ヘルパー関数と `max_episode_steps` パラメータを追加
+    - [x] 計算式: `max(1000, width * height * 4)` - 小さい環境は従来互換、大きい環境は動的計算
+    - [x] `app/services/template_agent_service.py`: 動的上限をテンプレートエージェントAPIに適用
+    - [x] `rl/utils/comparison.py`: `compare_agents()` / `run_benchmark()` でオプショナル化
+    - [x] `app/schemas/template_agents.py`: `max_steps` をオプショナル（デフォルト None）に変更
+    - [x] `instructions/06_battery_system_requirements.md`: 動的ステップ上限の仕様を追記（BAT-001a）
+    - [x] ユニットテスト6件追加（`tests/unit/rl/test_security_env_battery.py`）
+    - [x] 全236テストパス（新規6テスト追加）
 
 #### TODO
 - [ ] 学習実行・エンドツーエンド検証

@@ -6,13 +6,13 @@ from app.schemas.template_agents import (
   TemplateAgentCompareRequest,
   TemplateAgentCompareResponse,
   TemplateAgentComparisonSummary,
+  TemplateAgentEnvironmentInfo,
   TemplateAgentEpisodeMetrics,
   TemplateAgentEpisodePlayback,
   TemplateAgentExecuteRequest,
   TemplateAgentExecuteResponse,
-  TemplateAgentFrameData,
-  TemplateAgentEnvironmentInfo,
   TemplateAgentExecutionInitResponse,
+  TemplateAgentFrameData,
   TemplateAgentType,
 )
 from app.services.template_agent_progress import (
@@ -26,7 +26,7 @@ from rl.agents.template_agents import (
   SpiralAgent,
   VerticalScanAgent,
 )
-from rl.environments.security_env import SecurityEnvironment
+from rl.environments.security_env import SecurityEnvironment, calculate_dynamic_max_steps
 from rl.utils.comparison import evaluate_template_agent
 
 
@@ -70,8 +70,18 @@ def execute_template_agent(
     else None
   )
 
-  # Create environment and agent
-  env = SecurityEnvironment(width=request.width, height=request.height)
+  # Calculate dynamic max steps if not specified
+  # max_steps が指定されている場合はそれを使用、未指定（None）の場合は動的計算
+  effective_max_steps = request.max_steps
+  if effective_max_steps is None:
+    effective_max_steps = calculate_dynamic_max_steps(request.width, request.height)
+
+  # Create environment and agent with dynamic max steps
+  env = SecurityEnvironment(
+    width=request.width,
+    height=request.height,
+    max_episode_steps=effective_max_steps,
+  )
   agent = _create_agent(request.agent_type, request.width, request.height, request.seed)
 
   # Run evaluation
@@ -79,7 +89,7 @@ def execute_template_agent(
     agent,
     env,
     episodes=request.episodes,
-    max_steps=request.max_steps,
+    max_steps=effective_max_steps,
     seed=request.seed,
     save_frames=request.save_frames,
     progress_callback=progress_callback,
@@ -201,8 +211,17 @@ def compare_template_agents(
   Returns:
       Response with comparison results sorted by performance
   """
-  # Create shared environment
-  env = SecurityEnvironment(width=request.width, height=request.height)
+  # Calculate dynamic max steps if not specified
+  effective_max_steps = request.max_steps
+  if effective_max_steps is None:
+    effective_max_steps = calculate_dynamic_max_steps(request.width, request.height)
+
+  # Create shared environment with dynamic max steps
+  env = SecurityEnvironment(
+    width=request.width,
+    height=request.height,
+    max_episode_steps=effective_max_steps,
+  )
 
   # Evaluate each agent
   results_list = []
@@ -212,7 +231,7 @@ def compare_template_agents(
       agent,
       env,
       episodes=request.episodes,
-      max_steps=request.max_steps,
+      max_steps=effective_max_steps,
       seed=request.seed,
     )
     results_list.append((agent_type, result))

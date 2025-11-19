@@ -280,3 +280,100 @@ def test_render_includes_battery_info(battery_env, capsys):
   # バッテリー残量が表示されているが、充電中表示はない
   assert "Battery:" in captured.out
   assert "[CHARGING]" not in captured.out
+
+
+# ============================================================
+# 動的エピソードステップ上限のテスト
+# ============================================================
+
+def test_dynamic_max_steps_default_small_env():
+  """小さい環境では従来互換の1000ステップがデフォルトになることを確認"""
+  from rl.environments.security_env import calculate_dynamic_max_steps
+
+  # 10x10 = 100 cells, 100 * 4 = 400 < 1000 → 1000
+  assert calculate_dynamic_max_steps(10, 10) == 1000
+
+  # 5x5 = 25 cells, 25 * 4 = 100 < 1000 → 1000
+  assert calculate_dynamic_max_steps(5, 5) == 1000
+
+  # 15x15 = 225 cells, 225 * 4 = 900 < 1000 → 1000
+  assert calculate_dynamic_max_steps(15, 15) == 1000
+
+
+def test_dynamic_max_steps_large_env():
+  """大きい環境では動的に計算されたステップ上限が使われることを確認"""
+  from rl.environments.security_env import calculate_dynamic_max_steps
+
+  # 20x20 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
+  assert calculate_dynamic_max_steps(20, 20) == 1600
+
+  # 30x30 = 900 cells, 900 * 4 = 3600 > 1000 → 3600
+  assert calculate_dynamic_max_steps(30, 30) == 3600
+
+  # 16x16 = 256 cells, 256 * 4 = 1024 > 1000 → 1024
+  assert calculate_dynamic_max_steps(16, 16) == 1024
+
+
+def test_dynamic_max_steps_custom_coefficient():
+  """カスタム係数が正しく適用されることを確認"""
+  from rl.environments.security_env import calculate_dynamic_max_steps
+
+  # coefficient=2: 20x20 = 400 * 2 = 800 < 1000 → 1000
+  assert calculate_dynamic_max_steps(20, 20, coefficient=2) == 1000
+
+  # coefficient=6: 20x20 = 400 * 6 = 2400 > 1000 → 2400
+  assert calculate_dynamic_max_steps(20, 20, coefficient=6) == 2400
+
+
+def test_environment_uses_dynamic_max_steps():
+  """環境が動的に計算されたステップ上限を使用することを確認"""
+  # 小さい環境: デフォルト1000
+  small_env = SecurityEnvironment(width=10, height=10)
+  assert small_env.max_episode_steps == 1000
+
+  # 大きい環境: 動的計算 (20x20 * 4 = 1600)
+  large_env = SecurityEnvironment(width=20, height=20)
+  assert large_env.max_episode_steps == 1600
+
+  # 明示的に指定: 500
+  custom_env = SecurityEnvironment(width=20, height=20, max_episode_steps=500)
+  assert custom_env.max_episode_steps == 500
+
+
+def test_episode_terminates_at_dynamic_max_steps():
+  """エピソードが動的上限で終了することを確認"""
+  # 小さい環境でステップ上限を100に明示設定
+  env = SecurityEnvironment(width=5, height=5, max_episode_steps=100)
+  env.reset()
+
+  # 充電ステーションから離れる（バッテリー切れを避けるため短いエピソード）
+  env.robot_x = 0
+  env.robot_y = 0
+
+  terminated = False
+  steps = 0
+  for _ in range(200):  # 100を超えるステップを試行
+    _obs, _reward, terminated, _truncated, _info = env.step(3)  # patrol
+    steps += 1
+    if terminated:
+      break
+
+  # 100ステップで終了するはず
+  assert terminated
+  assert steps == 100
+
+
+def test_dynamic_max_steps_rectangular_env():
+  """長方形環境での動的ステップ上限を確認"""
+  from rl.environments.security_env import calculate_dynamic_max_steps
+
+  # 10x40 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
+  assert calculate_dynamic_max_steps(10, 40) == 1600
+
+  # 50x8 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
+  assert calculate_dynamic_max_steps(50, 8) == 1600
+
+  # 非対称環境でも正しく計算される
+  env = SecurityEnvironment(width=30, height=10)
+  # 30 * 10 * 4 = 1200 > 1000 → 1200
+  assert env.max_episode_steps == 1200

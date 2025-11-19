@@ -10,8 +10,7 @@ from statistics import mean, stdev
 from typing import Any
 
 from rl.agents.template_agents import BaseTemplateAgent
-from rl.environments.security_env import SecurityEnvironment
-
+from rl.environments.security_env import SecurityEnvironment, calculate_dynamic_max_steps
 
 logger = logging.getLogger(__name__)
 PROGRESS_STEP_INTERVAL = 10
@@ -503,7 +502,7 @@ def compare_agents(
   width: int = 10,
   height: int = 10,
   episodes: int = 10,
-  max_steps: int = 1000,
+  max_steps: int | None = None,
   seed: int | None = None,
 ) -> dict[str, ComparisonResult]:
   """
@@ -514,13 +513,22 @@ def compare_agents(
       width: Environment width
       height: Environment height
       episodes: Number of episodes per agent
-      max_steps: Maximum steps per episode
+      max_steps: Maximum steps per episode (None = dynamic based on grid size)
       seed: Random seed for reproducibility
 
   Returns:
       Dictionary mapping agent names to their evaluation results
   """
-  env = SecurityEnvironment(width=width, height=height)
+  # Calculate dynamic max steps if not specified
+  effective_max_steps = max_steps
+  if effective_max_steps is None:
+    effective_max_steps = calculate_dynamic_max_steps(width, height)
+
+  env = SecurityEnvironment(
+    width=width,
+    height=height,
+    max_episode_steps=effective_max_steps,
+  )
   results = {}
 
   for name, agent in agents.items():
@@ -528,7 +536,7 @@ def compare_agents(
       agent,
       env,
       episodes=episodes,
-      max_steps=max_steps,
+      max_steps=effective_max_steps,
       seed=seed,
     )
 
@@ -601,7 +609,7 @@ def run_benchmark(
   width: int = 10,
   height: int = 10,
   episodes: int = 10,
-  max_steps: int = 500,
+  max_steps: int | None = None,
   seed: int | None = 42,
   include_random: bool = True,
 ) -> tuple[dict[str, ComparisonResult], str]:
@@ -612,7 +620,7 @@ def run_benchmark(
       width: Environment width
       height: Environment height
       episodes: Number of episodes per agent
-      max_steps: Maximum steps per episode
+      max_steps: Maximum steps per episode (None = dynamic based on grid size)
       seed: Random seed for reproducibility
       include_random: Whether to include RandomWalkAgent
 

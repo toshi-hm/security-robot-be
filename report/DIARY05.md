@@ -3,6 +3,8 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY04.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-11-20 セッション110](#2025-11-20-セッション110)
+- [2025-11-19 セッション109](#2025-11-19-セッション109)
 - [2025-11-18 セッション108](#2025-11-18-セッション108)
 - [2025-11-14 セッション107](#2025-11-14-セッション107)
 - [2025-11-12 セッション106](#2025-11-12-セッション106)
@@ -38,6 +40,63 @@
 
 ### 🔗 関連コミット
 -
+
+---
+
+## 2025-11-20 セッション110
+
+### 🎯 セッション目標
+- エピソードの最大ステップ数を環境サイズに応じて動的に計算する機能を実装
+  - 固定の1000ステップでは大きなマップ（30×30）で十分な巡回ができない問題を解決
+  - 計算式: `max(1000, width * height * 4)`
+
+### ✅ 実施内容
+- `rl/environments/security_env.py` に動的ステップ上限機能を追加
+  - `calculate_dynamic_max_steps()` ヘルパー関数を追加
+  - `SecurityEnvironment.__init__()` に `max_episode_steps` パラメータを追加
+  - `step()` メソッドの終了条件を `self.max_episode_steps` に変更
+- `app/services/template_agent_service.py` で動的上限を適用
+  - `execute_template_agent()` と `compare_template_agents()` で動的計算を適用
+  - リクエストで `max_steps` が未指定の場合は環境サイズから自動計算
+- `rl/utils/comparison.py` の環境生成部分を更新
+  - `compare_agents()` と `run_benchmark()` で `max_steps` をオプショナル化
+- `app/schemas/template_agents.py` でAPIスキーマを更新
+  - `max_steps` をオプショナル（デフォルト None）に変更
+  - 説明文に動的計算式を追加
+- `instructions/06_battery_system_requirements.md` に動的ステップ上限の仕様を追記
+  - 要件ID: BAT-001a として新セクションを追加
+  - バッテリー消費率は一定（0.001%/step）であることを明記
+- ユニットテストを6件追加（`tests/unit/rl/test_security_env_battery.py`）
+  - 小さい環境での1000ステップデフォルト
+  - 大きい環境での動的計算
+  - カスタム係数
+  - 環境での使用
+  - 終了条件の動作
+  - 長方形環境
+
+### 📊 成果物
+- `rl/environments/security_env.py`: 動的ステップ上限機能（約30行追加）
+- `app/services/template_agent_service.py`: 動的上限適用（約20行更新）
+- `rl/utils/comparison.py`: オプショナル化（約15行更新）
+- `app/schemas/template_agents.py`: スキーマ更新
+- `instructions/06_battery_system_requirements.md`: 仕様追記（約50行追加）
+- `tests/unit/rl/test_security_env_battery.py`: 新規テスト6件
+- 全236テストがパス
+
+### 🧠 学んだこと・課題
+1. **後方互換性の維持**: 小さい環境（10×10以下）では従来の1000ステップを維持することで、既存の実験結果やテストを破壊しない
+2. **係数4の選定理由**: 全セルを約4周できる余裕を持たせることで、障害物回避、充電経路、脅威再訪問に対応
+3. **APIスキーマのオプショナル化**: `Field(default=None)` とすることで、未指定時のサーバーサイド計算を実現
+4. **バッテリー消費率との関係**: エピソードが長くなっても消費率（0.001%/step）は変わらないため、大きなマップでは充電戦略がより重要になる
+
+### ⏭️ 次回セッションの予定
+1. `/git-commit-push` でコミット・プッシュ
+2. `/create-pr` でPull Requestを作成
+3. 大規模環境（30×30）でのベンチマーク実行と効果検証
+4. PPO/A3Cトレーニングでの動的上限の効果を確認
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
 
 ---
 
