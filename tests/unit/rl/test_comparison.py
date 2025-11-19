@@ -202,6 +202,50 @@ class TestEvaluateTemplateAgent:
     # With drain rate of 0.001 per step, after 100 steps: 100 - 0.1 = 99.9
     assert metrics.min_battery > 0.0
 
+  def test_save_frames_records_playback(self) -> None:
+    """Ensure playback frames are captured when save_frames=True."""
+    env = SecurityEnvironment(width=3, height=3)
+    agent = HorizontalScanAgent(3, 3)
+
+    result = evaluate_template_agent(
+      agent,
+      env,
+      episodes=1,
+      max_steps=5,
+      seed=1,
+      save_frames=True,
+    )
+
+    assert result.playbacks, "Expected episode playback data"
+    first_playback = result.playbacks[0]
+    assert first_playback.episode == 1
+    assert first_playback.frames, "Expected frame list to be populated"
+    assert first_playback.frames[0].coverage_map is not None
+    assert result.environment_info is not None
+    env_info = result.environment_info
+    assert len(env_info.threat_histogram) == 5
+    assert env_info.high_threat_tiles
+
+  def test_progress_callback_receives_events(self) -> None:
+    """Progress callback should receive execution lifecycle events."""
+    env = SecurityEnvironment(width=3, height=3)
+    agent = HorizontalScanAgent(3, 3)
+    events: list[dict] = []
+
+    evaluate_template_agent(
+      agent,
+      env,
+      episodes=1,
+      max_steps=5,
+      progress_callback=events.append,
+    )
+
+    event_types = {event["type"] for event in events}
+    assert "execution_started" in event_types
+    assert "episode_started" in event_types
+    assert "episode_completed" in event_types
+    assert "execution_completed" in event_types
+
 
 class TestCompareAgents:
   """Tests for compare_agents function."""

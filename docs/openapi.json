@@ -1258,6 +1258,28 @@
           }
         }
       }
+    },
+    "/api/v1/template-agents/executions": {
+      "post": {
+        "tags": [
+          "template-agents"
+        ],
+        "summary": "Create Execution",
+        "description": "サーバー生成の実行IDを取得し、WebSocket進捗購読に利用する",
+        "operationId": "create_execution_api_v1_template_agents_executions_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAgentExecutionInitResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2690,6 +2712,108 @@
         "title": "TemplateAgentComparisonSummary",
         "description": "比較における単一エージェントの性能サマリー"
       },
+      "TemplateAgentEnvironmentInfo": {
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Width",
+            "description": "環境の幅"
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Height",
+            "description": "環境の高さ"
+          },
+          "threat_grid": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Threat Grid",
+            "description": "脅威度マップ"
+          },
+          "average_threat_level": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Threat Level",
+            "description": "脅威度の平均値"
+          },
+          "max_threat_level": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Max Threat Level",
+            "description": "脅威度の最大値"
+          },
+          "min_threat_level": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Threat Level",
+            "description": "脅威度の最小値"
+          },
+          "threat_histogram": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Threat Histogram",
+            "description": "脅威度分布ヒストグラム（固定ビン: 0-0.2, ..., 0.8-1.0）"
+          },
+          "high_threat_tiles": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "High Threat Tiles",
+            "description": "危険度の高いタイル座標（x, y, threat）上位5件"
+          },
+          "obstacles": {
+            "items": {
+              "items": {
+                "type": "boolean"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Obstacles",
+            "description": "障害物マップ"
+          },
+          "charging_station": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Charging Station",
+            "description": "充電ステーション座標 (x, y)"
+          },
+          "suspicious_objects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Suspicious Objects",
+            "description": "検知された不審物情報のリスト"
+          }
+        },
+        "type": "object",
+        "required": [
+          "width",
+          "height",
+          "threat_grid",
+          "average_threat_level",
+          "max_threat_level",
+          "min_threat_level",
+          "threat_histogram",
+          "obstacles",
+          "charging_station"
+        ],
+        "title": "TemplateAgentEnvironmentInfo",
+        "description": "環境全体の静的情報"
+      },
       "TemplateAgentEpisodeMetrics": {
         "properties": {
           "episode": {
@@ -2767,6 +2891,52 @@
         "title": "TemplateAgentEpisodeMetrics",
         "description": "単一エピソードのメトリクス"
       },
+      "TemplateAgentEpisodePlayback": {
+        "properties": {
+          "episode": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Episode",
+            "description": "エピソード番号"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateAgentFrameData"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "ステップごとのフレームデータ"
+          },
+          "total_reward": {
+            "type": "number",
+            "title": "Total Reward",
+            "description": "エピソード合計報酬"
+          },
+          "final_coverage": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Final Coverage",
+            "description": "エピソード終了時のカバレッジ率"
+          },
+          "episode_length": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Episode Length",
+            "description": "ステップ数"
+          }
+        },
+        "type": "object",
+        "required": [
+          "episode",
+          "frames",
+          "total_reward",
+          "final_coverage",
+          "episode_length"
+        ],
+        "title": "TemplateAgentEpisodePlayback",
+        "description": "単一エピソードのPlaybackデータ"
+      },
       "TemplateAgentExecuteRequest": {
         "properties": {
           "agent_type": {
@@ -2816,6 +2986,25 @@
             ],
             "title": "Seed",
             "description": "再現性のための乱数シード"
+          },
+          "save_frames": {
+            "type": "boolean",
+            "title": "Save Frames",
+            "description": "各ステップのフレームデータを保存してレスポンスへ含めるかどうか",
+            "default": false
+          },
+          "execution_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id",
+            "description": "リアルタイム進捗配信用の実行ID（省略時はサーバーが自動生成）"
           }
         },
         "type": "object",
@@ -2828,8 +3017,10 @@
           {
             "agent_type": "horizontal_scan",
             "episodes": 10,
+            "execution_id": "templ-exec-1234",
             "height": 10,
             "max_steps": 1000,
+            "save_frames": true,
             "seed": 42,
             "width": 10
           }
@@ -2845,6 +3036,11 @@
             "type": "string",
             "title": "Agent Name",
             "description": "エージェントのクラス名"
+          },
+          "execution_id": {
+            "type": "string",
+            "title": "Execution Id",
+            "description": "この実行を識別するID（WebSocket進捗通知と連携）"
           },
           "environment": {
             "additionalProperties": true,
@@ -2906,12 +3102,25 @@
             "type": "array",
             "title": "Episode Metrics",
             "description": "各エピソードの詳細メトリクス"
+          },
+          "environment_info": {
+            "$ref": "#/components/schemas/TemplateAgentEnvironmentInfo",
+            "description": "実行時の環境情報（脅威度・障害物等）"
+          },
+          "episode_playbacks": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateAgentEpisodePlayback"
+            },
+            "type": "array",
+            "title": "Episode Playbacks",
+            "description": "各エピソードのPlaybackデータ (save_frames=Falseのときは空)"
           }
         },
         "type": "object",
         "required": [
           "agent_type",
           "agent_name",
+          "execution_id",
           "environment",
           "episodes",
           "average_reward",
@@ -2921,7 +3130,9 @@
           "average_patrol_count",
           "average_min_battery",
           "total_battery_deaths",
-          "episode_metrics"
+          "episode_metrics",
+          "environment_info",
+          "episode_playbacks"
         ],
         "title": "TemplateAgentExecuteResponse",
         "description": "テンプレートエージェント実行レスポンススキーマ",
@@ -2938,6 +3149,58 @@
               "height": 10,
               "width": 10
             },
+            "environment_info": {
+              "average_threat_level": 0.25,
+              "charging_station": {
+                "x": 5,
+                "y": 5
+              },
+              "height": 10,
+              "high_threat_tiles": [
+                {
+                  "threat": 0.4,
+                  "x": 1,
+                  "y": 1
+                }
+              ],
+              "max_threat_level": 0.4,
+              "min_threat_level": 0.1,
+              "obstacles": [
+                [
+                  false,
+                  false
+                ],
+                [
+                  true,
+                  false
+                ]
+              ],
+              "suspicious_objects": [
+                {
+                  "spawn_time": 12,
+                  "x": 3,
+                  "y": 4
+                }
+              ],
+              "threat_grid": [
+                [
+                  0.1,
+                  0.2
+                ],
+                [
+                  0.3,
+                  0.4
+                ]
+              ],
+              "threat_histogram": [
+                2,
+                1,
+                1,
+                0,
+                0
+              ],
+              "width": 10
+            },
             "episode_metrics": [
               {
                 "battery_deaths": 0,
@@ -2952,11 +3215,148 @@
                 "turn_count": 172
               }
             ],
+            "episode_playbacks": [
+              {
+                "episode": 1,
+                "episode_length": 1000,
+                "final_coverage": 0.82,
+                "frames": [
+                  {
+                    "action": 0,
+                    "battery_percentage": 100.0,
+                    "coverage_map": [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ],
+                    "is_charging": false,
+                    "reward": 0.5,
+                    "robot_orientation": 0,
+                    "robot_x": 0,
+                    "robot_y": 0,
+                    "timestamp": "2025-11-18T14:30:00Z",
+                    "timestep": 0
+                  }
+                ],
+                "total_reward": 120.0
+              }
+            ],
             "episodes": 10,
+            "execution_id": "templ-exec-1234",
             "std_reward": 15.2,
             "total_battery_deaths": 0
           }
         ]
+      },
+      "TemplateAgentExecutionInitResponse": {
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "title": "Execution Id",
+            "description": "サーバーが発行した実行ID"
+          },
+          "websocket_url": {
+            "type": "string",
+            "title": "Websocket Url",
+            "description": "進捗購読用WebSocketパス"
+          }
+        },
+        "type": "object",
+        "required": [
+          "execution_id",
+          "websocket_url"
+        ],
+        "title": "TemplateAgentExecutionInitResponse",
+        "description": "WebSocket進捗購読のための実行ID生成レスポンス"
+      },
+      "TemplateAgentFrameData": {
+        "properties": {
+          "timestep": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Timestep",
+            "description": "ステップ番号 (0-index)"
+          },
+          "robot_x": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Robot X",
+            "description": "ロボットのX座標"
+          },
+          "robot_y": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Robot Y",
+            "description": "ロボットのY座標"
+          },
+          "robot_orientation": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Robot Orientation",
+            "description": "ロボットの向き (0=N,1=E,2=S,3=W)"
+          },
+          "action": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Action",
+            "description": "実行したアクション"
+          },
+          "reward": {
+            "type": "number",
+            "title": "Reward",
+            "description": "そのステップで得た報酬"
+          },
+          "battery_percentage": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Battery Percentage",
+            "description": "ステップ後のバッテリー残量"
+          },
+          "is_charging": {
+            "type": "boolean",
+            "title": "Is Charging",
+            "description": "充電中かどうか"
+          },
+          "coverage_map": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Coverage Map",
+            "description": "累積カバレッジマップ"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO8601形式のタイムスタンプ"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestep",
+          "robot_x",
+          "robot_y",
+          "robot_orientation",
+          "action",
+          "reward",
+          "battery_percentage",
+          "is_charging",
+          "coverage_map",
+          "timestamp"
+        ],
+        "title": "TemplateAgentFrameData",
+        "description": "単一ステップのフレームデータ"
       },
       "TemplateAgentType": {
         "type": "string",

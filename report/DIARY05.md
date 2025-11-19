@@ -41,6 +41,40 @@
 
 ---
 
+## 2025-11-19 セッション109
+
+### 🎯 セッション目標
+- テンプレートエージェントAPIにPlaybackフレームデータと環境情報を追加し、リアルタイム進捗をWebSocket配信できる状態にする
+
+### ✅ 実施内容
+- `app/schemas/template_agents.py` に環境情報・フレームデータ・エピソードプレイバック用のPydanticモデルを追加し、`save_frames` と `execution_id` を受け取れるよう拡張
+- `rl/utils/comparison.py` をリファクタして、評価中にフレーム蓄積・環境スナップショット取得・進捗イベント発火を行えるようにし、結果へPlaybackとEnvironmentInfoを保持
+- `app/services/template_agent_service.py` で `execute_template_agent` を更新し、`save_frames` フラグや `execution_id` をAPIレスポンスに反映、Pydanticモデルへシリアライズ
+- WebSocket進捗マネージャ (`app/services/template_agent_progress.py`) を新規作成し、`/template-agents/ws/{execution_id}` エンドポイントから進捗イベントを配信
+- `TemplateAgentExecuteRequest/Response` とAPIエンドポイント、サービス層、テスト群（`tests/unit/rl/test_comparison.py` / `tests/unit/api/test_template_agents_endpoints.py` / `tests/unit/services/test_template_agent_progress.py`）を更新
+- サーバー生成の実行IDを払い出す `/template-agents/executions` を追加し、OpenAPI (`docs/openapi.json`) を再生成
+- `uv run pytest tests/unit/rl/test_comparison.py tests/unit/api/test_template_agents_endpoints.py tests/unit/services/test_template_agent_progress.py`
+
+### 📊 成果物
+- Playback & 環境情報付きテンプレートエージェント実行レスポンス
+- `save_frames` と `execution_id` を扱うAPI/サービス/WebSocket実装
+- 追加ユニットテスト 6件（RLユーティリティ2件、API2件、サービス2件）
+
+### 🧠 学んだこと・課題
+1. `anyio` プラグインはデフォルトでTrioバックエンドも実行しようとするため、同期スレッドからの`anyio.from_thread.run`利用時は`pytest.mark.asyncio`で明示的に制御する
+2. テスト用のステップ数はPydanticバリデーション境界値（`max_steps>=10`）を下回らない設定にしておく
+3. Playbackデータ量が大きいため、デフォルトでは`save_frames=False`で互換性とパフォーマンスを維持しつつ、オンデマンドで詳細データを取得できる設計が有効
+
+### ⏭️ 次回セッションの予定
+1. Playback差分圧縮やダウンサンプリングオプションの追加検討
+2. `execution_id` を自動採番したケースでもフロントがWebSocketサブスク可能なよう、非同期ジョブ実行APIとの統合を検討
+3. OpenAPI / ドキュメント更新とフロントエンド連携仕様の追記
+
+### 🔗 関連コミット
+- (コミット確定後に追記予定)
+
+---
+
 ## 2025-11-18 セッション108
 
 ### 🎯 セッション目標

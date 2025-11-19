@@ -1,13 +1,23 @@
 """Service for executing and comparing template agents."""
 
+from uuid import uuid4
+
 from app.schemas.template_agents import (
   TemplateAgentCompareRequest,
   TemplateAgentCompareResponse,
   TemplateAgentComparisonSummary,
   TemplateAgentEpisodeMetrics,
+  TemplateAgentEpisodePlayback,
   TemplateAgentExecuteRequest,
   TemplateAgentExecuteResponse,
+  TemplateAgentFrameData,
+  TemplateAgentEnvironmentInfo,
+  TemplateAgentExecutionInitResponse,
   TemplateAgentType,
+)
+from app.services.template_agent_progress import (
+  TemplateAgentProgressPublisher,
+  template_agent_progress_manager,
 )
 from rl.agents.template_agents import (
   BaseTemplateAgent,
@@ -18,6 +28,11 @@ from rl.agents.template_agents import (
 )
 from rl.environments.security_env import SecurityEnvironment
 from rl.utils.comparison import evaluate_template_agent
+
+
+def generate_execution_id() -> str:
+  """Create a new execution identifier for template agent runs."""
+  return f"template-agent-{uuid4()}"
 
 
 def _create_agent(
@@ -48,6 +63,13 @@ def execute_template_agent(
   Returns:
       Response with execution results and metrics
   """
+  execution_id = request.execution_id or generate_execution_id()
+  progress_callback = (
+    TemplateAgentProgressPublisher(execution_id, template_agent_progress_manager)
+    if request.execution_id
+    else None
+  )
+
   # Create environment and agent
   env = SecurityEnvironment(width=request.width, height=request.height)
   agent = _create_agent(request.agent_type, request.width, request.height, request.seed)
@@ -59,6 +81,8 @@ def execute_template_agent(
     episodes=request.episodes,
     max_steps=request.max_steps,
     seed=request.seed,
+    save_frames=request.save_frames,
+    progress_callback=progress_callback,
   )
 
   # Convert metrics to response format
@@ -79,9 +103,68 @@ def execute_template_agent(
       )
     )
 
+  env_info_source = result.environment_info
+  if env_info_source is None:
+    env_info_source = TemplateAgentEnvironmentInfo(
+      width=request.width,
+      height=request.height,
+      threat_grid=[],
+      average_threat_level=0.0,
+      max_threat_level=0.0,
+      min_threat_level=0.0,
+      threat_histogram=[0, 0, 0, 0, 0],
+      high_threat_tiles=[],
+      obstacles=[],
+      charging_station={"x": 0, "y": 0},
+      suspicious_objects=[],
+    )
+  else:
+    env_info_source = TemplateAgentEnvironmentInfo(
+      width=env_info_source.width,
+      height=env_info_source.height,
+      threat_grid=env_info_source.threat_grid,
+      average_threat_level=env_info_source.average_threat_level,
+      max_threat_level=env_info_source.max_threat_level,
+      min_threat_level=env_info_source.min_threat_level,
+      threat_histogram=env_info_source.threat_histogram,
+      high_threat_tiles=env_info_source.high_threat_tiles,
+      obstacles=env_info_source.obstacles,
+      charging_station=env_info_source.charging_station,
+      suspicious_objects=env_info_source.suspicious_objects,
+    )
+
+  episode_playbacks: list[TemplateAgentEpisodePlayback] = []
+  if request.save_frames:
+    for playback in result.playbacks:
+      frames = [
+        TemplateAgentFrameData(
+          timestep=frame.timestep,
+          robot_x=frame.robot_x,
+          robot_y=frame.robot_y,
+          robot_orientation=frame.robot_orientation,
+          action=frame.action,
+          reward=frame.reward,
+          battery_percentage=frame.battery_percentage,
+          is_charging=frame.is_charging,
+          coverage_map=frame.coverage_map,
+          timestamp=frame.timestamp,
+        )
+        for frame in playback.frames
+      ]
+      episode_playbacks.append(
+        TemplateAgentEpisodePlayback(
+          episode=playback.episode,
+          frames=frames,
+          total_reward=playback.total_reward,
+          final_coverage=playback.final_coverage,
+          episode_length=playback.episode_length,
+        )
+      )
+
   return TemplateAgentExecuteResponse(
     agent_type=request.agent_type,
     agent_name=result.agent_name,
+    execution_id=execution_id,
     environment={"width": request.width, "height": request.height},
     episodes=result.episodes,
     average_reward=result.avg_reward,
@@ -92,6 +175,17 @@ def execute_template_agent(
     average_min_battery=result.avg_min_battery,
     total_battery_deaths=result.total_battery_deaths,
     episode_metrics=episode_metrics,
+    environment_info=env_info_source,
+    episode_playbacks=episode_playbacks,
+  )
+
+
+def initialize_execution() -> TemplateAgentExecutionInitResponse:
+  """Generate a server-side execution ID for WebSocket subscriptions."""
+  execution_id = generate_execution_id()
+  return TemplateAgentExecutionInitResponse(
+    execution_id=execution_id,
+    websocket_url=f"/api/v1/template-agents/ws/{execution_id}",
   )
 
 

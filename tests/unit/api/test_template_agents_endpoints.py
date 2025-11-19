@@ -54,6 +54,19 @@ class TestListAgentTypes:
     assert "時計回り" in spiral["description"]
 
 
+
+class TestCreateExecution:
+  """Tests for POST /template-agents/executions endpoint."""
+
+  def test_server_generated_execution_id(self) -> None:
+    """Ensure the server returns an execution_id and WS URL."""
+    response = template_agents_module.create_execution()
+
+    assert response.execution_id.startswith("template-agent-")
+    assert response.websocket_url.endswith(response.execution_id)
+    assert "/template-agents/ws/" in response.websocket_url
+
+
 class TestExecuteAgent:
   """Tests for POST /template-agents/execute endpoint."""
 
@@ -72,6 +85,8 @@ class TestExecuteAgent:
 
     assert response.agent_type == TemplateAgentType.HORIZONTAL_SCAN
     assert response.agent_name == "HorizontalScanAgent"
+    assert isinstance(response.execution_id, str)
+    assert response.execution_id
     assert response.environment == {"width": 5, "height": 5}
     assert response.episodes == 2
     assert len(response.episode_metrics) == 2
@@ -150,6 +165,16 @@ class TestExecuteAgent:
     assert 0.0 <= response.average_min_battery <= 100.0
     assert isinstance(response.total_battery_deaths, int)
     assert response.total_battery_deaths >= 0
+    assert response.environment_info.width == 5
+    assert response.environment_info.height == 5
+    assert isinstance(response.environment_info.threat_grid, list)
+    assert 0.0 <= response.environment_info.average_threat_level <= 1.0
+    assert response.environment_info.max_threat_level >= response.environment_info.min_threat_level
+    assert response.environment_info.max_threat_level >= response.environment_info.average_threat_level
+    assert len(response.environment_info.threat_histogram) == 5
+    assert all(isinstance(v, int) for v in response.environment_info.threat_histogram)
+    assert isinstance(response.environment_info.high_threat_tiles, list)
+    assert response.episode_playbacks == []
 
   def test_episode_metrics_structure(self) -> None:
     """Test that episode metrics have correct structure."""
@@ -241,6 +266,39 @@ class TestExecuteAgent:
       response1.average_reward != response2.average_reward
       or response1.average_coverage != response2.average_coverage
     )
+
+  def test_save_frames_returns_playbacks(self) -> None:
+    """Playback frames should be returned when save_frames=True."""
+    request = TemplateAgentExecuteRequest(
+      agent_type=TemplateAgentType.HORIZONTAL_SCAN,
+      width=4,
+      height=4,
+      episodes=1,
+      max_steps=10,
+      save_frames=True,
+    )
+
+    response = template_agents_module.execute_agent(request)
+
+    assert response.episode_playbacks, "Expected playback frames to be present"
+    playback = response.episode_playbacks[0]
+    assert playback.frames
+    assert playback.frames[0].coverage_map is not None
+
+  def test_custom_execution_id_preserved(self) -> None:
+    """Provided execution_id should be echoed back for progress tracking."""
+    request = TemplateAgentExecuteRequest(
+      agent_type=TemplateAgentType.VERTICAL_SCAN,
+      width=4,
+      height=4,
+      episodes=1,
+      max_steps=10,
+      execution_id="custom-exec-001",
+    )
+
+    response = template_agents_module.execute_agent(request)
+
+    assert response.execution_id == "custom-exec-001"
 
 
 class TestCompareAgents:

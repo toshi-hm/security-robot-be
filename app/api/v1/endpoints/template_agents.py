@@ -5,10 +5,16 @@ from app.schemas.template_agents import (
   TemplateAgentCompareResponse,
   TemplateAgentExecuteRequest,
   TemplateAgentExecuteResponse,
+  TemplateAgentExecutionInitResponse,
   TemplateAgentType,
 )
-from app.services.template_agent_service import compare_template_agents, execute_template_agent
-from fastapi import APIRouter
+from app.services.template_agent_progress import template_agent_progress_manager
+from app.services.template_agent_service import (
+  compare_template_agents,
+  execute_template_agent,
+  initialize_execution,
+)
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(prefix="/template-agents", tags=["template-agents"])
 
@@ -69,3 +75,33 @@ def compare_agents(request: TemplateAgentCompareRequest) -> TemplateAgentCompare
   結果は平均報酬の降順でソートされ、最高性能のエージェントが1位になります。
   """
   return compare_template_agents(request)
+
+
+@router.post("/executions", response_model=TemplateAgentExecutionInitResponse, status_code=201)
+def create_execution() -> TemplateAgentExecutionInitResponse:
+  """
+  サーバー生成の実行IDを取得し、WebSocket進捗購読に利用する
+  """
+  return initialize_execution()
+
+
+@router.websocket("/ws/{execution_id}")
+async def template_agent_progress(websocket: WebSocket, execution_id: str) -> None:
+  """
+  テンプレートエージェント実行進捗をWebSocketで配信する
+  """
+  await template_agent_progress_manager.connect(execution_id, websocket)
+  try:
+    await websocket.send_json(
+      {
+        "type": "connection_ack",
+        "execution_id": execution_id,
+      }
+    )
+    while True:
+      # Keep the connection alive; clients do not need to send messages
+      await websocket.receive_text()
+  except WebSocketDisconnect:
+    pass
+  finally:
+    await template_agent_progress_manager.disconnect(execution_id, websocket)

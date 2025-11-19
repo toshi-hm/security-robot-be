@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import logging
 from statistics import mean, stdev
 from typing import Any
 
 from rl.agents.template_agents import BaseTemplateAgent
 from rl.environments.security_env import SecurityEnvironment
+
+
+logger = logging.getLogger(__name__)
+PROGRESS_STEP_INTERVAL = 10
 
 
 @dataclass
@@ -26,12 +33,99 @@ class EvaluationMetrics:
 
 
 @dataclass
+class FrameData:
+  """Snapshot of a single timestep during playback."""
+
+  timestep: int
+  robot_x: int
+  robot_y: int
+  robot_orientation: int
+  action: int
+  reward: float
+  battery_percentage: float
+  is_charging: bool
+  coverage_map: list[list[int]]
+  timestamp: str
+
+  def to_dict(self) -> dict[str, Any]:
+    return {
+      "timestep": self.timestep,
+      "robot_x": self.robot_x,
+      "robot_y": self.robot_y,
+      "robot_orientation": self.robot_orientation,
+      "action": self.action,
+      "reward": self.reward,
+      "battery_percentage": self.battery_percentage,
+      "is_charging": self.is_charging,
+      "coverage_map": self.coverage_map,
+      "timestamp": self.timestamp,
+    }
+
+
+@dataclass
+class EpisodePlayback:
+  """Playback data for a single episode."""
+
+  episode: int
+  frames: list[FrameData] = field(default_factory=list)
+  total_reward: float = 0.0
+  final_coverage: float = 0.0
+  episode_length: int = 0
+
+  def to_dict(self) -> dict[str, Any]:
+    return {
+      "episode": self.episode,
+      "frames": [frame.to_dict() for frame in self.frames],
+      "total_reward": self.total_reward,
+      "final_coverage": self.final_coverage,
+      "episode_length": self.episode_length,
+    }
+
+
+@dataclass
+class EnvironmentInfo:
+  """Static information about an environment."""
+
+  width: int
+  height: int
+  threat_grid: list[list[float]]
+  average_threat_level: float
+  max_threat_level: float
+  min_threat_level: float
+  threat_histogram: list[int]
+  high_threat_tiles: list[dict[str, Any]]
+  obstacles: list[list[bool]]
+  charging_station: dict[str, int]
+  suspicious_objects: list[dict[str, Any]]
+
+  def to_dict(self) -> dict[str, Any]:
+    return {
+      "width": self.width,
+      "height": self.height,
+      "threat_grid": self.threat_grid,
+      "average_threat_level": self.average_threat_level,
+      "max_threat_level": self.max_threat_level,
+      "min_threat_level": self.min_threat_level,
+      "threat_histogram": self.threat_histogram,
+      "high_threat_tiles": self.high_threat_tiles,
+      "obstacles": self.obstacles,
+      "charging_station": self.charging_station,
+      "suspicious_objects": self.suspicious_objects,
+    }
+
+
+ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+@dataclass
 class ComparisonResult:
   """Result of comparing multiple agents."""
 
   agent_name: str
   episodes: int
   metrics: list[EvaluationMetrics] = field(default_factory=list)
+  playbacks: list[EpisodePlayback] = field(default_factory=list)
+  environment_info: EnvironmentInfo | None = None
 
   @property
   def avg_reward(self) -> float:
@@ -82,7 +176,7 @@ class ComparisonResult:
 
   def to_dict(self) -> dict[str, Any]:
     """Convert to dictionary for JSON serialization."""
-    return {
+    data = {
       "agent_name": self.agent_name,
       "episodes": self.episodes,
       "average_reward": self.avg_reward,
@@ -93,6 +187,11 @@ class ComparisonResult:
       "average_min_battery": self.avg_min_battery,
       "total_battery_deaths": self.total_battery_deaths,
     }
+    if self.environment_info is not None:
+      data["environment_info"] = self.environment_info.to_dict()
+    if self.playbacks:
+      data["episode_playbacks"] = [playback.to_dict() for playback in self.playbacks]
+    return data
 
 
 def evaluate_template_agent(
@@ -102,6 +201,9 @@ def evaluate_template_agent(
   episodes: int = 10,
   max_steps: int = 1000,
   seed: int | None = None,
+  save_frames: bool = False,
+  progress_callback: ProgressCallback | None = None,
+  progress_step_interval: int = PROGRESS_STEP_INTERVAL,
 ) -> ComparisonResult:
   """
   Evaluate a template-based agent on the security environment.
@@ -112,6 +214,9 @@ def evaluate_template_agent(
       episodes: Number of episodes to run
       max_steps: Maximum steps per episode
       seed: Random seed for environment reset
+      save_frames: Whether to retain per-step playback data
+      progress_callback: Optional callable for streaming progress updates
+      progress_step_interval: Frequency for emitting step progress events
 
   Returns:
       ComparisonResult with collected metrics
@@ -121,21 +226,44 @@ def evaluate_template_agent(
     episodes=episodes,
   )
 
+  progress_interval = max(1, progress_step_interval)
+
+  def emit(event_type: str, **payload: Any) -> None:
+    if progress_callback is None:
+      return
+    message = {"type": event_type, **payload}
+    try:
+      progress_callback(message)
+    except Exception:  # pragma: no cover - defensive guardrail
+      logger.debug("Failed to emit template agent progress event", exc_info=True)
+
+  emit(
+    "execution_started",
+    total_episodes=episodes,
+    total_steps_per_episode=max_steps,
+  )
+
+  env_info_captured = False
+
   for episode in range(episodes):
-    # Reset environment and agent
     episode_seed = (seed + episode) if seed is not None else None
     env.reset(seed=episode_seed)
     agent.reset()
 
-    # Convert 2D boolean obstacle grid to set of coordinates
+    if not env_info_captured:
+      result.environment_info = _capture_environment_info(env)
+      env_info_captured = True
+
     obstacle_coords = {
       (x, y) for x in range(env.width) for y in range(env.height) if env.obstacles[x][y]
     }
 
     metrics = EvaluationMetrics()
+    frames: list[FrameData] = [] if save_frames else []
+    emit("episode_started", episode=episode + 1)
+    cumulative_reward = 0.0
 
     for step in range(max_steps):  # noqa: B007
-      # Get action from template agent
       action = agent.get_action(
         env.robot_x,
         env.robot_y,
@@ -143,31 +271,60 @@ def evaluate_template_agent(
         obstacle_coords,
       )
 
-      # Track action types
-      if action == 0:  # Move forward
+      if action == 0:
         metrics.move_count += 1
-      elif action in [1, 2]:  # Turn
+      elif action in [1, 2]:
         metrics.turn_count += 1
-      elif action == 3:  # Patrol
+      elif action == 3:
         metrics.patrol_count += 1
 
-      # Execute action
       _obs, reward, terminated, truncated, info = env.step(action)
-      metrics.total_reward += float(reward)
+      reward_value = float(reward)
+      metrics.total_reward += reward_value
+      cumulative_reward += reward_value
 
-      # Track battery
-      battery = info.get("battery_percentage", 100.0)
+      battery = float(info.get("battery_percentage", env.battery_percentage))
       metrics.min_battery = min(metrics.min_battery, battery)
       if info.get("is_charging", False):
         metrics.charging_events += 1
 
-      # Check for episode end
+      if save_frames:
+        frames.append(
+          FrameData(
+            timestep=step,
+            robot_x=int(env.robot_x),
+            robot_y=int(env.robot_y),
+            robot_orientation=int(env.robot_direction),
+            action=int(action),
+            reward=reward_value,
+            battery_percentage=battery,
+            is_charging=bool(info.get("is_charging", False)),
+            coverage_map=_copy_grid(getattr(env, "last_patrolled", []), cast_func=int),
+            timestamp=_iso_timestamp(),
+          )
+        )
+
+      current_step = step + 1
+      if (
+        current_step % progress_interval == 0
+        or terminated
+        or truncated
+        or current_step == max_steps
+      ):
+        emit(
+          "step_update",
+          episode=episode + 1,
+          step=current_step,
+          current_reward=cumulative_reward,
+          current_coverage=_calculate_coverage_ratio(env, obstacle_coords),
+          battery_percentage=battery,
+        )
+
       if terminated or truncated:
         if battery <= 0:
           metrics.battery_deaths += 1
         break
 
-    # Calculate final coverage
     total_cells = env.width * env.height - len(obstacle_coords)
     patrolled_cells = sum(
       1
@@ -178,9 +335,166 @@ def evaluate_template_agent(
     metrics.coverage_ratio = patrolled_cells / total_cells if total_cells > 0 else 0.0
     metrics.episode_length = step + 1
 
+    if save_frames:
+      result.playbacks.append(
+        EpisodePlayback(
+          episode=episode + 1,
+          frames=frames,
+          total_reward=metrics.total_reward,
+          final_coverage=metrics.coverage_ratio,
+          episode_length=metrics.episode_length,
+        )
+      )
+
     result.metrics.append(metrics)
+    emit(
+      "episode_completed",
+      episode=episode + 1,
+      total_reward=metrics.total_reward,
+      coverage=metrics.coverage_ratio,
+      episode_length=metrics.episode_length,
+    )
+
+  emit(
+    "execution_completed",
+    episodes=result.episodes,
+    average_reward=result.avg_reward,
+    average_coverage=result.avg_coverage,
+  )
 
   return result
+
+
+def _copy_grid(
+  grid: Any,
+  *,
+  cast_func: Callable[[Any], Any] | None = None,
+) -> list[list[Any]]:
+  rows: list[list[Any]] = []
+  for column in list(grid or []):
+    converted_column: list[Any] = []
+    for value in list(column or []):
+      converted_value = value
+      if cast_func is not None:
+        try:
+          converted_value = cast_func(value)
+        except Exception:
+          converted_value = value
+      elif isinstance(value, (int, float)):
+        converted_value = value
+      converted_column.append(converted_value)
+    rows.append(converted_column)
+  return rows
+
+
+def _copy_bool_grid(grid: Any) -> list[list[bool]]:
+  rows: list[list[bool]] = []
+  for column in list(grid or []):
+    converted_column: list[bool] = []
+    for value in list(column or []):
+      converted_column.append(bool(value))
+    rows.append(converted_column)
+  return rows
+
+
+def _serialise_suspicious_objects(mapping: Any) -> list[dict[str, Any]]:
+  try:
+    items = list(mapping.items())
+  except AttributeError:
+    return []
+
+  serialised: list[dict[str, Any]] = []
+  for coords, value in sorted(items):
+    if isinstance(coords, (tuple, list)) and len(coords) >= 2:
+      x, y = coords[:2]
+    else:
+      x, y = coords, None
+    payload: dict[str, Any] = {"x": int(x), "y": int(y) if isinstance(y, (int, float)) else y}
+    if isinstance(value, dict):
+      payload.update(value)
+    elif isinstance(value, (int, float)):
+      payload["spawn_time"] = int(value)
+    else:
+      payload["value"] = value
+    serialised.append(payload)
+  return serialised
+
+
+def _capture_environment_info(env: SecurityEnvironment) -> EnvironmentInfo:
+  threat_grid = _copy_grid(getattr(env, "threat_levels", []), cast_func=float)
+  avg_threat, max_threat, min_threat = _calculate_threat_stats(threat_grid)
+  histogram = _calculate_threat_histogram(threat_grid)
+  high_threat_tiles = _extract_high_threat_tiles(threat_grid)
+  return EnvironmentInfo(
+    width=int(env.width),
+    height=int(env.height),
+    threat_grid=threat_grid,
+    average_threat_level=avg_threat,
+    max_threat_level=max_threat,
+    min_threat_level=min_threat,
+    threat_histogram=histogram,
+    high_threat_tiles=high_threat_tiles,
+    obstacles=_copy_bool_grid(getattr(env, "obstacles", [])),
+    charging_station={
+      "x": int(getattr(env, "charging_station_x", 0)),
+      "y": int(getattr(env, "charging_station_y", 0)),
+    },
+    suspicious_objects=_serialise_suspicious_objects(getattr(env, "suspicious_objects", {})),
+  )
+
+
+def _calculate_coverage_ratio(
+  env: SecurityEnvironment,
+  obstacle_coords: set[tuple[int, int]],
+) -> float:
+  walkable_cells = env.width * env.height - len(obstacle_coords)
+  if walkable_cells <= 0:
+    return 0.0
+  patrolled_cells = sum(
+    1
+    for x in range(env.width)
+    for y in range(env.height)
+    if env.last_patrolled[x][y] > 0 and (x, y) not in obstacle_coords
+  )
+  return patrolled_cells / walkable_cells
+
+
+def _iso_timestamp() -> str:
+  return datetime.now(tz=timezone.utc).isoformat()
+
+
+def _calculate_threat_stats(threat_grid: list[list[float]]) -> tuple[float, float, float]:
+  flat_values = [value for column in threat_grid for value in column]
+  if not flat_values:
+    return 0.0, 0.0, 0.0
+  avg = float(sum(flat_values) / len(flat_values))
+  return avg, max(flat_values), min(flat_values)
+
+
+def _calculate_threat_histogram(threat_grid: list[list[float]], bins: int = 5) -> list[int]:
+  counts = [0 for _ in range(bins)]
+  if not threat_grid:
+    return counts
+  for column in threat_grid:
+    for value in column:
+      index = min(int(value * bins), bins - 1)
+      counts[index] += 1
+  return counts
+
+
+def _extract_high_threat_tiles(
+  threat_grid: list[list[float]],
+  top_k: int = 5,
+) -> list[dict[str, float]]:
+  tiles: list[tuple[float, int, int]] = []
+  for x, column in enumerate(threat_grid):
+    for y, value in enumerate(column):
+      tiles.append((value, x, y))
+  tiles.sort(reverse=True, key=lambda entry: entry[0])
+  selected = []
+  for threat, x, y in tiles[:top_k]:
+    selected.append({"x": x, "y": y, "threat": float(threat)})
+  return selected
 
 
 def compare_agents(
