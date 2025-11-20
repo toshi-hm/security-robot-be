@@ -24,6 +24,47 @@ class MapGenerator(abc.ABC):
     """
     pass
 
+  def _is_connected(self, obstacles: list[list[bool]]) -> bool:
+    """Check if all passable cells are connected using flood-fill.
+
+    Args:
+        obstacles: 2D grid where True = obstacle, False = passable.
+
+    Returns:
+        True if all passable cells form a single connected component.
+    """
+    # Find first passable cell
+    start = None
+    for i in range(self.width):
+      for j in range(self.height):
+        if not obstacles[i][j]:
+          start = (i, j)
+          break
+      if start:
+        break
+
+    if not start:
+      return False  # No passable cells
+
+    # Flood-fill from start
+    visited = set()
+    stack = [start]
+    while stack:
+      x, y = stack.pop()
+      if (x, y) in visited:
+        continue
+      visited.add((x, y))
+
+      for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < self.width and 0 <= ny < self.height:
+          if not obstacles[nx][ny] and (nx, ny) not in visited:
+            stack.append((nx, ny))
+
+    # Count total passable cells
+    total_passable = sum(sum(1 for cell in row if not cell) for row in obstacles)
+    return len(visited) == total_passable
+
 
 class RandomObstacleGenerator(MapGenerator):
   """Legacy random obstacle generator."""
@@ -75,10 +116,6 @@ class MazeGenerator(MapGenerator):
     start_x = 1
     start_y = 1
 
-    # Ensure start is within bounds
-    if start_x >= self.width or start_y >= self.height:
-        return [[False for _ in range(self.height)] for _ in range(self.width)]
-
     obstacles[start_x][start_y] = False
     stack = [(start_x, start_y)]
 
@@ -108,6 +145,17 @@ class RoomGenerator(MapGenerator):
   """Generates an office-like layout with rooms and corridors."""
 
   def generate(self) -> list[list[bool]]:
+    """Generate a room-based map with guaranteed connectivity."""
+    max_retries = 10
+    for _attempt in range(max_retries):
+      obstacles = self._generate_attempt()
+      if self._is_connected(obstacles):
+        return obstacles
+
+    raise RuntimeError(f"Failed to generate connected room map after {max_retries} attempts")
+
+  def _generate_attempt(self) -> list[list[bool]]:
+    """Single attempt at generating a room-based map."""
     obstacles = [[True for _ in range(self.height)] for _ in range(self.width)]
 
     # Create rooms
@@ -153,14 +201,30 @@ class RoomGenerator(MapGenerator):
           for j in range(y, y + h):
             obstacles[i][j] = False
 
-    # Connect rooms with corridors
-    for i in range(len(rooms) - 1):
-      x1, y1, w1, h1 = rooms[i]
-      x2, y2, w2, h2 = rooms[i+1]
+    # Connect rooms using nearest-neighbor to ensure full connectivity
+    for i, (x1, y1, w1, h1) in enumerate(rooms):
+      if i == 0:
+        continue
 
-      # Center points
-      cx1, cy1 = x1 + w1 // 2, y1 + h1 // 2
-      cx2, cy2 = x2 + w2 // 2, y2 + h2 // 2
+      # Find nearest existing room
+      min_dist = float('inf')
+      nearest_idx = 0
+      cx1 = x1 + w1 // 2
+      cy1 = y1 + h1 // 2
+
+      for j in range(i):
+        x2, y2, w2, h2 = rooms[j]
+        cx2 = x2 + w2 // 2
+        cy2 = y2 + h2 // 2
+        dist = abs(cx1 - cx2) + abs(cy1 - cy2)
+        if dist < min_dist:
+          min_dist = dist
+          nearest_idx = j
+
+      # Connect to nearest room
+      x2, y2, w2, h2 = rooms[nearest_idx]
+      cx2 = x2 + w2 // 2
+      cy2 = y2 + h2 // 2
 
       # Horizontal corridor
       start_x, end_x = min(cx1, cx2), max(cx1, cx2)
@@ -191,6 +255,20 @@ class CellularAutomataGenerator(MapGenerator):
   """Generates cave-like natural terrain."""
 
   def generate(self) -> list[list[bool]]:
+    """Generate a cave-like map with guaranteed connectivity."""
+    max_retries = 10
+    for _attempt in range(max_retries):
+      obstacles = self._generate_attempt()
+      if self._is_connected(obstacles):
+        return obstacles
+
+    # Fallback: force connectivity if retries fail
+    obstacles = self._generate_attempt()
+    self._force_connectivity(obstacles)
+    return obstacles
+
+  def _generate_attempt(self) -> list[list[bool]]:
+    """Single attempt at generating a cave using cellular automata."""
     # Initial random fill
     obstacles = [[self.rng.random() < 0.45 for _ in range(self.height)] for _ in range(self.width)]
 
@@ -217,6 +295,59 @@ class CellularAutomataGenerator(MapGenerator):
       obstacles = new_obstacles
 
     return obstacles
+
+  def _force_connectivity(self, obstacles: list[list[bool]]) -> None:
+    """Force connectivity by opening paths between isolated regions."""
+    # Find all connected components
+    visited = [[False for _ in range(self.height)] for _ in range(self.width)]
+    components = []
+
+    for i in range(self.width):
+      for j in range(self.height):
+        if not obstacles[i][j] and not visited[i][j]:
+          # Found a new component, flood-fill it
+          component = []
+          stack = [(i, j)]
+          while stack:
+            x, y = stack.pop()
+            if visited[x][y]:
+              continue
+            visited[x][y] = True
+            component.append((x, y))
+
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+              nx, ny = x + dx, y + dy
+              if 0 <= nx < self.width and 0 <= ny < self.height:
+                if not obstacles[nx][ny] and not visited[nx][ny]:
+                  stack.append((nx, ny))
+
+          components.append(component)
+
+    # Connect all components to the largest one
+    if len(components) > 1:
+      largest = max(components, key=len)
+      for component in components:
+        if component == largest:
+          continue
+
+        # Find closest points between this component and the largest
+        min_dist = float('inf')
+        best_pair = None
+        for x1, y1 in component:
+          for x2, y2 in largest:
+            dist = abs(x1 - x2) + abs(y1 - y2)
+            if dist < min_dist:
+              min_dist = dist
+              best_pair = ((x1, y1), (x2, y2))
+
+        # Open a path between them
+        if best_pair:
+          (x1, y1), (x2, y2) = best_pair
+          # Horizontal then vertical
+          for x in range(min(x1, x2), max(x1, x2) + 1):
+            obstacles[x][y1] = False
+          for y in range(min(y1, y2), max(y1, y2) + 1):
+            obstacles[x2][y] = False
 
 
 MapType = Literal["random", "maze", "room", "cave"]

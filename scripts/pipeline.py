@@ -60,6 +60,8 @@ async def run_pipeline():
         }
     ]
 
+    # Note: Stages are executed sequentially to allow for potential transfer learning
+    # where later stages could load weights from earlier stages.
     for stage in stages:
         logger.info(f"Starting {stage['name']}")
         logger.info(f"Configuration: {stage['config']}")
@@ -71,10 +73,7 @@ async def run_pipeline():
                 # Resolve path relative to project root
                 safe_path = (project_root / model_path_str).resolve()
                 # Check if the resolved path is within the project root
-                if not str(safe_path).startswith(str(project_root.resolve())):
-                     raise ValueError(
-                         f"Invalid model_path: {model_path_str} points outside project root"
-                     )
+                safe_path.relative_to(project_root.resolve())
             except (ValueError, OSError) as e:
                 logger.error(f"Invalid model_path in {stage['name']}: {e}")
                 continue  # Skip this stage
