@@ -56,7 +56,6 @@ class A3CTrainer:
     self._env_factory = env_factory
     self._config = dict(config)
     self._device = torch.device(device)
-
     sample_env = env_factory()
     try:
       sample_obs, _ = sample_env.reset()

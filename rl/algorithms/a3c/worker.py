@@ -151,11 +151,14 @@ class A3CWorker:
 
     for _ in range(self._rollout_steps):
       state_tensor = _to_tensor(np.asarray(self._state), device=self._device).flatten()
+      # logger.info("Forward pass...")
       action_probs, value = self._local_network(state_tensor.unsqueeze(0))
       dist = Categorical(probs=action_probs.squeeze(0))
       action = dist.sample()
 
+      # logger.info("Env step...")
       next_state, reward, terminated, truncated, _ = self._env.step(int(action.item()))
+      # logger.info("Env step done.")
       done = bool(terminated or truncated)
 
       states.append(state_tensor)

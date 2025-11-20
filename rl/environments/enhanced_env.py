@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rl.environments.map_generator import MapType
 from .security_env import SecurityEnvironment
 
 
@@ -17,6 +18,8 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     coverage_weight: float = 1.0,
     exploration_weight: float = 2.0,
     diversity_weight: float = 1.5,
+    map_type: MapType = "random",
+    **map_config,
   ) -> None:
     self.coverage_weight = coverage_weight
     self.exploration_weight = exploration_weight
@@ -27,6 +30,8 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       height=height,
       robot_vision_range=robot_vision_range,
       enable_logging=enable_logging,
+      map_type=map_type,
+      **map_config,
     )
     self._init_tracking_structures()
 
