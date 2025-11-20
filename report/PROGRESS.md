@@ -560,6 +560,25 @@ docker compose -f docker/docker-compose.yml run --rm ruff format .
 
 ---
 
+## 🔄 日記ローテーション
+
+### 2025-11-21 /diary-rotate 実行
+- 対象DIARY: DIARY05.md
+- 目次エントリ数: 16件（閾値10件を超過）
+- 個別サマリー件数(開始時): 1件（DIARY05_SUMMARY.mdは既存）
+- **処理内容**:
+  - DIARY05_SUMMARY.md: 既存のため再生成スキップ（冪等性維持）
+  - DIARY06.md: 既存のため新規作成スキップ（冪等性維持）
+  - ARCHIVE生成: 個別サマリー件数が1件（閾値5件未満）のためスキップ
+  - **CLAUDE.md参照更新**: 3箇所更新（DIARY05→DIARY06、DIARY05_SUMMARY.md追加）
+  - **PROGRESS.md参照更新**: 3箇所更新（DIARY05→DIARY06）
+  - 他ファイル: 既にDIARY06参照済みのため更新不要
+- **統合対象サマリー**: なし（ARCHIVEスキップ）
+- **削除ファイル**: なし
+- **参照更新件数**: 6箇所（CLAUDE.md: 3, PROGRESS.md: 3）
+
+---
+
 ## 📝 次のアクションアイテム (優先度順)
 
 ### 🔥 高優先度
@@ -598,11 +617,11 @@ docker compose -f docker/docker-compose.yml run --rm ruff format .
 - [API設計] `instructions/02_backend_api_design_standalone.md`
 - [実装ガイド] `instructions/prompts/01_backend_implementation_guide.md`
 - [プロジェクト指示] `CLAUDE.md`
-- [日記] `report/DIARY05.md`
+- [日記] `report/DIARY06.md`
 
 ---
 
 **注意事項:**
 - このファイルは実装進捗に応じて随時更新してください
 - 新しい課題や問題が見つかった場合は「既知の問題・課題」に追記してください
-- セッションごとの作業内容は `report/DIARY05.md` に記録してください
+- セッションごとの作業内容は `report/DIARY06.md` に記録してください
