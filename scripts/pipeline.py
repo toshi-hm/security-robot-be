@@ -75,9 +75,9 @@ async def run_pipeline():
                      raise ValueError(
                          f"Invalid model_path: {model_path_str} points outside project root"
                      )
-            except Exception as e:
-                logger.error(f"Security violation in {stage['name']}: {e}")
-                continue # Skip this stage
+            except (ValueError, OSError) as e:
+                logger.error(f"Invalid model_path in {stage['name']}: {e}")
+                continue  # Skip this stage
 
 
         try:

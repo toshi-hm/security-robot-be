@@ -45,10 +45,17 @@ class RandomObstacleGenerator(MapGenerator):
     if count is None:
       count = self.rng.randint(3, 8)
 
-    for _ in range(count):
+    placed = 0
+    attempts = 0
+    max_attempts = count * 10  # Avoid infinite loop
+
+    while placed < count and attempts < max_attempts:
       x = self.rng.randrange(self.width)
       y = self.rng.randrange(self.height)
-      obstacles[x][y] = True
+      if not obstacles[x][y]:
+        obstacles[x][y] = True
+        placed += 1
+      attempts += 1
 
     return obstacles
 
@@ -121,6 +128,11 @@ class RoomGenerator(MapGenerator):
 
       w = self.rng.randint(3, max_w)
       h = self.rng.randint(3, max_h)
+
+      # Check if room can fit within bounds
+      if self.width - w - 1 < 1 or self.height - h - 1 < 1:
+          break
+
       x = self.rng.randint(1, self.width - w - 1)
       y = self.rng.randint(1, self.height - h - 1)
 
