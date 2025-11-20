@@ -45,6 +45,38 @@
 
 ## 2025-11-20 セッション110
 
+## 2025-11-20 セッション111
+
+### 🎯 セッション目標
+- テンプレートエージェント比較系の `max_steps` を環境サイズに合わせた動的上限へ統一し、APIレスポンスと進捗イベントで正しい値を返す
+
+### ✅ 実施内容
+- `rl/utils/comparison.evaluate_template_agent()` を更新し、`max_steps=None` の場合に環境の `max_episode_steps` もしくは `calculate_dynamic_max_steps()` を利用するフォールバックを実装
+- `app/services/template_agent_service.compare_template_agents()` を調整し、レスポンスの `max_steps` にサーバー側で計算した実効値を設定
+- APIおよび比較ユーティリティの2種類のユニットテストを追加し、動的上限がシリアライズされることと、進捗イベントが環境上限を参照することを検証
+
+### 📊 成果物
+- `app/services/template_agent_service.py`
+- `rl/utils/comparison.py`
+- `tests/unit/api/test_template_agents_endpoints.py`
+- `tests/unit/rl/test_comparison.py`
+- `uv run pytest tests/unit/api/test_template_agents_endpoints.py tests/unit/rl/test_comparison.py`（46件パス）
+
+### 🧠 学んだこと・課題
+1. 比較APIレスポンスで正しい `max_steps` を返さないと、クライアント側の統計処理やベンチマーク表示が歪むため、環境サイズと一貫した値を共有することが重要
+2. Progressコールバックに渡す総ステップ数も同じ値で揃えることで、WebSocket配信側の完了率表示が改善される
+
+### ⏭️ 次回セッションの予定
+1. 大規模マップでテンプレートベンチマークを取り直し、APIレスポンスがUIで期待通りに表示されるか検証
+2. PPO/A3Cの再学習を実施し、動的上限下での学習安定性を確認
+
+### 🔗 関連コミット
+- `e96ceba` Respect dynamic max steps when comparing template agents
+
+---
+
+## 2025-11-20 セッション110
+
 ### 🎯 セッション目標
 - エピソードの最大ステップ数を環境サイズに応じて動的に計算する機能を実装
   - 固定の1000ステップでは大きなマップ（30×30）で十分な巡回ができない問題を解決
