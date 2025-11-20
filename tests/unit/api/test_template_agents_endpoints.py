@@ -10,6 +10,7 @@ from app.schemas.template_agents import (
   TemplateAgentExecuteRequest,
   TemplateAgentType,
 )
+from rl.environments.security_env import calculate_dynamic_max_steps
 
 
 class TestListAgentTypes:
@@ -170,7 +171,9 @@ class TestExecuteAgent:
     assert isinstance(response.environment_info.threat_grid, list)
     assert 0.0 <= response.environment_info.average_threat_level <= 1.0
     assert response.environment_info.max_threat_level >= response.environment_info.min_threat_level
-    assert response.environment_info.max_threat_level >= response.environment_info.average_threat_level
+    max_threat = response.environment_info.max_threat_level
+    avg_threat = response.environment_info.average_threat_level
+    assert max_threat >= avg_threat
     assert len(response.environment_info.threat_histogram) == 5
     assert all(isinstance(v, int) for v in response.environment_info.threat_histogram)
     assert isinstance(response.environment_info.high_threat_tiles, list)
@@ -455,3 +458,17 @@ class TestCompareAgents:
     response = template_agents_module.compare_agents(request)
 
     assert response.environment == {"width": 10, "height": 8}
+
+  def test_compare_returns_effective_max_steps_when_omitted(self) -> None:
+    """Ensure response max_steps reflects dynamic calculation when omitted."""
+    width, height = 20, 20
+    request = TemplateAgentCompareRequest(
+      agent_types=[TemplateAgentType.HORIZONTAL_SCAN],
+      width=width,
+      height=height,
+      episodes=1,
+    )
+
+    response = template_agents_module.compare_agents(request)
+
+    assert response.max_steps == calculate_dynamic_max_steps(width, height)

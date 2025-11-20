@@ -39,11 +39,14 @@ class TemplateAgentExecuteRequest(BaseModel):
     le=100,
     description="実行するエピソード数",
   )
-  max_steps: int = Field(
-    default=1000,
+  max_steps: int | None = Field(
+    default=None,
     ge=10,
     le=10000,
-    description="エピソードあたりの最大ステップ数",
+    description=(
+      "エピソードあたりの最大ステップ数"
+      "（未指定時は環境サイズに応じて動的計算: max(1000, width*height*4)）"
+    ),
   )
   seed: int | None = Field(
     default=None,
@@ -334,11 +337,14 @@ class TemplateAgentCompareRequest(BaseModel):
     le=100,
     description="エージェントごとのエピソード数",
   )
-  max_steps: int = Field(
-    default=1000,
+  max_steps: int | None = Field(
+    default=None,
     ge=10,
     le=10000,
-    description="エピソードあたりの最大ステップ数",
+    description=(
+      "エピソードあたりの最大ステップ数"
+      "（未指定時は環境サイズに応じて動的計算: max(1000, width*height*4)）"
+    ),
   )
   seed: int | None = Field(
     default=None,

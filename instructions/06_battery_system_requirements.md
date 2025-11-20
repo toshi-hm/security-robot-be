@@ -72,7 +72,35 @@ battery_percentage = initial_battery - (timestep / 1000.0)
 battery_percentage = max(0.0, min(100.0, battery_percentage))
 ```
 
-#### 3.1.2 バッテリー切れ時の挙動
+> **Note**: バッテリー消費率（0.001%/step）は環境のエピソードステップ上限に関わらず一定です。大きなマップでエピソードステップ上限が増加しても、この消費率は変わりません。
+
+#### 3.1.2 エピソードステップ上限
+
+**要件ID: BAT-001a**
+
+- **動的計算**: エピソードの最大ステップ数は環境サイズに応じて動的に決定
+  - 計算式: `max(1000, width * height * 4)`
+  - 小さな環境 (10×10=100セル): 1000ステップ（従来互換）
+  - 中規模環境 (20×20=400セル): 1600ステップ
+  - 大規模環境 (30×30=900セル): 3600ステップ
+- **係数4の意味**: 全セルを約4回巡回できる余裕を持たせる
+  - 障害物回避、充電経路、脅威再訪問などを考慮
+- **上書き可能**: APIリクエストやコンストラクタで明示的に指定可能
+
+```python
+# 動的ステップ上限の計算
+def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -> int:
+    return max(1000, width * height * coefficient)
+
+# 環境の初期化例
+env = SecurityEnvironment(
+    width=30,
+    height=30,
+    max_episode_steps=None,  # 動的計算で3600ステップ
+)
+```
+
+#### 3.1.3 バッテリー切れ時の挙動
 
 **要件ID: BAT-002**
 
@@ -379,7 +407,7 @@ def step(self, action):
     # バッテリー関連の報酬調整
     reward += self._calculate_battery_penalty()
 
-    terminated = self.time_step >= 1000
+    terminated = self.time_step >= self.max_episode_steps  # 動的上限を使用
 
     return self._get_observation(), reward, terminated, False, self._get_info()
 ```

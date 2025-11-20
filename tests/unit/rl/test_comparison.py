@@ -1,5 +1,7 @@
 """Unit tests for template agent comparison functionality."""
 
+from typing import Any
+
 from rl.agents.template_agents import HorizontalScanAgent, SpiralAgent, VerticalScanAgent
 from rl.environments.security_env import SecurityEnvironment
 from rl.utils.comparison import (
@@ -201,6 +203,29 @@ class TestEvaluateTemplateAgent:
     assert metrics.min_battery <= 100.0
     # With drain rate of 0.001 per step, after 100 steps: 100 - 0.1 = 99.9
     assert metrics.min_battery > 0.0
+
+  def test_default_max_steps_uses_env_limit(self) -> None:
+    """When max_steps is None, the environment limit should be used."""
+    custom_limit = 150
+    env = SecurityEnvironment(width=4, height=4, max_episode_steps=custom_limit)
+    agent = HorizontalScanAgent(4, 4)
+    events: list[dict[str, Any]] = []
+
+    def progress_callback(message: dict[str, Any]) -> None:
+      events.append(message)
+
+    evaluate_template_agent(
+      agent,
+      env,
+      episodes=1,
+      max_steps=None,
+      seed=42,
+      progress_callback=progress_callback,
+    )
+
+    execution_events = [e for e in events if e.get("type") == "execution_started"]
+    assert execution_events, "execution_started event should be emitted"
+    assert execution_events[0]["total_steps_per_episode"] == custom_limit
 
   def test_save_frames_records_playback(self) -> None:
     """Ensure playback frames are captured when save_frames=True."""
