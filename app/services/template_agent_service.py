@@ -264,7 +264,7 @@ def compare_template_agents(
   return TemplateAgentCompareResponse(
     environment={"width": request.width, "height": request.height},
     episodes=request.episodes,
-    max_steps=request.max_steps,
+    max_steps=effective_max_steps,
     results=summaries,
     best_agent=summaries[0].agent_name if summaries else "N/A",
     worst_agent=summaries[-1].agent_name if summaries else "N/A",

@@ -198,7 +198,7 @@ def evaluate_template_agent(
   env: SecurityEnvironment,
   *,
   episodes: int = 10,
-  max_steps: int = 1000,
+  max_steps: int | None = None,
   seed: int | None = None,
   save_frames: bool = False,
   progress_callback: ProgressCallback | None = None,
@@ -211,7 +211,7 @@ def evaluate_template_agent(
       agent: Template agent to evaluate
       env: SecurityEnvironment instance
       episodes: Number of episodes to run
-      max_steps: Maximum steps per episode
+      max_steps: Maximum steps per episode (None = use environment limit)
       seed: Random seed for environment reset
       save_frames: Whether to retain per-step playback data
       progress_callback: Optional callable for streaming progress updates
@@ -227,6 +227,14 @@ def evaluate_template_agent(
 
   progress_interval = max(1, progress_step_interval)
 
+  effective_max_steps = max_steps
+  if effective_max_steps is None:
+    env_limit = getattr(env, "max_episode_steps", None)
+    if env_limit is not None:
+      effective_max_steps = int(env_limit)
+    else:
+      effective_max_steps = calculate_dynamic_max_steps(env.width, env.height)
+
   def emit(event_type: str, **payload: Any) -> None:
     if progress_callback is None:
       return
@@ -239,7 +247,7 @@ def evaluate_template_agent(
   emit(
     "execution_started",
     total_episodes=episodes,
-    total_steps_per_episode=max_steps,
+    total_steps_per_episode=effective_max_steps,
   )
 
   env_info_captured = False
@@ -262,7 +270,7 @@ def evaluate_template_agent(
     emit("episode_started", episode=episode + 1)
     cumulative_reward = 0.0
 
-    for step in range(max_steps):  # noqa: B007
+    for step in range(effective_max_steps):  # noqa: B007
       action = agent.get_action(
         env.robot_x,
         env.robot_y,
@@ -308,7 +316,7 @@ def evaluate_template_agent(
         current_step % progress_interval == 0
         or terminated
         or truncated
-        or current_step == max_steps
+        or current_step == effective_max_steps
       ):
         emit(
           "step_update",

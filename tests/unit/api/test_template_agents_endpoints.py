@@ -10,6 +10,7 @@ from app.schemas.template_agents import (
   TemplateAgentExecuteRequest,
   TemplateAgentType,
 )
+from rl.environments.security_env import calculate_dynamic_max_steps
 
 
 class TestListAgentTypes:
@@ -457,3 +458,17 @@ class TestCompareAgents:
     response = template_agents_module.compare_agents(request)
 
     assert response.environment == {"width": 10, "height": 8}
+
+  def test_compare_returns_effective_max_steps_when_omitted(self) -> None:
+    """Ensure response max_steps reflects dynamic calculation when omitted."""
+    width, height = 20, 20
+    request = TemplateAgentCompareRequest(
+      agent_types=[TemplateAgentType.HORIZONTAL_SCAN],
+      width=width,
+      height=height,
+      episodes=1,
+    )
+
+    response = template_agents_module.compare_agents(request)
+
+    assert response.max_steps == calculate_dynamic_max_steps(width, height)
