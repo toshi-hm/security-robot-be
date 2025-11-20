@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-20 動的エピソードステップ上限実装完了（環境サイズに応じた自動計算、従来互換性維持）
+**最終更新:** 2025-11-20 GPU対応実装完了（自動デバイス検出、PPO/A3C両方でGPU利用可能、環境変数で制御）
 
 ### 2025-11-18 09:55:44 /diary-rotate 実行
 - 対象DIARY: DIARY05.md
@@ -315,10 +315,19 @@
 
 ---
 
-### Phase 7: RL統合 (2025-11-09更新)
+### Phase 7: RL統合 (2025-11-20更新)
 **進捗:** 100% ✅
 
 #### 完了
+- [x] GPU対応実装 (2025-11-20完了)
+  - [x] `app/core/config.py`: デバイス設定とバリデーション (`training_device` フィールド、`get_training_device()` メソッド)
+  - [x] `app/core/training/ppo_service.py`: GPU対応 (device パラメータ追加、Stable-Baselines3へのデバイス指定)
+  - [x] `app/core/training/a3c_service.py`: 自動デバイス検出 (Noneで初期化時に自動選択)
+  - [x] 環境変数 `TRAINING_DEVICE` でデバイスを制御 (`auto`/`cpu`/`cuda`/`cuda:N`)
+  - [x] ユニットテスト実装 (`tests/unit/core/test_config.py`: 12テストケース)
+  - [x] README.md にGPU設定ガイドを追加
+  - [x] CUDA利用可能性の自動検証と詳細なエラーメッセージ
+  - [x] A3CのCUDA使用時は `num_workers=1` 制限を維持（安全性優先）
 - [x] PPOServiceクラス実装 (app/core/training/ppo_service.py)
   - [x] Stable-Baselines3統合
   - [x] 環境作成機能 (standard/enhanced対応)

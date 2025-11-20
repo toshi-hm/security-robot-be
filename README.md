@@ -74,6 +74,35 @@ uv run pytest tests/unit -q
 - デフォルトでは SQLite (`security_robot.db`) を利用します。`.env` ファイルや環境変数で `DATABASE_URL` を上書きできます。
 - Redis への接続先は `REDIS_URL` で制御します。ローカルで Redis を使用しない場合はモックに差し替えてください。
 
+### GPU対応設定
+
+強化学習のトレーニングは、GPU (CUDA) を使用することで大幅に高速化できます。環境変数 `TRAINING_DEVICE` でデバイスを制御します。
+
+| 環境変数 | 設定値 | 動作 |
+|---------|--------|------|
+| `TRAINING_DEVICE` | `auto` (デフォルト) | CUDAが利用可能な場合は自動的にGPUを使用、そうでなければCPU |
+| `TRAINING_DEVICE` | `cpu` | 常にCPUを使用 |
+| `TRAINING_DEVICE` | `cuda` | デフォルトのCUDAデバイスを使用 (GPU 0) |
+| `TRAINING_DEVICE` | `cuda:N` | 特定のCUDAデバイスNを使用 (例: `cuda:1`) |
+
+**設定例:**
+
+```bash
+# GPUを強制的に使用
+export TRAINING_DEVICE=cuda
+
+# CPUを強制的に使用（GPUが利用可能でも）
+export TRAINING_DEVICE=cpu
+
+# 特定のGPUを指定（複数GPU環境）
+export TRAINING_DEVICE=cuda:1
+```
+
+**注意事項:**
+- A3Cアルゴリズムは、CUDA使用時は `num_workers=1` に制限されます（PyTorchのマルチスレッド制約）
+- PPOアルゴリズムは制限なくGPUを使用できます
+- CUDA利用可能性は起動時に自動検証され、利用不可能な場合はエラーが発生します
+
 ## Docker を利用した実行
 
 ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンド / Celery ワーカー / PostgreSQL / Redis をまとめて起動できます。

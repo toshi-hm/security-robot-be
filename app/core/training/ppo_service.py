@@ -9,6 +9,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv
 
+from app.core.config import settings
 from app.core.training.playback_recorder import wrap_environment_for_playback
 from rl.callbacks.redis_pubsub_callback import TrainingCancelled
 
@@ -18,9 +19,15 @@ logger = logging.getLogger(__name__)
 class PPOTrainingService:
   """Service for managing PPO training with Stable-Baselines3."""
 
-  def __init__(self):
+  def __init__(self, device: str | None = None):
+    """Initialize PPO training service.
+
+    Args:
+      device: Training device ('cpu', 'cuda', 'cuda:N', or None for auto-detection)
+    """
     self.model: PPO | None = None
     self.env: gym.Env | None = None
+    self._device = device if device is not None else settings.get_training_device()
 
   def create_environment(self, env_config: dict) -> gym.Env:
     """Create and configure the training environment.
@@ -70,6 +77,7 @@ class PPOTrainingService:
     clip_range: float = 0.2,
     verbose: int = 1,
     tensorboard_log: str | None = None,
+    device: str | None = None,
   ) -> PPO:
     """Create PPO model with specified hyperparameters.
 
@@ -84,12 +92,17 @@ class PPOTrainingService:
       clip_range: Clipping parameter for PPO
       verbose: Verbosity level
       tensorboard_log: Path for TensorBoard logs
+      device: Training device (overrides instance device if provided)
 
     Returns:
       Configured PPO model
     """
     # Wrap environment in DummyVecEnv for Stable-Baselines3
     vec_env = DummyVecEnv([lambda: env])
+
+    # Use provided device or fall back to instance device
+    effective_device = device if device is not None else self._device
+    logger.info(f"Creating PPO model on device: {effective_device}")
 
     model = PPO(
       policy="MlpPolicy",
@@ -103,6 +116,7 @@ class PPOTrainingService:
       clip_range=clip_range,
       verbose=verbose,
       tensorboard_log=tensorboard_log,
+      device=effective_device,
     )
 
     return model
@@ -160,12 +174,15 @@ class PPOTrainingService:
         Path(log_path).mkdir(parents=True, exist_ok=True)
 
       # Create model
+      # Allow config to override device
+      device = config.get("device", self._device)
       self.model = self.create_model(
         env=self.env,
         learning_rate=config.get("learning_rate", 0.0003),
         batch_size=config.get("batch_size", 64),
         verbose=1,
         tensorboard_log=log_path,
+        device=device,
       )
 
       # Setup callbacks
@@ -207,21 +224,25 @@ class PPOTrainingService:
       if self.env:
         self.env.close()
 
-  def load_model(self, model_path: str, env: gym.Env | None = None) -> PPO:
+  def load_model(self, model_path: str, env: gym.Env | None = None, device: str | None = None) -> PPO:
     """Load a trained PPO model from disk.
 
     Args:
       model_path: Path to the saved model
       env: Optional environment (will create DummyVecEnv if provided)
+      device: Device to load model on (overrides instance device if provided)
 
     Returns:
       Loaded PPO model
     """
+    effective_device = device if device is not None else self._device
+    logger.info(f"Loading PPO model from {model_path} on device: {effective_device}")
+
     if env:
       vec_env = DummyVecEnv([lambda: env])
-      model = PPO.load(model_path, env=vec_env)
+      model = PPO.load(model_path, env=vec_env, device=effective_device)
     else:
-      model = PPO.load(model_path)
+      model = PPO.load(model_path, device=effective_device)
 
     self.model = model
     return model

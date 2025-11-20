@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from functools import partial
+import logging
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 import torch
 
+from app.core.config import settings
 from app.core.training.playback_recorder import wrap_environment_for_playback
 from rl.algorithms.a3c.trainer import A3CTrainer
 from rl.environments.enhanced_env import EnhancedSecurityEnvironment
 from rl.environments.security_env import SecurityEnvironment
+
+logger = logging.getLogger(__name__)
 
 EnvironmentFactory = Callable[[], Any]
 
@@ -22,8 +26,19 @@ EnvironmentFactory = Callable[[], Any]
 class A3CTrainingService:
   """High level orchestration entry point for the custom A3C trainer."""
 
-  def __init__(self, *, device: str | torch.device = "cpu") -> None:
-    self._device = torch.device(device)
+  def __init__(self, *, device: str | torch.device | None = None) -> None:
+    """Initialize A3C training service.
+
+    Args:
+      device: Training device ('cpu', 'cuda', 'cuda:N', torch.device, or None for auto-detection)
+    """
+    if device is None:
+      device_str = settings.get_training_device()
+      self._device = torch.device(device_str)
+      logger.info(f"A3C service initialized with auto-detected device: {device_str}")
+    else:
+      self._device = torch.device(device)
+      logger.info(f"A3C service initialized with device: {device}")
 
   def _create_environment(self, config: dict[str, Any]) -> Any:
     env_type = config.get("environment_type", "standard")
