@@ -154,13 +154,13 @@
 5. 環境変数 `TRAINING_DEVICE` を設定することで、コード変更なしにデバイスを切り替え可能
 
 ### ⏭️ 次のステップ
-1. ドキュメント更新（設計書、README）
-2. `/git-commit-push` でコミット・プッシュ
-3. GPU環境での実機テスト
-4. パフォーマンス比較（CPU vs GPU）
+1. Pull Requestの作成
+2. GPU環境での実機テスト
+3. パフォーマンス比較（CPU vs GPU）
+4. 大規模環境でのベンチマーク実施
 
 ### 🔗 関連コミット
-- (コミット確定後に追記予定)
+- `abeb136` feat(training): add GPU/CUDA support for PPO and A3C training
 
 ---
 
