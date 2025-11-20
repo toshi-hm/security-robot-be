@@ -10,9 +10,10 @@ from typing import Literal
 class MapGenerator(abc.ABC):
   """Abstract base class for map generation strategies."""
 
-  def __init__(self, width: int, height: int) -> None:
+  def __init__(self, width: int, height: int, seed: int | None = None) -> None:
     self.width = width
     self.height = height
+    self.rng = random.Random(seed)
 
   @abc.abstractmethod
   def generate(self) -> list[list[bool]]:
@@ -27,8 +28,14 @@ class MapGenerator(abc.ABC):
 class RandomObstacleGenerator(MapGenerator):
   """Legacy random obstacle generator."""
 
-  def __init__(self, width: int, height: int, obstacle_count: int | None = None) -> None:
-    super().__init__(width, height)
+  def __init__(
+      self,
+      width: int,
+      height: int,
+      obstacle_count: int | None = None,
+      seed: int | None = None
+  ) -> None:
+    super().__init__(width, height, seed)
     self.obstacle_count = obstacle_count
 
   def generate(self) -> list[list[bool]]:
@@ -36,11 +43,11 @@ class RandomObstacleGenerator(MapGenerator):
 
     count = self.obstacle_count
     if count is None:
-      count = random.randint(3, 8)
+      count = self.rng.randint(3, 8)
 
     for _ in range(count):
-      x = random.randrange(self.width)
-      y = random.randrange(self.height)
+      x = self.rng.randrange(self.width)
+      y = self.rng.randrange(self.height)
       obstacles[x][y] = True
 
     return obstacles
@@ -77,7 +84,7 @@ class MazeGenerator(MapGenerator):
             neighbors.append((nx, ny, dx // 2, dy // 2))
 
       if neighbors:
-        nx, ny, wx, wy = random.choice(neighbors)
+        nx, ny, wx, wy = self.rng.choice(neighbors)
         obstacles[nx][ny] = False # Carve cell
         obstacles[current_x + wx][current_y + wy] = False # Carve wall between
         stack.append((nx, ny))
@@ -100,10 +107,19 @@ class RoomGenerator(MapGenerator):
 
     while len(rooms) < max_rooms and attempts < 100:
       attempts += 1
-      w = random.randint(3, 6)
-      h = random.randint(3, 6)
-      x = random.randint(1, self.width - w - 1)
-      y = random.randint(1, self.height - h - 1)
+
+      # Dynamic room size based on environment dimensions
+      max_w = min(6, self.width - 2)
+      max_h = min(6, self.height - 2)
+
+      if max_w < 3 or max_h < 3:
+          # Environment too small for rooms, just return empty or simple
+          break
+
+      w = self.rng.randint(3, max_w)
+      h = self.rng.randint(3, max_h)
+      x = self.rng.randint(1, self.width - w - 1)
+      y = self.rng.randint(1, self.height - h - 1)
 
       new_room = (x, y, w, h)
 
@@ -149,7 +165,7 @@ class CellularAutomataGenerator(MapGenerator):
 
   def generate(self) -> list[list[bool]]:
     # Initial random fill
-    obstacles = [[random.random() < 0.45 for _ in range(self.height)] for _ in range(self.width)]
+    obstacles = [[self.rng.random() < 0.45 for _ in range(self.height)] for _ in range(self.width)]
 
     # Simulation steps
     for _ in range(4):
@@ -178,12 +194,18 @@ class CellularAutomataGenerator(MapGenerator):
 
 MapType = Literal["random", "maze", "room", "cave"]
 
-def create_generator(map_type: MapType, width: int, height: int, **kwargs) -> MapGenerator:
+def create_generator(
+    map_type: MapType,
+    width: int,
+    height: int,
+    seed: int | None = None,
+    **kwargs
+) -> MapGenerator:
   if map_type == "maze":
-    return MazeGenerator(width, height)
+    return MazeGenerator(width, height, seed=seed)
   elif map_type == "room":
-    return RoomGenerator(width, height)
+    return RoomGenerator(width, height, seed=seed)
   elif map_type == "cave":
-    return CellularAutomataGenerator(width, height)
+    return CellularAutomataGenerator(width, height, seed=seed)
   else:
-    return RandomObstacleGenerator(width, height, **kwargs)
+    return RandomObstacleGenerator(width, height, seed=seed, **kwargs)

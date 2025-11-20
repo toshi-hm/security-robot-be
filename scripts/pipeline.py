@@ -64,6 +64,22 @@ async def run_pipeline():
         logger.info(f"Starting {stage['name']}")
         logger.info(f"Configuration: {stage['config']}")
 
+        # Security check: Prevent path traversal in model_path
+        model_path_str = stage['config'].get('model_path')
+        if model_path_str:
+            try:
+                # Resolve path relative to project root
+                safe_path = (project_root / model_path_str).resolve()
+                # Check if the resolved path is within the project root
+                if not str(safe_path).startswith(str(project_root.resolve())):
+                     raise ValueError(
+                         f"Invalid model_path: {model_path_str} points outside project root"
+                     )
+            except Exception as e:
+                logger.error(f"Security violation in {stage['name']}: {e}")
+                continue # Skip this stage
+
+
         try:
             result = await a3c_service.start_training(config=stage['config'])
             logger.info(f"Finished {stage['name']}")
