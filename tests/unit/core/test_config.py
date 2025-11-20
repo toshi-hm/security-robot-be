@@ -1,7 +1,7 @@
 """Unit tests for application configuration and device validation."""
 
-import pytest
 from pydantic import ValidationError
+import pytest
 import torch
 
 from app.core.config import Settings

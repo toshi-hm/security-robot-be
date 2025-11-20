@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rl.environments.map_generator import MapType
+
 from .security_env import SecurityEnvironment
 
 

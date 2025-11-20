@@ -33,16 +33,16 @@ class RandomObstacleGenerator(MapGenerator):
 
   def generate(self) -> list[list[bool]]:
     obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
-    
+
     count = self.obstacle_count
     if count is None:
       count = random.randint(3, 8)
-      
+
     for _ in range(count):
       x = random.randrange(self.width)
       y = random.randrange(self.height)
       obstacles[x][y] = True
-      
+
     return obstacles
 
 
@@ -57,7 +57,7 @@ class MazeGenerator(MapGenerator):
 
     start_x = 1
     start_y = 1
-    
+
     # Ensure start is within bounds
     if start_x >= self.width or start_y >= self.height:
         return [[False for _ in range(self.height)] for _ in range(self.width)]
@@ -92,21 +92,21 @@ class RoomGenerator(MapGenerator):
 
   def generate(self) -> list[list[bool]]:
     obstacles = [[True for _ in range(self.height)] for _ in range(self.width)]
-    
+
     # Create rooms
     rooms = []
     attempts = 0
     max_rooms = (self.width * self.height) // 50
-    
+
     while len(rooms) < max_rooms and attempts < 100:
       attempts += 1
       w = random.randint(3, 6)
       h = random.randint(3, 6)
       x = random.randint(1, self.width - w - 1)
       y = random.randint(1, self.height - h - 1)
-      
+
       new_room = (x, y, w, h)
-      
+
       # Check overlap
       overlap = False
       for rx, ry, rw, rh in rooms:
@@ -114,7 +114,7 @@ class RoomGenerator(MapGenerator):
             y < ry + rh + 1 and y + h + 1 > ry):
           overlap = True
           break
-      
+
       if not overlap:
         rooms.append(new_room)
         # Carve room
@@ -126,16 +126,16 @@ class RoomGenerator(MapGenerator):
     for i in range(len(rooms) - 1):
       x1, y1, w1, h1 = rooms[i]
       x2, y2, w2, h2 = rooms[i+1]
-      
+
       # Center points
       cx1, cy1 = x1 + w1 // 2, y1 + h1 // 2
       cx2, cy2 = x2 + w2 // 2, y2 + h2 // 2
-      
+
       # Horizontal corridor
       start_x, end_x = min(cx1, cx2), max(cx1, cx2)
       for x in range(start_x, end_x + 1):
         obstacles[x][cy1] = False
-        
+
       # Vertical corridor
       start_y, end_y = min(cy1, cy2), max(cy1, cy2)
       for y in range(start_y, end_y + 1):
@@ -150,7 +150,7 @@ class CellularAutomataGenerator(MapGenerator):
   def generate(self) -> list[list[bool]]:
     # Initial random fill
     obstacles = [[random.random() < 0.45 for _ in range(self.height)] for _ in range(self.width)]
-    
+
     # Simulation steps
     for _ in range(4):
       new_obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
@@ -166,13 +166,13 @@ class CellularAutomataGenerator(MapGenerator):
                 neighbors += 1 # Edge counts as wall
               elif obstacles[nx][ny]:
                 neighbors += 1
-          
+
           if obstacles[x][y]:
             new_obstacles[x][y] = neighbors >= 4
           else:
             new_obstacles[x][y] = neighbors >= 5
       obstacles = new_obstacles
-      
+
     return obstacles
 
 

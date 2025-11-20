@@ -1,13 +1,13 @@
 """Unit tests for MapGenerator."""
 
-import pytest
 from rl.environments.map_generator import (
-    create_generator,
-    RandomObstacleGenerator,
+    CellularAutomataGenerator,
     MazeGenerator,
+    RandomObstacleGenerator,
     RoomGenerator,
-    CellularAutomataGenerator
+    create_generator,
 )
+
 
 def test_random_generator():
     gen = create_generator("random", 10, 10, obstacle_count=5)
@@ -15,7 +15,7 @@ def test_random_generator():
     grid = gen.generate()
     assert len(grid) == 10
     assert len(grid[0]) == 10
-    
+
     # Count obstacles
     count = sum(sum(1 for cell in row if cell) for row in grid)
     assert count == 5
@@ -26,7 +26,7 @@ def test_maze_generator():
     grid = gen.generate()
     assert len(grid) == 11
     assert len(grid[0]) == 11
-    
+
     # Check boundaries (should be walls mostly, but implementation details vary)
     # Just check it returns a bool grid
     assert isinstance(grid[0][0], bool)

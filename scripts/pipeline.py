@@ -2,14 +2,14 @@
 
 import asyncio
 import logging
-import sys
 from pathlib import Path
+import sys
 
 # Add project root to python path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-from app.core.training.a3c_service import a3c_service
+from app.core.training.a3c_service import a3c_service  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -68,15 +68,16 @@ async def run_pipeline():
             result = await a3c_service.start_training(config=stage['config'])
             logger.info(f"Finished {stage['name']}")
             logger.info(f"Result: {result}")
-            
+
             # Optional: Load the model from the previous stage to continue training?
-            # For now, we start fresh or rely on the fact that we might want to transfer weights later.
+            # For now, we start fresh or rely on the fact that we might want to
+            # transfer weights later.
             # To transfer weights, we would need to load the state dict.
-            
+
         except Exception as e:
             logger.error(f"Failed {stage['name']}: {e}")
             # Decide whether to continue or stop
-            # break 
+            # break
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())
