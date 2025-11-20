@@ -57,6 +57,9 @@ class MazeGenerator(MapGenerator):
   """Generates a maze-like environment using Recursive Backtracking."""
 
   def generate(self) -> list[list[bool]]:
+    if self.width < 5 or self.height < 5:
+      raise ValueError("Maze generator requires a grid of at least 5x5")
+
     # Initialize with all walls
     # Note: We use a grid where cells are at odd coordinates (1, 3, 5...)
     # and walls are at even coordinates or between cells.
@@ -156,6 +159,18 @@ class RoomGenerator(MapGenerator):
       start_y, end_y = min(cy1, cy2), max(cy1, cy2)
       for y in range(start_y, end_y + 1):
         obstacles[cx2][y] = False
+
+    # Ensure at least one room exists if generation failed
+    if not rooms:
+        # Create a fallback room in the center
+        w = min(4, self.width - 2)
+        h = min(4, self.height - 2)
+        x = (self.width - w) // 2
+        y = (self.height - h) // 2
+
+        for i in range(x, x + w):
+            for j in range(y, y + h):
+                obstacles[i][j] = False
 
     return obstacles
 

@@ -73,3 +73,29 @@ def test_room_generator_small_bounds():
     gen = create_generator("room", 3, 3, seed=1)
     map_grid = gen.generate()
     assert len(map_grid) == 3
+
+def test_maze_generator_min_size():
+    """Test that MazeGenerator enforces minimum size of 5x5."""
+    with pytest.raises(ValueError, match="at least 5x5"):
+        gen = create_generator("maze", 4, 4, seed=1)
+        gen.generate()
+
+    with pytest.raises(ValueError, match="at least 5x5"):
+        gen = create_generator("maze", 3, 5, seed=1)
+        gen.generate()
+
+    # Should work with 5x5
+    gen = create_generator("maze", 5, 5, seed=1)
+    map_grid = gen.generate()
+    assert len(map_grid) == 5
+
+def test_room_generator_fallback():
+    """Test that RoomGenerator creates at least one room even in small grids."""
+    # Very small grid where random room placement might fail
+    gen = create_generator("room", 6, 6, seed=1)
+    map_grid = gen.generate()
+
+    # Count non-obstacle cells (should have at least some from fallback room)
+    passable_cells = sum(sum(1 for cell in row if not cell) for row in map_grid)
+    assert passable_cells > 0, "RoomGenerator should create at least one room"
+
