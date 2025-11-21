@@ -74,8 +74,17 @@ async def run_pipeline():
                 safe_path = (project_root / model_path_str).resolve()
                 # Check if the resolved path is within the project root
                 safe_path.relative_to(project_root.resolve())
-            except (ValueError, OSError) as e:
-                logger.error(f"Invalid model_path in {stage['name']}: {e}")
+            except ValueError as e:
+                # Path traversal attempt detected
+                logger.error(
+                    f"Security: Path traversal attempt detected in {stage['name']}: "
+                    f"{model_path_str}"
+                )
+                logger.debug(f"Details: {e}")
+                continue  # Skip this stage
+            except OSError as e:
+                # Filesystem error
+                logger.error(f"Filesystem error in {stage['name']}: {e}")
                 continue  # Skip this stage
 
 

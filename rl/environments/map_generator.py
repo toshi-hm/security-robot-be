@@ -126,6 +126,8 @@ class MazeGenerator(MapGenerator):
       # Check neighbors (jump 2 cells to leave room for walls)
       for dx, dy in [(0, -2), (0, 2), (-2, 0), (2, 0)]:
         nx, ny = current_x + dx, current_y + dy
+        # Boundary cells are always walls in our maze algorithm
+        # Valid traversable area is (1, 1) to (width-2, height-2)
         if 0 < nx < self.width - 1 and 0 < ny < self.height - 1:
           if obstacles[nx][ny]: # If unvisited (still a wall)
             neighbors.append((nx, ny, dx // 2, dy // 2))
@@ -186,11 +188,12 @@ class RoomGenerator(MapGenerator):
 
       new_room = (x, y, w, h)
 
-      # Check overlap
+      # Check overlap with 1-cell buffer between rooms for corridors
+      ROOM_BUFFER = 1
       overlap = False
       for rx, ry, rw, rh in rooms:
-        if (x < rx + rw + 1 and x + w + 1 > rx and
-            y < ry + rh + 1 and y + h + 1 > ry):
+        if (x < rx + rw + ROOM_BUFFER and x + w + ROOM_BUFFER > rx and
+            y < ry + rh + ROOM_BUFFER and y + h + ROOM_BUFFER > ry):
           overlap = True
           break
 
@@ -254,6 +257,16 @@ class RoomGenerator(MapGenerator):
 class CellularAutomataGenerator(MapGenerator):
   """Generates cave-like natural terrain."""
 
+  def __init__(
+      self,
+      width: int,
+      height: int,
+      seed: int | None = None,
+      initial_wall_probability: float = 0.45
+  ) -> None:
+    super().__init__(width, height, seed)
+    self.initial_wall_probability = initial_wall_probability
+
   def generate(self) -> list[list[bool]]:
     """Generate a cave-like map with guaranteed connectivity."""
     max_retries = 10
@@ -270,7 +283,10 @@ class CellularAutomataGenerator(MapGenerator):
   def _generate_attempt(self) -> list[list[bool]]:
     """Single attempt at generating a cave using cellular automata."""
     # Initial random fill
-    obstacles = [[self.rng.random() < 0.45 for _ in range(self.height)] for _ in range(self.width)]
+    obstacles = [
+        [self.rng.random() < self.initial_wall_probability for _ in range(self.height)]
+        for _ in range(self.width)
+    ]
 
     # Simulation steps
     for _ in range(4):
