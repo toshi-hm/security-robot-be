@@ -10,7 +10,7 @@ from rl.environments.map_generator import (
 
 
 def test_random_generator():
-    gen = create_generator("random", 10, 10, obstacle_count=5)
+    gen = create_generator("random", 10, 10, count=5)
     assert isinstance(gen, RandomObstacleGenerator)
     grid = gen.generate()
     assert len(grid) == 10

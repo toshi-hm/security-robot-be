@@ -31,8 +31,9 @@ async def run_pipeline():
                 "map_config": {"obstacle_count": 5},
                 "total_timesteps": 5000,
                 "num_workers": 4,
-                "model_path": "models/stage1_random.pth"
-            }
+                "model_path": "models/stage1_random.pth",
+            },
+            "critical": True,  # Critical stage - must succeed
         },
         {
             "name": "Stage 2: Medium Maze",
@@ -100,8 +101,11 @@ async def run_pipeline():
 
         except Exception as e:
             logger.error(f"Failed {stage['name']}: {e}")
-            # Decide whether to continue or stop
-            # break
+            # Check if this is a critical stage
+            if stage.get("critical", False):
+                logger.error("Critical stage failed. Stopping pipeline.")
+                break
+            # Otherwise continue to next stage
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())

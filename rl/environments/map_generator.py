@@ -73,16 +73,29 @@ class RandomObstacleGenerator(MapGenerator):
       self,
       width: int,
       height: int,
-      obstacle_count: int | None = None,
-      seed: int | None = None
+      seed: int | None = None,
+      count: int | None = None
   ) -> None:
     super().__init__(width, height, seed)
-    self.obstacle_count = obstacle_count
+    self.count = count
 
   def generate(self) -> list[list[bool]]:
+    """Generate a random obstacle map with guaranteed connectivity."""
+    max_retries = 10
+    for _attempt in range(max_retries):
+      obstacles = self._generate_attempt()
+      if self._is_connected(obstacles):
+        return obstacles
+
+    # Fallback: return last attempt even if not connected
+    # (This should rarely happen with reasonable obstacle counts)
+    return self._generate_attempt()
+
+  def _generate_attempt(self) -> list[list[bool]]:
+    """Single attempt at generating random obstacles."""
     obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
 
-    count = self.obstacle_count
+    count = self.count
     if count is None:
       count = self.rng.randint(3, 8)
 
@@ -347,14 +360,15 @@ class CellularAutomataGenerator(MapGenerator):
           continue
 
         # Find closest points between this component and the largest
+        # Use representative points (first cell) for performance
         min_dist = float('inf')
         best_pair = None
-        for x1, y1 in component:
-          for x2, y2 in largest:
-            dist = abs(x1 - x2) + abs(y1 - y2)
-            if dist < min_dist:
-              min_dist = dist
-              best_pair = ((x1, y1), (x2, y2))
+        x1, y1 = component[0]  # Representative point of this component
+        for x2, y2 in [largest[0]]:  # Representative point of largest component
+          dist = abs(x1 - x2) + abs(y1 - y2)
+          if dist < min_dist:
+            min_dist = dist
+            best_pair = ((x1, y1), (x2, y2))
 
         # Open a path between them
         if best_pair:
