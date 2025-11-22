@@ -107,6 +107,7 @@ def _create_states(
           robot_orientation=step % 4,
           threat_grid={"levels": [[float(step)]]},
           coverage_map={"counts": [[float(episode)]]},
+          obstacles={"levels": [[False]]},
           suspicious_objects=[],
           action_taken=step % 5,
           reward_received=step * 0.1,
@@ -207,6 +208,7 @@ def test_get_playback_frames_returns_sorted_frames(
   assert payload["total"] == 3
   assert [frame["episode"] for frame in payload["frames"]] == [0, 1, 1]
   assert [frame["step"] for frame in payload["frames"]] == [1, 1, 2]
+  assert payload["frames"][0]["obstacles"] == {"levels": [[False]]}
 
 
 def test_get_playback_frames_returns_empty_payload_when_no_states(

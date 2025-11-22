@@ -41,6 +41,7 @@ class EnvironmentState(Base):
   # Environment state (JSON)
   threat_grid: Mapped[dict] = mapped_column(JSON)  # 2D array of threat levels
   coverage_map: Mapped[dict | None] = mapped_column(JSON, default=None)
+  obstacles: Mapped[dict | None] = mapped_column(JSON, default=None)
   suspicious_objects: Mapped[list | None] = mapped_column(JSON, default=None)
 
   # Action information
