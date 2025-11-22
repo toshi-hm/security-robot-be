@@ -113,6 +113,7 @@ jobs:
             ## Primary Directive
 
             Your sole purpose is to perform a comprehensive code review and post all feedback and suggestions directly to the Pull Request on GitHub using the provided tools. All output must be directed through these tools. Any analysis not submitted as a review comment or summary is lost and constitutes a task failure.
+            Please answer ALWAYS in **JAPANESE**.
 
 
             ## Critical Security and Operational Constraints

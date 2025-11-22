@@ -9,16 +9,16 @@
 - [テスト計画](../instructions/04_test_design_standalone.md)
 - [実装/レビュー用プロンプト](../instructions/prompts)
 - [進捗管理レポート](../report/PROGRESS.md)
-- [開発日記サマリー](../report/summary/DIARY01.md)
-- [最新の開発日記](../report/DIARY02.md)
+- [開発日記サマリー](../report/summary/DIARY*.md)
+- [最新の開発日記](../report/DIARY06.md)
 
 > **必須:** 上記ドキュメントとプロンプトを熟読し、現状の進捗・設計・実装方針を理解してからコード提案やレビュー支援を行ってください。
 
 ## ✅ ワークフロー指針
-1. セッション開始時に必ず `report/PROGRESS.md`、`report/summary/DIARY01.md`、`report/DIARY02.md` を確認し、最新の課題や作業履歴を把握すること。
+1. セッション開始時に必ず `report/PROGRESS.md`、`report/summary/DIARY*.md`、`report/DIARY06.md` を確認し、最新の課題や作業履歴を把握すること。
 2. 実装やレビューを行う前に、関連する設計書 (`instructions/` 配下) とプロンプト (`instructions/prompts/` 配下) を参照し、受け入れ基準と制約条件を明確化すること。
 3. 提案コードはテスト駆動開発を意識し、必要なテスト追加・更新を促すこと。`pytest` を主要な品質ゲートとして扱い、実行指示があればそれに従うこと。
-4. 作業完了時には進捗と判断理由を `report/PROGRESS.md` および `report/DIARY02.md` へ反映するよう促し、ドキュメント整備を支援すること。
+4. 作業完了時には進捗と判断理由を `report/PROGRESS.md` および `report/DIARY06.md` へ反映するよう促し、ドキュメント整備を支援すること。
 
 ## 🔍 レビュー・出力スタイル
 - Pull Request レビューやフィードバックを生成する場合は、**必ず日本語で記述**してください。
