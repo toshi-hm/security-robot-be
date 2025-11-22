@@ -156,44 +156,44 @@ class SecurityEnvironment(gym.Env):
   # ------------------------------------------------------------------
 
   def _build_grid(self, fill_value: float) -> list[list[float]]:
-    return [[fill_value for _ in range(self.height)] for _ in range(self.width)]
+    return [[fill_value for _ in range(self.width)] for _ in range(self.height)]
 
   def _generate_obstacles(self) -> list[list[bool]]:
     generator = create_generator(self.map_type, self.width, self.height, **self.map_config)
     return generator.generate()
 
   def _get_observation(self) -> list[list[list[float]]]:
-    observation = [[[0.0] * 5 for _ in range(self.height)] for _ in range(self.width)]
+    observation = [[[0.0] * 5 for _ in range(self.width)] for _ in range(self.height)]
 
-    for x in range(self.width):
-      for y in range(self.height):
+    for y in range(self.height):
+      for x in range(self.width):
         # チャンネル0: 脅威レベル
-        observation[x][y][0] = float(self.threat_levels[x][y])
+        observation[y][x][0] = float(self.threat_levels[y][x])
 
         # チャンネル1: 障害物
-        observation[x][y][1] = 1.0 if self.obstacles[x][y] else 0.0
+        observation[y][x][1] = 1.0 if self.obstacles[y][x] else 0.0
 
         # チャンネル3: 充電ステーション
         if x == self.charging_station_x and y == self.charging_station_y:
-          observation[x][y][3] = 1.0
+          observation[y][x][3] = 1.0
 
         # チャンネル4: バッテリー残量（正規化）
-        observation[x][y][4] = self.battery_percentage / 100.0
+        observation[y][x][4] = self.battery_percentage / 100.0
 
     # チャンネル2: ロボット位置・向き
-    observation[self.robot_x][self.robot_y][2] = (self.robot_direction + 1) / 4.0
+    observation[self.robot_y][self.robot_x][2] = (self.robot_direction + 1) / 4.0
 
     return observation
 
   def _update_threat_levels(self) -> None:
-    for x in range(self.width):
-      for y in range(self.height):
-        self.threat_levels[x][y] = min(1.0, self.threat_levels[x][y] + 0.01)
+    for y in range(self.height):
+      for x in range(self.width):
+        self.threat_levels[y][x] = min(1.0, self.threat_levels[y][x] + 0.01)
 
     for (x, y), spawn_time in self.suspicious_objects.items():
       elapsed = self.time_step - spawn_time
-      increased = self.threat_levels[x][y] + 0.05 * elapsed
-      self.threat_levels[x][y] = min(1.0, increased)
+      increased = self.threat_levels[y][x] + 0.05 * elapsed
+      self.threat_levels[y][x] = min(1.0, increased)
 
   def _add_suspicious_objects(self) -> None:
     if random.random() >= 0.02:
@@ -201,7 +201,7 @@ class SecurityEnvironment(gym.Env):
 
     x = random.randrange(self.width)
     y = random.randrange(self.height)
-    if not self.obstacles[x][y] and (x, y) not in self.suspicious_objects:
+    if not self.obstacles[y][x] and (x, y) not in self.suspicious_objects:
       self.suspicious_objects[(x, y)] = self.time_step
 
   def _execute_action(self, action: int) -> float:
@@ -229,7 +229,7 @@ class SecurityEnvironment(gym.Env):
     return self.robot_x + dx, self.robot_y + dy
 
   def _is_valid_position(self, x: int, y: int) -> bool:
-    return 0 <= x < self.width and 0 <= y < self.height and not self.obstacles[x][y]
+    return 0 <= x < self.width and 0 <= y < self.height and not self.obstacles[y][x]
 
   def _check_suspicious_object_removal(self) -> float:
     location = (self.robot_x, self.robot_y)
@@ -276,13 +276,13 @@ class SecurityEnvironment(gym.Env):
         if not self._is_valid_position(x, y):
           continue
 
-        threat_reward = self.threat_levels[x][y] * 10
+        threat_reward = self.threat_levels[y][x] * 10
         if threat_reward > 0:
           total_reward += threat_reward
           self.last_patrol_info.append(f"脅威度除去 ({x},{y}): +{threat_reward:.1f}")
 
-        self.threat_levels[x][y] = 0.0
-        self.last_patrolled[x][y] = self.time_step
+        self.threat_levels[y][x] = 0.0
+        self.last_patrolled[y][x] = self.time_step
 
     return total_reward
 
@@ -296,7 +296,7 @@ class SecurityEnvironment(gym.Env):
       y = random.randint(1, self.height - 2)
 
       # 障害物がない位置に配置
-      if not self.obstacles[x][y]:
+      if not self.obstacles[y][x]:
         self.charging_station_x = x
         self.charging_station_y = y
         return
@@ -305,7 +305,7 @@ class SecurityEnvironment(gym.Env):
     self.charging_station_x = self.width // 2
     self.charging_station_y = self.height // 2
     # 中央の障害物を強制的に削除
-    self.obstacles[self.charging_station_x][self.charging_station_y] = False
+    self.obstacles[self.charging_station_y][self.charging_station_x] = False
 
   # ------------------------------------------------------------------
   # Battery management

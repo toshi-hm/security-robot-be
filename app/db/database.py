@@ -42,7 +42,10 @@ def get_sync_engine() -> Engine:
   """Create a dedicated synchronous SQLAlchemy engine instance."""
 
   sync_url = _resolve_sync_driver(settings.database_url)
-  return create_engine(sync_url, future=True)
+  connect_args = {}
+  if sync_url.drivername.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+  return create_engine(sync_url, future=True, connect_args=connect_args)
 
 
 async_engine: AsyncEngine = get_async_engine()

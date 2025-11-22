@@ -68,7 +68,7 @@ class MapGenerator(abc.ABC):
   def _force_connectivity(self, obstacles: list[list[bool]]) -> None:
     """Force connectivity by opening paths between isolated regions."""
     # Find all connected components
-    visited = [[False for _ in range(self.height)] for _ in range(self.width)]
+    visited = [[False for _ in range(self.width)] for _ in range(self.height)]
     components = []
 
     for i in range(self.width):
@@ -160,7 +160,7 @@ class RandomObstacleGenerator(MapGenerator):
 
   def _generate_attempt(self) -> list[list[bool]]:
     """Single attempt at generating random obstacles."""
-    obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
+    obstacles = [[False for _ in range(self.width)] for _ in range(self.height)]
 
     count = self.count
     if count is None:
@@ -191,7 +191,7 @@ class MazeGenerator(MapGenerator):
     # Initialize with all walls
     # Note: We use a grid where cells are at odd coordinates (1, 3, 5...)
     # and walls are at even coordinates or between cells.
-    obstacles = [[True for _ in range(self.height)] for _ in range(self.width)]
+    obstacles = [[True for _ in range(self.width)] for _ in range(self.height)]
 
     start_x = 1
     start_y = 1
@@ -238,7 +238,7 @@ class RoomGenerator(MapGenerator):
 
   def _generate_attempt(self) -> list[list[bool]]:
     """Single attempt at generating a room-based map."""
-    obstacles = [[True for _ in range(self.height)] for _ in range(self.width)]
+    obstacles = [[True for _ in range(self.width)] for _ in range(self.height)]
 
     # Create rooms
     rooms = []
@@ -378,7 +378,7 @@ class CellularAutomataGenerator(MapGenerator):
 
     # Simulation steps
     for _ in range(4):
-      new_obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
+      new_obstacles = [[False for _ in range(self.width)] for _ in range(self.height)]
       for x in range(self.width):
         for y in range(self.height):
           neighbors = 0
