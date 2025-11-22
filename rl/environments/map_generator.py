@@ -35,10 +35,10 @@ class MapGenerator(abc.ABC):
     """
     # Find first passable cell
     start = None
-    for i in range(self.width):
-      for j in range(self.height):
-        if not obstacles[i][j]:
-          start = (i, j)
+    for y in range(self.height):
+      for x in range(self.width):
+        if not obstacles[y][x]:
+          start = (x, y)
           break
       if start:
         break
@@ -58,7 +58,7 @@ class MapGenerator(abc.ABC):
       for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
         nx, ny = x + dx, y + dy
         if 0 <= nx < self.width and 0 <= ny < self.height:
-          if not obstacles[nx][ny] and (nx, ny) not in visited:
+          if not obstacles[ny][nx] and (nx, ny) not in visited:
             stack.append((nx, ny))
 
     # Count total passable cells
@@ -71,69 +71,73 @@ class MapGenerator(abc.ABC):
     visited = [[False for _ in range(self.width)] for _ in range(self.height)]
     components = []
 
-    for i in range(self.width):
-      for j in range(self.height):
-        if not obstacles[i][j] and not visited[i][j]:
+    for y in range(self.height):
+      for x in range(self.width):
+        if not obstacles[y][x] and not visited[y][x]:
           # Found a new component, flood-fill it
           component = []
-          stack = [(i, j)]
+          stack = [(x, y)]
           while stack:
-            x, y = stack.pop()
-            if visited[x][y]:
+            cx, cy = stack.pop()
+            if visited[cy][cx]:
               continue
-            visited[x][y] = True
-            component.append((x, y))
+            visited[cy][cx] = True
+            component.append((cx, cy))
 
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-              nx, ny = x + dx, y + dy
+              nx, ny = cx + dx, cy + dy
               if 0 <= nx < self.width and 0 <= ny < self.height:
-                if not obstacles[nx][ny] and not visited[nx][ny]:
+                if not obstacles[ny][nx] and not visited[ny][nx]:
                   stack.append((nx, ny))
 
           components.append(component)
 
     # Connect components using MST (Prim's algorithm) to minimize path length
-    if len(components) > 1:
-      # Start with the largest component
-      largest_idx = max(range(len(components)), key=lambda i: len(components[i]))
-      
-      # Distances to the connected set: (distance, target_component_index)
-      # Initialize with distance to the largest component
-      min_dists = {}
-      lx, ly = components[largest_idx][0]
-      
-      for i in range(len(components)):
-        if i == largest_idx:
-          continue
-        cx, cy = components[i][0]
-        dist = abs(cx - lx) + abs(cy - ly)
-        min_dists[i] = (dist, largest_idx)
+    if len(components) <= 1:
+      return  # Already connected
 
-      while min_dists:
-        # Find the closest unconnected component
-        next_idx = min(min_dists, key=lambda k: min_dists[k][0])
-        dist, parent_idx = min_dists[next_idx]
+    # Find largest component
+    largest_idx = max(range(len(components)), key=lambda i: len(components[i]))
+
+    # Calculate distances between components
+    # For each component, find minimum distance to the connected set
+    # Distances to the connected set: (distance, target_component_index)
+    # Initialize with distance to the largest component
+    min_dists = {}
+    lx, ly = components[largest_idx][0]
+    
+    for i in range(len(components)):
+      if i == largest_idx:
+        continue
+      cx, cy = components[i][0]
+      dist = abs(cx - lx) + abs(cy - ly)
+      min_dists[i] = (dist, largest_idx)
+
+    while min_dists:
+      # Find the closest unconnected component
+      next_idx = min(min_dists, key=lambda k: min_dists[k][0])
+      dist, parent_idx = min_dists[next_idx]
+      
+      # Connect next_idx to parent_idx
+      x1, y1 = components[next_idx][0]
+      x2, y2 = components[parent_idx][0]
+      
+      # Open a path between them (Horizontal then vertical)
+      for x in range(min(x1, x2), max(x1, x2) + 1):
+        obstacles[y1][x] = False
+      for y in range(min(y1, y2), max(y1, y2) + 1):
+        obstacles[y][x2] = False
         
-        # Connect next_idx to parent_idx
-        x1, y1 = components[next_idx][0]
-        x2, y2 = components[parent_idx][0]
-        
-        # Open a path between them (Horizontal then vertical)
-        for x in range(min(x1, x2), max(x1, x2) + 1):
-          obstacles[x][y1] = False
-        for y in range(min(y1, y2), max(y1, y2) + 1):
-          obstacles[x2][y] = False
-          
-        # Mark as connected (remove from min_dists)
-        del min_dists[next_idx]
-        
-        # Update distances for remaining unconnected components
-        nx, ny = components[next_idx][0]
-        for i in min_dists:
-          cx, cy = components[i][0]
-          new_dist = abs(cx - nx) + abs(cy - ny)
-          if new_dist < min_dists[i][0]:
-            min_dists[i] = (new_dist, next_idx)
+      # Mark as connected (remove from min_dists)
+      del min_dists[next_idx]
+      
+      # Update distances for remaining unconnected components
+      nx, ny = components[next_idx][0]
+      for i in min_dists:
+        cx, cy = components[i][0]
+        new_dist = abs(cx - nx) + abs(cy - ny)
+        if new_dist < min_dists[i][0]:
+          min_dists[i] = (new_dist, next_idx)
 
 
 class RandomObstacleGenerator(MapGenerator):
@@ -173,8 +177,8 @@ class RandomObstacleGenerator(MapGenerator):
     while placed < count and attempts < max_attempts:
       x = self.rng.randrange(self.width)
       y = self.rng.randrange(self.height)
-      if not obstacles[x][y]:
-        obstacles[x][y] = True
+      if not obstacles[y][x]:
+        obstacles[y][x] = True
         placed += 1
       attempts += 1
 
@@ -196,7 +200,7 @@ class MazeGenerator(MapGenerator):
     start_x = 1
     start_y = 1
 
-    obstacles[start_x][start_y] = False
+    obstacles[start_y][start_x] = False
     stack = [(start_x, start_y)]
 
     while stack:
@@ -209,13 +213,13 @@ class MazeGenerator(MapGenerator):
         # Boundary cells are always walls in our maze algorithm
         # Valid traversable area is (1, 1) to (width-2, height-2)
         if 0 < nx < self.width - 1 and 0 < ny < self.height - 1:
-          if obstacles[nx][ny]:  # If unvisited (still a wall)
+          if obstacles[ny][nx]:  # If unvisited (still a wall)
             neighbors.append((nx, ny, dx // 2, dy // 2))
 
       if neighbors:
         nx, ny, wx, wy = self.rng.choice(neighbors)
-        obstacles[nx][ny] = False  # Carve cell
-        obstacles[current_x + wx][current_y + wy] = False  # Carve wall between
+        obstacles[ny][nx] = False  # Carve cell
+        obstacles[current_y + wy][current_x + wx] = False  # Carve wall between
         stack.append((nx, ny))
       else:
         stack.pop()
@@ -286,7 +290,7 @@ class RoomGenerator(MapGenerator):
         # Carve room
         for i in range(x, x + w):
           for j in range(y, y + h):
-            obstacles[i][j] = False
+            obstacles[j][i] = False
 
     # Connect rooms using nearest-neighbor to ensure full connectivity
     for i, (x1, y1, w1, h1) in enumerate(rooms):
@@ -316,12 +320,12 @@ class RoomGenerator(MapGenerator):
       # Horizontal corridor
       start_x, end_x = min(cx1, cx2), max(cx1, cx2)
       for x in range(start_x, end_x + 1):
-        obstacles[x][cy1] = False
+        obstacles[cy1][x] = False
 
       # Vertical corridor
       start_y, end_y = min(cy1, cy2), max(cy1, cy2)
       for y in range(start_y, end_y + 1):
-        obstacles[cx2][y] = False
+        obstacles[y][cx2] = False
 
     # Ensure at least one room exists if generation failed
     if not rooms:
@@ -337,7 +341,7 @@ class RoomGenerator(MapGenerator):
 
       for i in range(x, x + w):
         for j in range(y, y + h):
-          obstacles[i][j] = False
+          obstacles[j][i] = False
 
     if not self._is_connected(obstacles):
       # Should not happen with fallback, but safety check
@@ -372,15 +376,15 @@ class CellularAutomataGenerator(MapGenerator):
     """Single attempt at generating a cave using cellular automata."""
     # Initial random fill
     obstacles = [
-      [self.rng.random() < self.initial_wall_probability for _ in range(self.height)]
-      for _ in range(self.width)
+      [self.rng.random() < self.initial_wall_probability for _ in range(self.width)]
+      for _ in range(self.height)
     ]
 
     # Simulation steps
     for _ in range(4):
       new_obstacles = [[False for _ in range(self.width)] for _ in range(self.height)]
-      for x in range(self.width):
-        for y in range(self.height):
+      for y in range(self.height):
+        for x in range(self.width):
           neighbors = 0
           for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
@@ -389,13 +393,13 @@ class CellularAutomataGenerator(MapGenerator):
               nx, ny = x + dx, y + dy
               if nx < 0 or nx >= self.width or ny < 0 or ny >= self.height:
                 neighbors += 1  # Edge counts as wall
-              elif obstacles[nx][ny]:
+              elif obstacles[ny][nx]:
                 neighbors += 1
 
-          if obstacles[x][y]:
-            new_obstacles[x][y] = neighbors >= 4
+          if obstacles[y][x]:
+            new_obstacles[y][x] = neighbors >= 4
           else:
-            new_obstacles[x][y] = neighbors >= 5
+            new_obstacles[y][x] = neighbors >= 5
       obstacles = new_obstacles
 
     return obstacles

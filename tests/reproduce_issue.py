@@ -56,7 +56,7 @@ class TestReproduction(unittest.TestCase):
                     for dy in range(-vision, vision + 1):
                         nx, ny = rx + dx, ry + dy
                         if 0 <= nx < env.width and 0 <= ny < env.height:
-                             if not env.obstacles[nx][ny]:
+                             if not env.obstacles[ny][nx]:
                                  # Note: threat levels might have increased by 0.01 in _update_threat_levels
                                  # BUT _patrol_area is called AFTER _update_threat_levels in step()
                                  # Wait, let's check step() order again.
@@ -64,7 +64,7 @@ class TestReproduction(unittest.TestCase):
                                  # 2. _execute_action (patrol -> reset to 0)
                                  # So it should be EXACTLY 0.0
                                  pass
-                                 # self.assertEqual(env.threat_levels[nx][ny], 0.0, f"Threat level not 0 after patrol at {nx},{ny}")
+                                 # self.assertEqual(env.threat_levels[ny][nx], 0.0, f"Threat level not 0 after patrol at {nx},{ny}")
         
         print("Maze consistency test passed.")
 
@@ -91,7 +91,7 @@ class TestReproduction(unittest.TestCase):
         wrapped_env.reset()
         
         # Set a unique value at x=1, y=0 AFTER reset
-        env.threat_levels[1][0] = 0.9
+        env.threat_levels[0][1] = 0.9
         
         # Step to trigger another recording
         wrapped_env.step(0) # Action 0 (Move Forward)
