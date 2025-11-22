@@ -92,32 +92,48 @@ class MapGenerator(abc.ABC):
 
           components.append(component)
 
-    # Connect all components to the largest one
+    # Connect components using MST (Prim's algorithm) to minimize path length
     if len(components) > 1:
-      largest = max(components, key=len)
-      for component in components:
-        if component == largest:
+      # Start with the largest component
+      largest_idx = max(range(len(components)), key=lambda i: len(components[i]))
+      
+      # Distances to the connected set: (distance, target_component_index)
+      # Initialize with distance to the largest component
+      min_dists = {}
+      lx, ly = components[largest_idx][0]
+      
+      for i in range(len(components)):
+        if i == largest_idx:
           continue
+        cx, cy = components[i][0]
+        dist = abs(cx - lx) + abs(cy - ly)
+        min_dists[i] = (dist, largest_idx)
 
-        # Find closest points between this component and the largest
-        # Use representative points (first cell) for performance
-        min_dist = float("inf")
-        best_pair = None
-        x1, y1 = component[0]  # Representative point of this component
-        for x2, y2 in [largest[0]]:  # Representative point of largest component
-          dist = abs(x1 - x2) + abs(y1 - y2)
-          if dist < min_dist:
-            min_dist = dist
-            best_pair = ((x1, y1), (x2, y2))
-
-        # Open a path between them
-        if best_pair:
-          (x1, y1), (x2, y2) = best_pair
-          # Horizontal then vertical
-          for x in range(min(x1, x2), max(x1, x2) + 1):
-            obstacles[x][y1] = False
-          for y in range(min(y1, y2), max(y1, y2) + 1):
-            obstacles[x2][y] = False
+      while min_dists:
+        # Find the closest unconnected component
+        next_idx = min(min_dists, key=lambda k: min_dists[k][0])
+        dist, parent_idx = min_dists[next_idx]
+        
+        # Connect next_idx to parent_idx
+        x1, y1 = components[next_idx][0]
+        x2, y2 = components[parent_idx][0]
+        
+        # Open a path between them (Horizontal then vertical)
+        for x in range(min(x1, x2), max(x1, x2) + 1):
+          obstacles[x][y1] = False
+        for y in range(min(y1, y2), max(y1, y2) + 1):
+          obstacles[x2][y] = False
+          
+        # Mark as connected (remove from min_dists)
+        del min_dists[next_idx]
+        
+        # Update distances for remaining unconnected components
+        nx, ny = components[next_idx][0]
+        for i in min_dists:
+          cx, cy = components[i][0]
+          new_dist = abs(cx - nx) + abs(cy - ny)
+          if new_dist < min_dists[i][0]:
+            min_dists[i] = (new_dist, next_idx)
 
 
 class RandomObstacleGenerator(MapGenerator):
