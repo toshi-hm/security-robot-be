@@ -57,3 +57,6 @@ Thumbs.db
 
 # GitHub App credentials
 gha-creds-*.json
+
+# Trained models
+models/
