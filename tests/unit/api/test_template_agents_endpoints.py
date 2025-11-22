@@ -55,7 +55,6 @@ class TestListAgentTypes:
     assert "時計回り" in spiral["description"]
 
 
-
 class TestCreateExecution:
   """Tests for POST /template-agents/executions endpoint."""
 

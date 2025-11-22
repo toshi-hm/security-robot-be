@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 
 from rl._gym_compat import gym, spaces
+from rl.environments.map_generator import MapType, create_generator
 
 
 def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -> int:
@@ -40,6 +41,8 @@ class SecurityEnvironment(gym.Env):
     robot_vision_range: int = 2,
     enable_logging: bool = False,
     max_episode_steps: int | None = None,
+    map_type: MapType = "random",
+    **map_config,
   ) -> None:
     super().__init__()
 
@@ -47,6 +50,8 @@ class SecurityEnvironment(gym.Env):
     self.height = height
     self.robot_vision_range = robot_vision_range
     self.enable_logging = enable_logging
+    self.map_type = map_type
+    self.map_config = map_config
     self.logger = None
 
     # エピソードステップ上限（None の場合は動的に計算）
@@ -154,13 +159,8 @@ class SecurityEnvironment(gym.Env):
     return [[fill_value for _ in range(self.height)] for _ in range(self.width)]
 
   def _generate_obstacles(self) -> list[list[bool]]:
-    obstacles = [[False for _ in range(self.height)] for _ in range(self.width)]
-    count = random.randint(3, 8)
-    for _ in range(count):
-      x = random.randrange(self.width)
-      y = random.randrange(self.height)
-      obstacles[x][y] = True
-    return obstacles
+    generator = create_generator(self.map_type, self.width, self.height, **self.map_config)
+    return generator.generate()
 
   def _get_observation(self) -> list[list[list[float]]]:
     observation = [[[0.0] * 5 for _ in range(self.height)] for _ in range(self.width)]

@@ -294,7 +294,7 @@ class TemplateAgentExecuteResponse(BaseModel):
             }
           ],
         }
-    ]
+      ]
     }
   }
 

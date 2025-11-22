@@ -286,6 +286,7 @@ def test_render_includes_battery_info(battery_env, capsys):
 # 動的エピソードステップ上限のテスト
 # ============================================================
 
+
 def test_dynamic_max_steps_default_small_env():
   """小さい環境では従来互換の1000ステップがデフォルトになることを確認"""
   from rl.environments.security_env import calculate_dynamic_max_steps

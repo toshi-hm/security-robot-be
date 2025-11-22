@@ -45,8 +45,16 @@ class A3CTrainingService:
     width = config.get("env_width", 8)
     height = config.get("env_height", 8)
 
+    map_type = config.get("map_type", "random")
+    map_config = config.get("map_config", {})
+
     if env_type == "standard":
-      return SecurityEnvironment(width=width, height=height)
+      return SecurityEnvironment(
+        width=width,
+        height=height,
+        map_type=map_type,
+        **map_config,
+      )
     if env_type == "enhanced":
       return EnhancedSecurityEnvironment(
         width=width,
@@ -54,6 +62,8 @@ class A3CTrainingService:
         coverage_weight=config.get("coverage_weight", 1.5),
         exploration_weight=config.get("exploration_weight", 3.0),
         diversity_weight=config.get("diversity_weight", 2.0),
+        map_type=map_type,
+        **map_config,
       )
     raise ValueError(f"Unknown environment type: {env_type}")
 
