@@ -13,99 +13,111 @@ from app.core.training.a3c_service import a3c_service  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+  level=logging.INFO,
+  format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+  handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger("pipeline")
 
+
 async def run_pipeline():
-    stages = [
-        {
-            "name": "Stage 1: Small Random",
-            "config": {
-                "environment_type": "enhanced",
-                "env_width": 10,
-                "env_height": 10,
-                "map_type": "random",
-                "map_config": {"obstacle_count": 5},
-                "total_timesteps": 5000,
-                "num_workers": 4,
-                "model_path": "models/stage1_random.pth",
-            },
-            "critical": True,  # Critical stage - must succeed
-        },
-        {
-            "name": "Stage 2: Medium Maze",
-            "config": {
-                "environment_type": "enhanced",
-                "env_width": 15,
-                "env_height": 15,
-                "map_type": "maze",
-                "total_timesteps": 10000,
-                "num_workers": 4,
-                "model_path": "models/stage2_maze.pth"
-            }
-        },
-        {
-            "name": "Stage 3: Large Room",
-            "config": {
-                "environment_type": "enhanced",
-                "env_width": 20,
-                "env_height": 20,
-                "map_type": "room",
-                "total_timesteps": 15000,
-                "num_workers": 4,
-                "model_path": "models/stage3_room.pth"
-            }
-        }
-    ]
+  stages = [
+    {
+      "name": "Stage 1: Small Random",
+      "config": {
+        "environment_type": "enhanced",
+        "env_width": 10,
+        "env_height": 10,
+        "map_type": "random",
+        "map_config": {"obstacle_count": 5},
+        "total_timesteps": 5000,
+        "num_workers": 4,
+        "model_path": "models/stage1_random.pth",
+      },
+      "critical": True,  # Critical stage - must succeed
+    },
+    {
+      "name": "Stage 2: Medium Maze",
+      "config": {
+        "environment_type": "enhanced",
+        "env_width": 15,
+        "env_height": 15,
+        "map_type": "maze",
+        "total_timesteps": 10000,
+        "num_workers": 4,
+        "model_path": "models/stage2_maze.pth",
+      },
+    },
+    {
+      "name": "Stage 3: Large Room",
+      "config": {
+        "environment_type": "enhanced",
+        "env_width": 20,
+        "env_height": 20,
+        "map_type": "room",
+        "total_timesteps": 15000,
+        "num_workers": 4,
+        "model_path": "models/stage3_room.pth",
+      },
+    },
+  ]
 
-    # Note: Stages are executed sequentially to allow for potential transfer learning
-    # where later stages could load weights from earlier stages.
-    for stage in stages:
-        logger.info(f"Starting {stage['name']}")
-        logger.info(f"Configuration: {stage['config']}")
+  # Note: Stages are executed sequentially to allow for potential transfer learning
+  # where later stages could load weights from earlier stages.
+  for stage in stages:
+    logger.info(f"Starting {stage['name']}")
+    logger.info(f"Configuration: {stage['config']}")
 
-        # Security check: Prevent path traversal in model_path
-        model_path_str = stage['config'].get('model_path')
-        if model_path_str:
-            try:
-                # Resolve path relative to project root
-                safe_path = (project_root / model_path_str).resolve()
-                # Check if the resolved path is within the project root
-                safe_path.relative_to(project_root.resolve())
-            except ValueError as e:
-                # Path traversal attempt detected
-                logger.error(
-                    f"Security: Path traversal attempt detected in {stage['name']}: "
-                    f"{model_path_str}"
-                )
-                logger.debug(f"Details: {e}")
-                continue  # Skip this stage
-            except OSError as e:
-                # Filesystem error
-                logger.error(f"Filesystem error in {stage['name']}: {e}")
-                continue  # Skip this stage
+    # Security check: Prevent path traversal in model_path
+    model_path_str = stage["config"].get("model_path")
+    if model_path_str:
+      try:
+        # Resolve path relative to project root
+        safe_path = (project_root / model_path_str).resolve()
+        # Check if the resolved path is within the project root
+        safe_path.relative_to(project_root.resolve())
+      except ValueError as e:
+        # Path traversal attempt detected
+        logger.error(
+          f"Security: Path traversal attempt detected in {stage['name']}: {model_path_str}"
+        )
+        logger.debug(f"Details: {e}")
+        continue  # Skip this stage
+      except OSError as e:
+        # Filesystem error
+        logger.error(f"Filesystem error in {stage['name']}: {e}")
+        continue  # Skip this stage
 
+    try:
+      result = await a3c_service.start_training(config=stage["config"])
+      logger.info(f"Finished {stage['name']}")
+      logger.info(f"Result: {result}")
 
+      # Optional: Load the model from the previous stage to continue training?
+      # For now, we start fresh or rely on the fact that we might want to
+      # transfer weights later.
+      # To transfer weights, we would need to load the state dict.
+
+    except Exception as e:
+      logger.error(f"Failed {stage['name']}: {e}")
+
+      # Resource Cleanup: Delete potential partial model file
+      model_path_str = stage["config"].get("model_path")
+      if model_path_str:
         try:
-            result = await a3c_service.start_training(config=stage['config'])
-            logger.info(f"Finished {stage['name']}")
-            logger.info(f"Result: {result}")
+          model_path = (project_root / model_path_str).resolve()
+          if model_path.exists() and model_path.is_file():
+            logger.warning(f"Cleaning up incomplete model file: {model_path}")
+            model_path.unlink()
+        except Exception as cleanup_error:
+          logger.error(f"Failed to cleanup model file: {cleanup_error}")
 
-            # Optional: Load the model from the previous stage to continue training?
-            # For now, we start fresh or rely on the fact that we might want to
-            # transfer weights later.
-            # To transfer weights, we would need to load the state dict.
+      # Check if this is a critical stage
+      if stage.get("critical", False):
+        logger.error("Critical stage failed. Stopping pipeline.")
+        break
+      # Otherwise continue to next stage
 
-        except Exception as e:
-            logger.error(f"Failed {stage['name']}: {e}")
-            # Check if this is a critical stage
-            if stage.get("critical", False):
-                logger.error("Critical stage failed. Stopping pipeline.")
-                break
-            # Otherwise continue to next stage
 
 if __name__ == "__main__":
-    asyncio.run(run_pipeline())
+  asyncio.run(run_pipeline())

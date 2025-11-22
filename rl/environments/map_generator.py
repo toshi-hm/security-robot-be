@@ -65,16 +65,66 @@ class MapGenerator(abc.ABC):
     total_passable = sum(sum(1 for cell in row if not cell) for row in obstacles)
     return len(visited) == total_passable
 
+  def _force_connectivity(self, obstacles: list[list[bool]]) -> None:
+    """Force connectivity by opening paths between isolated regions."""
+    # Find all connected components
+    visited = [[False for _ in range(self.height)] for _ in range(self.width)]
+    components = []
+
+    for i in range(self.width):
+      for j in range(self.height):
+        if not obstacles[i][j] and not visited[i][j]:
+          # Found a new component, flood-fill it
+          component = []
+          stack = [(i, j)]
+          while stack:
+            x, y = stack.pop()
+            if visited[x][y]:
+              continue
+            visited[x][y] = True
+            component.append((x, y))
+
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+              nx, ny = x + dx, y + dy
+              if 0 <= nx < self.width and 0 <= ny < self.height:
+                if not obstacles[nx][ny] and not visited[nx][ny]:
+                  stack.append((nx, ny))
+
+          components.append(component)
+
+    # Connect all components to the largest one
+    if len(components) > 1:
+      largest = max(components, key=len)
+      for component in components:
+        if component == largest:
+          continue
+
+        # Find closest points between this component and the largest
+        # Use representative points (first cell) for performance
+        min_dist = float("inf")
+        best_pair = None
+        x1, y1 = component[0]  # Representative point of this component
+        for x2, y2 in [largest[0]]:  # Representative point of largest component
+          dist = abs(x1 - x2) + abs(y1 - y2)
+          if dist < min_dist:
+            min_dist = dist
+            best_pair = ((x1, y1), (x2, y2))
+
+        # Open a path between them
+        if best_pair:
+          (x1, y1), (x2, y2) = best_pair
+          # Horizontal then vertical
+          for x in range(min(x1, x2), max(x1, x2) + 1):
+            obstacles[x][y1] = False
+          for y in range(min(y1, y2), max(y1, y2) + 1):
+            obstacles[x2][y] = False
+
 
 class RandomObstacleGenerator(MapGenerator):
   """Legacy random obstacle generator."""
 
   def __init__(
-      self,
-      width: int,
-      height: int,
-      seed: int | None = None,
-      count: int | None = None
+    self, width: int, height: int, seed: int | None = None, count: int | None = None
   ) -> None:
     super().__init__(width, height, seed)
     self.count = count
@@ -87,9 +137,10 @@ class RandomObstacleGenerator(MapGenerator):
       if self._is_connected(obstacles):
         return obstacles
 
-    # Fallback: return last attempt even if not connected
-    # (This should rarely happen with reasonable obstacle counts)
-    return self._generate_attempt()
+    # Fallback: force connectivity if retries fail
+    obstacles = self._generate_attempt()
+    self._force_connectivity(obstacles)
+    return obstacles
 
   def _generate_attempt(self) -> list[list[bool]]:
     """Single attempt at generating random obstacles."""
@@ -142,13 +193,13 @@ class MazeGenerator(MapGenerator):
         # Boundary cells are always walls in our maze algorithm
         # Valid traversable area is (1, 1) to (width-2, height-2)
         if 0 < nx < self.width - 1 and 0 < ny < self.height - 1:
-          if obstacles[nx][ny]: # If unvisited (still a wall)
+          if obstacles[nx][ny]:  # If unvisited (still a wall)
             neighbors.append((nx, ny, dx // 2, dy // 2))
 
       if neighbors:
         nx, ny, wx, wy = self.rng.choice(neighbors)
-        obstacles[nx][ny] = False # Carve cell
-        obstacles[current_x + wx][current_y + wy] = False # Carve wall between
+        obstacles[nx][ny] = False  # Carve cell
+        obstacles[current_x + wx][current_y + wy] = False  # Carve wall between
         stack.append((nx, ny))
       else:
         stack.pop()
@@ -186,15 +237,15 @@ class RoomGenerator(MapGenerator):
       max_h = min(6, self.height - 2)
 
       if max_w < 3 or max_h < 3:
-          # Environment too small for rooms, just return empty or simple
-          break
+        # Environment too small for rooms, just return empty or simple
+        break
 
       w = self.rng.randint(3, max_w)
       h = self.rng.randint(3, max_h)
 
       # Check if room can fit within bounds
       if self.width - w - 1 < 1 or self.height - h - 1 < 1:
-          break
+        break
 
       x = self.rng.randint(1, self.width - w - 1)
       y = self.rng.randint(1, self.height - h - 1)
@@ -205,8 +256,12 @@ class RoomGenerator(MapGenerator):
       ROOM_BUFFER = 1
       overlap = False
       for rx, ry, rw, rh in rooms:
-        if (x < rx + rw + ROOM_BUFFER and x + w + ROOM_BUFFER > rx and
-            y < ry + rh + ROOM_BUFFER and y + h + ROOM_BUFFER > ry):
+        if (
+          x < rx + rw + ROOM_BUFFER
+          and x + w + ROOM_BUFFER > rx
+          and y < ry + rh + ROOM_BUFFER
+          and y + h + ROOM_BUFFER > ry
+        ):
           overlap = True
           break
 
@@ -223,7 +278,7 @@ class RoomGenerator(MapGenerator):
         continue
 
       # Find nearest existing room
-      min_dist = float('inf')
+      min_dist = float("inf")
       nearest_idx = 0
       cx1 = x1 + w1 // 2
       cy1 = y1 + h1 // 2
@@ -254,15 +309,23 @@ class RoomGenerator(MapGenerator):
 
     # Ensure at least one room exists if generation failed
     if not rooms:
-        # Create a fallback room in the center
-        w = min(4, self.width - 2)
-        h = min(4, self.height - 2)
-        x = (self.width - w) // 2
-        y = (self.height - h) // 2
+      # Create a fallback room in the center
+      w = min(4, self.width - 2)
+      h = min(4, self.height - 2)
 
-        for i in range(x, x + w):
-            for j in range(y, y + h):
-                obstacles[i][j] = False
+      if w < 1 or h < 1:
+        raise ValueError(f"Grid size {self.width}x{self.height} too small for RoomGenerator")
+
+      x = (self.width - w) // 2
+      y = (self.height - h) // 2
+
+      for i in range(x, x + w):
+        for j in range(y, y + h):
+          obstacles[i][j] = False
+
+    if not self._is_connected(obstacles):
+      # Should not happen with fallback, but safety check
+      raise RuntimeError("RoomGenerator failed to generate connected map")
 
     return obstacles
 
@@ -271,11 +334,7 @@ class CellularAutomataGenerator(MapGenerator):
   """Generates cave-like natural terrain."""
 
   def __init__(
-      self,
-      width: int,
-      height: int,
-      seed: int | None = None,
-      initial_wall_probability: float = 0.45
+    self, width: int, height: int, seed: int | None = None, initial_wall_probability: float = 0.45
   ) -> None:
     super().__init__(width, height, seed)
     self.initial_wall_probability = initial_wall_probability
@@ -297,8 +356,8 @@ class CellularAutomataGenerator(MapGenerator):
     """Single attempt at generating a cave using cellular automata."""
     # Initial random fill
     obstacles = [
-        [self.rng.random() < self.initial_wall_probability for _ in range(self.height)]
-        for _ in range(self.width)
+      [self.rng.random() < self.initial_wall_probability for _ in range(self.height)]
+      for _ in range(self.width)
     ]
 
     # Simulation steps
@@ -313,7 +372,7 @@ class CellularAutomataGenerator(MapGenerator):
                 continue
               nx, ny = x + dx, y + dy
               if nx < 0 or nx >= self.width or ny < 0 or ny >= self.height:
-                neighbors += 1 # Edge counts as wall
+                neighbors += 1  # Edge counts as wall
               elif obstacles[nx][ny]:
                 neighbors += 1
 
@@ -325,69 +384,12 @@ class CellularAutomataGenerator(MapGenerator):
 
     return obstacles
 
-  def _force_connectivity(self, obstacles: list[list[bool]]) -> None:
-    """Force connectivity by opening paths between isolated regions."""
-    # Find all connected components
-    visited = [[False for _ in range(self.height)] for _ in range(self.width)]
-    components = []
-
-    for i in range(self.width):
-      for j in range(self.height):
-        if not obstacles[i][j] and not visited[i][j]:
-          # Found a new component, flood-fill it
-          component = []
-          stack = [(i, j)]
-          while stack:
-            x, y = stack.pop()
-            if visited[x][y]:
-              continue
-            visited[x][y] = True
-            component.append((x, y))
-
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-              nx, ny = x + dx, y + dy
-              if 0 <= nx < self.width and 0 <= ny < self.height:
-                if not obstacles[nx][ny] and not visited[nx][ny]:
-                  stack.append((nx, ny))
-
-          components.append(component)
-
-    # Connect all components to the largest one
-    if len(components) > 1:
-      largest = max(components, key=len)
-      for component in components:
-        if component == largest:
-          continue
-
-        # Find closest points between this component and the largest
-        # Use representative points (first cell) for performance
-        min_dist = float('inf')
-        best_pair = None
-        x1, y1 = component[0]  # Representative point of this component
-        for x2, y2 in [largest[0]]:  # Representative point of largest component
-          dist = abs(x1 - x2) + abs(y1 - y2)
-          if dist < min_dist:
-            min_dist = dist
-            best_pair = ((x1, y1), (x2, y2))
-
-        # Open a path between them
-        if best_pair:
-          (x1, y1), (x2, y2) = best_pair
-          # Horizontal then vertical
-          for x in range(min(x1, x2), max(x1, x2) + 1):
-            obstacles[x][y1] = False
-          for y in range(min(y1, y2), max(y1, y2) + 1):
-            obstacles[x2][y] = False
-
 
 MapType = Literal["random", "maze", "room", "cave"]
 
+
 def create_generator(
-    map_type: MapType,
-    width: int,
-    height: int,
-    seed: int | None = None,
-    **kwargs
+  map_type: MapType, width: int, height: int, seed: int | None = None, **kwargs
 ) -> MapGenerator:
   if map_type == "maze":
     return MazeGenerator(width, height, seed=seed)

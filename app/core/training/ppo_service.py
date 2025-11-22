@@ -225,10 +225,7 @@ class PPOTrainingService:
         self.env.close()
 
   def load_model(
-      self,
-      model_path: str,
-      env: gym.Env | None = None,
-      device: str | None = None
+    self, model_path: str, env: gym.Env | None = None, device: str | None = None
   ) -> PPO:
     """Load a trained PPO model from disk.
 
