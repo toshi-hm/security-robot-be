@@ -141,11 +141,12 @@ class TestReproduction(unittest.TestCase):
         env.step(3)
         
         # Check center
-        self.assertEqual(env.threat_levels[5][5], 0.0, "Center threat level should be 0.0")
+        self.assertEqual(env.threat_levels[env.robot_y][env.robot_x], 0.0, "Center threat level should be 0.0")
         
         # Check outside vision (vision=2)
         # 5+3 = 8. (8,8) should be 0.51
-        self.assertAlmostEqual(env.threat_levels[8][8], 0.51, places=5, msg="Outside threat level should increase")
+        outside_y, outside_x = 8, 8
+        self.assertAlmostEqual(env.threat_levels[outside_y][outside_x], 0.51, places=5, msg="Outside threat level should increase")
 
         print("Threat reduction test passed.")
 
