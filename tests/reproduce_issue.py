@@ -129,9 +129,9 @@ class TestReproduction(unittest.TestCase):
                 env.threat_levels[y][x] = 0.5
         
         # Place robot at 5,5
-        env.robot_x = 5
         env.robot_y = 5
-        env.obstacles[5][5] = False # Ensure no obstacle
+        env.robot_x = 5
+        env.obstacles[env.robot_y][env.robot_x] = False  # Ensure no obstacle at robot position
         
         # Action 3 is Patrol
         # step() calls _update_threat_levels then _execute_action
