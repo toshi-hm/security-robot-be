@@ -102,7 +102,6 @@ class _PlaybackRecorder:
       self.statement_timeout_ms = None
 
   def record(self, payload: dict[str, Any]) -> None:
-    # print(f"DEBUG: Recording frame {payload.get('step')}")
     self._buffer.append(payload)
     if len(self._buffer) >= max(1, self.buffer_size):
       self.flush()
@@ -110,7 +109,6 @@ class _PlaybackRecorder:
   def flush(self) -> None:
     if not self._buffer:
       return
-    # print(f"DEBUG: Flushing {len(self._buffer)} frames")
     session = self.session_factory()
     try:
       if (
@@ -124,10 +122,8 @@ class _PlaybackRecorder:
         )
       session.bulk_insert_mappings(EnvironmentState, list(self._buffer))
       session.commit()
-      # print("DEBUG: Flush successful")
       self._buffer.clear()
     except Exception as exc:  # pragma: no cover - defensive logging
-      print(f"DEBUG: Flush failed: {exc}")
       logger.error(
         "Failed to persist playback frames",
         exc_info=exc,
