@@ -74,6 +74,7 @@ fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # unused imports in __init__.py
+"tests/*.py" = ["E402"]  # module level imports after sys.path.append
 
 [tool.ruff.format]
 quote-style = "double"

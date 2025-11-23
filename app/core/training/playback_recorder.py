@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 import logging
 from typing import Any
 
-from rl._gym_compat import gym
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.environment import EnvironmentState
+from rl._gym_compat import gym
 
 logger = logging.getLogger(__name__)
 
