@@ -105,7 +105,7 @@ class MapGenerator(abc.ABC):
     # Initialize with distance to the largest component
     min_dists = {}
     lx, ly = components[largest_idx][0]
-    
+
     for i in range(len(components)):
       if i == largest_idx:
         continue
@@ -117,20 +117,20 @@ class MapGenerator(abc.ABC):
       # Find the closest unconnected component
       next_idx = min(min_dists, key=lambda k: min_dists[k][0])
       dist, parent_idx = min_dists[next_idx]
-      
+
       # Connect next_idx to parent_idx
       x1, y1 = components[next_idx][0]
       x2, y2 = components[parent_idx][0]
-      
+
       # Open a path between them (Horizontal then vertical)
       for x in range(min(x1, x2), max(x1, x2) + 1):
         obstacles[y1][x] = False
       for y in range(min(y1, y2), max(y1, y2) + 1):
         obstacles[y][x2] = False
-        
+
       # Mark as connected (remove from min_dists)
       del min_dists[next_idx]
-      
+
       # Update distances for remaining unconnected components
       nx, ny = components[next_idx][0]
       for i in min_dists:

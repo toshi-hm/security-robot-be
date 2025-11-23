@@ -11,7 +11,7 @@ sys.path.append(str(project_root))
 
 from app.core.training.a3c_service import a3c_service  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
-from app.models.training import TrainingJob, TrainingAlgorithm, TrainingJobStatus  # noqa: E402
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -114,11 +114,9 @@ async def run_pipeline():
       stage_config["playback"] = {"enabled": True, "record_interval": 1}
 
       result = await a3c_service.start_training(
-        config=stage_config,
-        session_id=job_id,
-        db_session_factory=SessionLocal
+        config=stage_config, session_id=job_id, db_session_factory=SessionLocal
       )
-      
+
       # Update job status on completion
       with SessionLocal() as session:
         job = session.get(TrainingJob, job_id)
