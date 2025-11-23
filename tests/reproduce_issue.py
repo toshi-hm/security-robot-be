@@ -124,9 +124,9 @@ class TestReproduction(unittest.TestCase):
         env.reset()
         
         # Manually set high threat levels
-        for x in range(env.width):
-            for y in range(env.height):
-                env.threat_levels[x][y] = 0.5
+        for y in range(env.height):
+            for x in range(env.width):
+                env.threat_levels[y][x] = 0.5
         
         # Place robot at 5,5
         env.robot_x = 5
