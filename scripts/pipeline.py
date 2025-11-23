@@ -10,6 +10,8 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 from app.core.training.a3c_service import a3c_service  # noqa: E402
+from app.db.session import SessionLocal  # noqa: E402
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +31,7 @@ async def run_pipeline():
         "env_width": 10,
         "env_height": 10,
         "map_type": "random",
-        "map_config": {"obstacle_count": 5},
+        "map_config": {"count": 5},
         "total_timesteps": 5000,
         "num_workers": 4,
         "model_path": "models/stage1_random.pth",
@@ -89,7 +91,40 @@ async def run_pipeline():
         continue  # Skip this stage
 
     try:
-      result = await a3c_service.start_training(config=stage["config"])
+      # Create a training job record for this stage
+      with SessionLocal() as session:
+        job = TrainingJob(
+          name=f"Pipeline: {stage['name']}",
+          algorithm=TrainingAlgorithm.a3c,
+          status=TrainingJobStatus.running,
+          environment_type=stage["config"].get("environment_type", "standard"),
+          env_width=stage["config"].get("env_width", 8),
+          env_height=stage["config"].get("env_height", 8),
+          total_timesteps=stage["config"].get("total_timesteps", 0),
+          config=stage["config"],
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        job_id = job.id
+        logger.info(f"Created TrainingJob {job_id} for {stage['name']}")
+
+      # Enable playback for this stage
+      stage_config = dict(stage["config"])
+      stage_config["playback"] = {"enabled": True, "record_interval": 1}
+
+      result = await a3c_service.start_training(
+        config=stage_config, session_id=job_id, db_session_factory=SessionLocal
+      )
+
+      # Update job status on completion
+      with SessionLocal() as session:
+        job = session.get(TrainingJob, job_id)
+        if job:
+          job.status = TrainingJobStatus.completed
+          job.model_path = str(result.get("model_path", ""))
+          session.commit()
+
       logger.info(f"Finished {stage['name']}")
       logger.info(f"Result: {result}")
 

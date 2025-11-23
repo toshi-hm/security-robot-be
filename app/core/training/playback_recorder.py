@@ -252,6 +252,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "step": int(step),
       "threat_grid": {"levels": _copy_grid(getattr(self.env, "threat_levels", []))},
       "coverage_map": None,
+      "obstacles": {"levels": _copy_grid(getattr(self.env, "obstacles", []))},
       "suspicious_objects": _copy_mapping(getattr(self.env, "suspicious_objects", None)),
       "action_taken": self._normalise_action(action),
       "reward_received": float(reward) if reward is not None else None,
