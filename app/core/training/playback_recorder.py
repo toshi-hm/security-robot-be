@@ -10,10 +10,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-
 from app.models.environment import EnvironmentState
-from rl._gym_compat import gym
-
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
@@ -131,7 +128,7 @@ class _PlaybackRecorder:
           text("SET LOCAL statement_timeout = :timeout"),
           {"timeout": self.statement_timeout_ms},
         )
-      session.bulk_insert_mappings(EnvironmentState, list(self._buffer))
+      session.bulk_insert_mappings(EnvironmentState, list(self._buffer))  # type: ignore[arg-type]
       session.commit()
       self._buffer.clear()
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -155,7 +152,7 @@ class _PlaybackRecorder:
         logger.debug("Failed to close playback recorder session", exc_info=True)
 
 
-class PlaybackRecordingWrapper(gym.Wrapper):
+class PlaybackRecordingWrapper:
   """Proxy environment that records state snapshots for playback."""
 
   def __init__(
@@ -197,7 +194,9 @@ class PlaybackRecordingWrapper(gym.Wrapper):
   # ------------------------------------------------------------------
   # Gymnasium API
   # ------------------------------------------------------------------
-  def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+  def reset(
+    self, *, seed: int | None = None, options: dict[str, Any] | None = None
+  ) -> tuple[Any, dict[str, Any]]:
     observation, info = self.env.reset(seed=seed, options=options)
 
     self._episode += 1
@@ -214,7 +213,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
 
     return observation, info
 
-  def step(self, action: Any):
+  def step(self, action: Any) -> tuple[Any, Any, bool, bool, dict[str, Any]]:
     observation, reward, terminated, truncated, info = self.env.step(action)
 
     self._step_in_episode += 1
