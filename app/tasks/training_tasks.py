@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import json
 import logging
 from typing import Any, Protocol
@@ -23,16 +24,12 @@ from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
 from rl.callbacks.websocket_callback import DatabaseMetricsCallback
 
 try:  # pragma: no cover - optional dependency guard
-  from gymnasium import error as gym_error
+  from gymnasium.error import Error as _GymError
+
+  GymEnvironmentError = _GymError
 except ImportError:  # pragma: no cover - exercised when gymnasium is absent
-  gym_error = None
 
-
-if gym_error is not None:
-  GymEnvironmentError = gym_error.Error
-else:  # pragma: no cover - fallback used when gymnasium is absent
-
-  class GymEnvironmentError(Exception):
+  class GymEnvironmentError(Exception):  # type: ignore[no-redef]
     """Placeholder used when gymnasium is not installed."""
 
     pass
@@ -171,7 +168,7 @@ def _record_metric(
       )
 
 
-def _make_training_status_probe(session_id: int):
+def _make_training_status_probe(session_id: int) -> Callable[[], TrainingJobStatus | None]:
   def _probe() -> TrainingJobStatus | None:
     session = SessionLocal()
     try:
@@ -186,7 +183,7 @@ def _make_training_status_probe(session_id: int):
 def _handle_a3c_failure(
   task: Any,
   db: Session,
-  redis_client: Redis | _NoOpRedis,
+  redis_client: RedisPublisher,
   session_id: int,
   message: str,
   exc: Exception,
@@ -216,7 +213,7 @@ def _handle_a3c_failure(
   return {"status": "failed", "session_id": session_id, "error": message}
 
 
-def _update_celery_progress(task, session_id: int, meta: dict[str, Any]) -> None:
+def _update_celery_progress(task: Any, session_id: int, meta: dict[str, Any]) -> None:
   payload = {"session_id": session_id, **meta}
   try:
     task.update_state(state="PROGRESS", meta=payload)
@@ -236,7 +233,7 @@ def _validate_algorithm(job: TrainingJob, expected: TrainingAlgorithm) -> None:
 
 
 @celery_app.task(bind=True, name="training.run_ppo_training")
-def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict[str, Any]:
+def run_ppo_training_task(self: Any, session_id: int, config: dict[str, Any]) -> dict[str, Any]:
   """Execute a PPO training job within a Celery worker."""
 
   logger.info("Starting PPO training task for session %s", session_id)
@@ -387,7 +384,7 @@ def run_ppo_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
 
 @celery_app.task(bind=True, name="training.run_a3c_training")
-def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict[str, Any]:
+def run_a3c_training_task(self: Any, session_id: int, config: dict[str, Any]) -> dict[str, Any]:
   """Execute a custom A3C training job inside a Celery worker."""
 
   logger.info("Starting A3C training task for session %s", session_id)
@@ -419,7 +416,7 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
 
     def _should_pause() -> bool:
       status = status_probe()
-      return status == TrainingJobStatus.paused
+      return status == TrainingJobStatus.paused if status is not None else False
 
     def _progress_callback(timestep: int, metrics: dict[str, Any]) -> None:
       nonlocal last_progress_emit
@@ -558,7 +555,7 @@ def run_a3c_training_task(self, session_id: int, config: dict[str, Any]) -> dict
       exc,
     )
 
-  except GymEnvironmentError as exc:  # type: ignore[misc]
+  except GymEnvironmentError as exc:
     return _handle_a3c_failure(
       self,
       db,
