@@ -10,8 +10,19 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+
 from app.models.environment import EnvironmentState
 from rl._gym_compat import gym
+
+
+# -----------------------------------------------------------------------------
+# Grid Indexing Convention:
+#   - Format: grid[y][x] (row-major)
+#   - y: row index (0 to height-1)
+#   - x: col index (0 to width-1)
+#   - Access: grid[y][x]
+# -----------------------------------------------------------------------------
+
 
 logger = logging.getLogger(__name__)
 

@@ -4,8 +4,18 @@ from __future__ import annotations
 
 import random
 
+
 from rl._gym_compat import gym, spaces
 from rl.environments.map_generator import MapType, create_generator
+
+
+# -----------------------------------------------------------------------------
+# Grid Indexing Convention:
+#   - Format: grid[y][x] (row-major)
+#   - y: row index (0 to height-1)
+#   - x: col index (0 to width-1)
+#   - Access: grid[y][x]
+# -----------------------------------------------------------------------------
 
 
 def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -> int:

@@ -35,3 +35,28 @@ Guidance for Claude Code when collaborating on this repository.
 ## 🧪 Testing & quality gates
 - Execute `pytest` to cover unit and integration paths, expanding scenarios in line with the documented test plan as needed.
 - Apply additional security or performance checks for sensitive changes, referencing the architecture and reinforcement learning design documents for specific criteria.
+
+## 📏 Coding Standards
+
+### Grid Indexing Convention
+
+In this project, we unify 2D grid indexing to **row-major** format:
+
+- **Format:** `grid[y][x]` or `grid[row][col]`
+- **Reason:**
+  - Consistency with NumPy standard format
+  - Simplification of data exchange with frontend
+  - Consistency with mathematical matrix notation
+
+**Example:**
+```python
+# ✅ Correct
+obstacles = [[False for _ in range(width)] for _ in range(height)]
+if obstacles[y][x]:  # y=row, x=col
+    ...
+
+# ❌ Incorrect
+obstacles = [[False for _ in range(height)] for _ in range(width)]
+if obstacles[x][y]:
+    ...
+```

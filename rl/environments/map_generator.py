@@ -4,7 +4,17 @@ from __future__ import annotations
 
 import abc
 import random
+
 from typing import Literal
+
+
+# -----------------------------------------------------------------------------
+# Grid Indexing Convention:
+#   - Format: grid[y][x] (row-major)
+#   - y: row index (0 to height-1)
+#   - x: col index (0 to width-1)
+#   - Access: grid[y][x]
+# -----------------------------------------------------------------------------
 
 
 class MapGenerator(abc.ABC):
