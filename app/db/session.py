@@ -13,8 +13,9 @@ from app.db.database import async_engine, sync_engine
 async_session = async_sessionmaker(async_engine, expire_on_commit=False, class_=AsyncSession)
 
 
-def get_session() -> AsyncIterator[AsyncSession]:
-  return async_session()
+async def get_session() -> AsyncIterator[AsyncSession]:
+  async with async_session() as session:
+    yield session
 
 
 # Celery workers operate in a synchronous context.  The async engine exposes a

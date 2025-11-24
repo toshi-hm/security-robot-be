@@ -141,7 +141,7 @@ class RedisTrainingEventForwarder:
     elif "session_id" not in data:
       data["session_id"] = session_id
 
-    return data
+    return data  # type: ignore[no-any-return]
 
   @staticmethod
   def _channel_name(session_id: int) -> str:

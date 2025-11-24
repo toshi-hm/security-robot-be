@@ -79,7 +79,7 @@ class A3CTrainingService:
       factory = config["env_factory"]
       if not callable(factory):
         raise ValueError("env_factory must be callable when provided")
-      return factory
+      return factory  # type: ignore[no-any-return]
     base_factory = partial(self._create_environment, config)
 
     if session_id is not None and session_factory is not None:

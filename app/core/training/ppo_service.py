@@ -63,7 +63,7 @@ class PPOTrainingService:
     else:
       raise ValueError(f"Unknown environment type: {env_type}")
 
-    return env
+    return env  # type: ignore[return-value]
 
   def create_model(
     self,
@@ -159,7 +159,7 @@ class PPOTrainingService:
       playback_enabled = playback_config.pop("enabled", True)
 
       if effective_session_id is not None and db_session_factory is not None and playback_enabled:
-        environment = wrap_environment_for_playback(
+        environment = wrap_environment_for_playback(  # type: ignore[assignment]
           environment,
           session_id=int(effective_session_id),
           session_factory=db_session_factory,
@@ -249,7 +249,7 @@ class PPOTrainingService:
     self.model = model
     return model
 
-  def stop_training(self):
+  def stop_training(self) -> None:
     """Stop the current training session."""
     # Note: Stable-Baselines3 doesn't provide built-in stop mechanism
     # This would need to be implemented via a custom callback

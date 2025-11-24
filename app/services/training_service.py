@@ -102,7 +102,7 @@ class TrainingService:
       select(TrainingJob).order_by(TrainingJob.created_at.desc()).offset(offset).limit(page_size)
     )
     sessions_result = await self._db.execute(sessions_stmt)
-    sessions = sessions_result.scalars().all()
+    sessions = list(sessions_result.scalars().all())
     return sessions, total
 
   async def get_session(self, job_id: int) -> TrainingJob | None:
