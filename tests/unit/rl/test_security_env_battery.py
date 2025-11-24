@@ -99,7 +99,7 @@ def test_charging_station_in_observation(battery_env):
   station_y = battery_env.charging_station_y
 
   # チャンネル3に充電ステーションが記録されている
-  assert obs[station_x][station_y][3] == 1.0
+  assert obs[station_y][station_x][3] == 1.0
 
   # チャンネル4にバッテリー残量（正規化済み）が記録されている
   assert obs[0][0][4] == 1.0  # 100% = 1.0

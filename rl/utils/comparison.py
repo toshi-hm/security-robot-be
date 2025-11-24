@@ -262,7 +262,7 @@ def evaluate_template_agent(
       env_info_captured = True
 
     obstacle_coords = {
-      (x, y) for x in range(env.width) for y in range(env.height) if env.obstacles[x][y]
+      (x, y) for y in range(env.height) for x in range(env.width) if env.obstacles[y][x]
     }
 
     metrics = EvaluationMetrics()
@@ -335,9 +335,9 @@ def evaluate_template_agent(
     total_cells = env.width * env.height - len(obstacle_coords)
     patrolled_cells = sum(
       1
-      for x in range(env.width)
       for y in range(env.height)
-      if env.last_patrolled[x][y] > 0 and (x, y) not in obstacle_coords
+      for x in range(env.width)
+      if env.last_patrolled[y][x] > 0 and (x, y) not in obstacle_coords
     )
     metrics.coverage_ratio = patrolled_cells / total_cells if total_cells > 0 else 0.0
     metrics.episode_length = step + 1
@@ -459,9 +459,9 @@ def _calculate_coverage_ratio(
     return 0.0
   patrolled_cells = sum(
     1
-    for x in range(env.width)
     for y in range(env.height)
-    if env.last_patrolled[x][y] > 0 and (x, y) not in obstacle_coords
+    for x in range(env.width)
+    if env.last_patrolled[y][x] > 0 and (x, y) not in obstacle_coords
   )
   return patrolled_cells / walkable_cells
 
@@ -494,8 +494,8 @@ def _extract_high_threat_tiles(
   top_k: int = 5,
 ) -> list[dict[str, float]]:
   tiles: list[tuple[float, int, int]] = []
-  for x, column in enumerate(threat_grid):
-    for y, value in enumerate(column):
+  for y, row in enumerate(threat_grid):
+    for x, value in enumerate(row):
       tiles.append((value, x, y))
   tiles.sort(reverse=True, key=lambda entry: entry[0])
   selected = []
