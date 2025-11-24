@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import random
+from typing import Any
 
-
-from rl._gym_compat import gym, spaces
+from rl._gym_compat import spaces
 from rl.environments.map_generator import MapType, create_generator
-
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
@@ -39,7 +38,7 @@ def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -
   return max(1000, width * height * coefficient)
 
 
-class SecurityEnvironment(gym.Env):
+class SecurityEnvironment:
   """Grid-based environment modelling a security patrol robot."""
 
   metadata = {"render_modes": ["human"]}
@@ -52,9 +51,12 @@ class SecurityEnvironment(gym.Env):
     enable_logging: bool = False,
     max_episode_steps: int | None = None,
     map_type: MapType = "random",
-    **map_config,
+    **map_config: Any,
   ) -> None:
-    super().__init__()
+    # Initialize Gym environment attributes manually
+    self.action_space: Any = None
+    self.observation_space: Any = None
+    self.metadata = {"render_modes": ["human"]}
 
     self.width = width
     self.height = height
@@ -62,7 +64,7 @@ class SecurityEnvironment(gym.Env):
     self.enable_logging = enable_logging
     self.map_type = map_type
     self.map_config = map_config
-    self.logger = None
+    self.logger: object | None = None
 
     # エピソードステップ上限（None の場合は動的に計算）
     if max_episode_steps is None:
@@ -98,7 +100,8 @@ class SecurityEnvironment(gym.Env):
     seed: int | None = None,
     options: dict | None = None,
   ) -> tuple[list[list[list[float]]], dict]:
-    super().reset(seed=seed)
+    # Note: seed parameter is accepted for compatibility but not used
+    # as we use Python's random module which doesn't support per-instance seeding
 
     self.threat_levels = self._build_grid(0.0)
     self.last_patrolled = self._build_grid(0)
