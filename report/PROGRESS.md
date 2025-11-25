@@ -1,6 +1,6 @@
 # セキュリティロボット強化学習システム - 実装進捗管理
 
-**最終更新:** 2025-11-23 map_generator の接続強制処理コンフリクトを解消（行優先インデックスへ統一）
+**最終更新:** 2025-11-26 PlaybackRecordingWrapper を gymnasium.Wrapper 継承に修正し、Room訓練時の DummyVecEnv 互換性エラーを解消
 
 ### 2025-11-18 09:55:44 /diary-rotate 実行
 - 対象DIARY: DIARY05.md

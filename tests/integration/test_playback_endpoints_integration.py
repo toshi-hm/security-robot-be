@@ -1,11 +1,9 @@
 """Integration tests for playback API endpoints using the FastAPI test client."""
 
-from collections.abc import Generator
-
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient

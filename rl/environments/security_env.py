@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
-from rl._gym_compat import spaces
+from rl._gym_compat import gym, spaces
 from rl.environments.map_generator import MapType, create_generator
 
 # -----------------------------------------------------------------------------
@@ -38,8 +38,12 @@ def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -
   return max(1000, width * height * coefficient)
 
 
-class SecurityEnvironment:
-  """Grid-based environment modelling a security patrol robot."""
+class SecurityEnvironment(gym.Env):
+  """Grid-based environment modelling a security patrol robot.
+
+  Inherits from gymnasium.Env for compatibility with Stable-Baselines3
+  and other RL frameworks that expect Gymnasium environments.
+  """
 
   metadata = {"render_modes": ["human"]}
 
@@ -53,10 +57,8 @@ class SecurityEnvironment:
     map_type: MapType = "random",
     **map_config: Any,
   ) -> None:
-    # Initialize Gym environment attributes manually
-    self.action_space: Any = None
-    self.observation_space: Any = None
-    self.metadata = {"render_modes": ["human"]}
+    # Initialize parent Gymnasium Env class
+    super().__init__()
 
     self.width = width
     self.height = height

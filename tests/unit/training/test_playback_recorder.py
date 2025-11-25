@@ -1,11 +1,13 @@
-from collections.abc import Generator
-
 """Tests for the playback recording wrapper used during training."""
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 from typing import Any
 
+import gymnasium as gym
+import numpy as np
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,13 +17,14 @@ from app.models.base import Base
 from app.models.environment import EnvironmentState
 
 
-class _DummyEnv:
+class _DummyEnv(gym.Env):
   """Minimal environment exposing the attributes required by the wrapper."""
 
-  action_space: Any = None
-  observation_space: Any = None
-
   def __init__(self) -> None:
+    super().__init__()
+    # Define action and observation spaces for Gymnasium compatibility
+    self.action_space = gym.spaces.Discrete(4)
+    self.observation_space = gym.spaces.Box(low=0, high=1, shape=(1, 1), dtype=np.float32)
     self.reset()
     self.closed = False
 
@@ -130,14 +133,19 @@ def test_wrapper_caps_buffer_size(session_factory: sessionmaker[Session]) -> Non
 
 
 def test_wrapper_handles_missing_attributes(session_factory: sessionmaker[Session]) -> None:
-  class MinimalEnv:
+  class MinimalEnv(gym.Env):
+    def __init__(self):
+      super().__init__()
+      self.action_space = gym.spaces.Discrete(4)
+      self.observation_space = gym.spaces.Box(low=0, high=1, shape=(1, 1), dtype=np.float32)
+
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
       del seed, options
-      return [[0.0]], {}
+      return np.array([[0.0]], dtype=np.float32), {}
 
     def step(self, action: int):
       del action
-      return [[0.1]], 1.0, True, False, {}
+      return np.array([[0.1]], dtype=np.float32), 1.0, True, False, {}
 
   env = MinimalEnv()
   wrapped = wrap_environment_for_playback(env, session_id=1, session_factory=session_factory)
@@ -210,29 +218,33 @@ def test_recorder_clears_buffer_after_session_error(session_factory: sessionmake
   assert _fetch_states(session_factory) == []
 
 
-def test_wrapper_copies_metadata(session_factory: sessionmaker[Session]) -> None:
-  class EnvWithMetadata:
+def test_wrapper_preserves_metadata_reference(session_factory: sessionmaker[Session]) -> None:
+  """Test that wrapper follows Gymnasium's standard behavior of sharing metadata reference.
+
+  Note: This is the standard behavior of gymnasium.Wrapper, which shares the
+  metadata reference with the wrapped environment rather than creating a copy.
+  """
+
+  class EnvWithMetadata(gym.Env):
     def __init__(self):
+      super().__init__()
+      self.action_space = gym.spaces.Discrete(4)
+      self.observation_space = gym.spaces.Box(low=0, high=1, shape=(1, 1), dtype=np.float32)
       self.metadata = {"render_modes": ["human", "rgb_array"], "custom_key": "value"}
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
-      return [[0.0]], {}
+      return np.array([[0.0]], dtype=np.float32), {}
 
     def step(self, action: int):
-      return [[0.0]], 0.0, False, False, {}
+      return np.array([[0.0]], dtype=np.float32), 0.0, False, False, {}
 
   env = EnvWithMetadata()
   original_metadata = env.metadata.copy()
 
   wrapped = wrap_environment_for_playback(env, session_id=1, session_factory=session_factory)
 
-  # Wrapper should have a copy of metadata, not the same object
-  assert wrapped.metadata is not env.metadata
+  # Wrapper shares metadata reference with env (Gymnasium standard behavior)
+  assert wrapped.metadata is env.metadata
   assert wrapped.metadata == original_metadata
-
-  # Modifying wrapper's metadata should not affect env's metadata
-  wrapped.metadata["new_key"] = "new_value"
-  assert "new_key" not in env.metadata
-  assert env.metadata == original_metadata
 
   wrapped.close()
