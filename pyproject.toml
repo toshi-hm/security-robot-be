@@ -103,6 +103,9 @@ warn_no_return = true
 check_untyped_defs = true
 strict_equality = true
 ignore_missing_imports = true
+exclude = [
+    "^scripts/",
+]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 import sys
+from typing import Any, NotRequired, TypedDict
 
 # Add project root to python path
 project_root = Path(__file__).parent.parent
@@ -22,8 +23,25 @@ logging.basicConfig(
 logger = logging.getLogger("pipeline")
 
 
-async def run_pipeline():
-  stages = [
+class StageConfig(TypedDict):
+  environment_type: str
+  env_width: int
+  env_height: int
+  map_type: str
+  total_timesteps: int
+  num_workers: int
+  model_path: str
+  map_config: NotRequired[dict[str, int]]
+
+
+class Stage(TypedDict):
+  name: str
+  config: StageConfig
+  critical: NotRequired[bool]
+
+
+async def run_pipeline() -> None:
+  stages: list[Stage] = [
     {
       "name": "Stage 1: Small Random",
       "config": {
@@ -110,7 +128,7 @@ async def run_pipeline():
         logger.info(f"Created TrainingJob {job_id} for {stage['name']}")
 
       # Enable playback for this stage
-      stage_config = dict(stage["config"])
+      stage_config: dict[str, Any] = dict(stage["config"])
       stage_config["playback"] = {"enabled": True, "record_interval": 1}
 
       result = await a3c_service.start_training(
@@ -119,10 +137,10 @@ async def run_pipeline():
 
       # Update job status on completion
       with SessionLocal() as session:
-        job = session.get(TrainingJob, job_id)
-        if job:
-          job.status = TrainingJobStatus.completed
-          job.model_path = str(result.get("model_path", ""))
+        job_record = session.get(TrainingJob, job_id)
+        if job_record:
+          job_record.status = TrainingJobStatus.completed
+          job_record.model_path = str(result.get("model_path", ""))
           session.commit()
 
       logger.info(f"Finished {stage['name']}")
