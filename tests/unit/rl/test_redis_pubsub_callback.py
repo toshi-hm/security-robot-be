@@ -41,7 +41,7 @@ def test_redis_callback_publishes_progress_and_status() -> None:
     state_hook=lambda meta: states.append(meta),
   )
 
-  callback.model = SimpleNamespace(logger=SimpleNamespace(name_to_value={"train/loss": 0.5}))
+  callback.model = SimpleNamespace(logger=SimpleNamespace(name_to_value={"train/loss": 0.5}))  # type: ignore[assignment]
 
   callback._on_training_start()
 
@@ -120,7 +120,7 @@ def test_redis_callback_raises_when_job_paused() -> None:
     status_check_interval=1,
   )
 
-  callback.model = SimpleNamespace(logger=SimpleNamespace(name_to_value={}))
+  callback.model = SimpleNamespace(logger=SimpleNamespace(name_to_value={}))  # type: ignore[assignment]
 
   callback._on_training_start()
 

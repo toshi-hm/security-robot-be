@@ -62,7 +62,7 @@ async def test_upload_file_persists_metadata_and_binary(
   upload = await _create_upload("model.zip", b"fake-binary-data", "application/zip")
 
   response = await files_module.upload_file(
-    file=upload,
+    file=upload,  # type: ignore[arg-type]
     file_type="model",
     training_job_id=42,
     description="PPO checkpoint",
@@ -95,7 +95,7 @@ async def test_list_files_returns_paginated_results(db_session: AsyncSession) ->
 
   for upload in uploads:
     await files_module.upload_file(
-      file=upload,
+      file=upload,  # type: ignore[arg-type]
       file_type="log",
       training_job_id=None,
       description=None,
@@ -120,7 +120,7 @@ async def test_delete_file_removes_binary_and_metadata(
 ) -> None:
   upload = await _create_upload("log.txt", b"log-data", "text/plain")
   created = await files_module.upload_file(
-    file=upload,
+    file=upload,  # type: ignore[arg-type]
     file_type="log",
     training_job_id=None,
     description=None,
@@ -158,7 +158,7 @@ async def test_upload_file_validates_metadata_json(db_session: AsyncSession) -> 
 
   with pytest.raises(HTTPException) as excinfo:
     await files_module.upload_file(
-      file=upload,
+      file=upload,  # type: ignore[arg-type]
       file_type="config",
       training_job_id=None,
       description=None,

@@ -55,7 +55,7 @@ class InstrumentedLock(asyncio.Lock):
     await super().acquire()
     return True
 
-  def release(self) -> None:  # type: ignore[override]
+  def release(self) -> None:
     notify, signal = self._release_plan.popleft() if self._release_plan else (None, None)
 
     if notify is not None:
@@ -306,7 +306,7 @@ async def test_stop_then_resume_serializes_updates(
   await resume_started.wait()
 
   stop_result = await stop_task
-  stop_snapshot = dict(stop_result)
+  stop_snapshot = dict(stop_result)  # type: ignore[arg-type]
 
   assert stop_released.is_set()
   assert stop_snapshot["status"] == "stopped"
@@ -367,7 +367,7 @@ async def test_resume_then_stop_preserves_resume_timestamp(
 
   await resume_started.wait()
   resume_result = await resume_task
-  resume_snapshot = dict(resume_result)
+  resume_snapshot = dict(resume_result)  # type: ignore[arg-type]
 
   assert resume_finished.is_set()
   assert resume_snapshot["status"] == "queued"
@@ -427,7 +427,7 @@ async def test_resume_then_revoke_marks_forced(
 
   await resume_started.wait()
   resume_result = await resume_task
-  resume_snapshot = dict(resume_result)
+  resume_snapshot = dict(resume_result)  # type: ignore[arg-type]
 
   assert resume_finished.is_set()
   assert resume_snapshot["status"] == "queued"

@@ -1,3 +1,5 @@
+from collections.abc import Generator
+
 """Tests for the playback recording wrapper used during training."""
 
 from __future__ import annotations
@@ -51,7 +53,7 @@ class _DummyEnv:
 
 
 @pytest.fixture()
-def session_factory() -> sessionmaker[Session]:
+def session_factory() -> Generator[sessionmaker[Session], None, None]:
   engine = create_engine("sqlite:///:memory:", future=True)
   Base.metadata.create_all(engine)
   factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
@@ -175,7 +177,7 @@ def test_recorder_flushes_on_buffer_capacity(session_factory: sessionmaker[Sessi
 
 def test_recorder_clears_buffer_after_session_error(session_factory: sessionmaker[Session]) -> None:
   class FailingSession(Session):
-    def bulk_insert_mappings(self, *args, **kwargs):  # type: ignore[override]
+    def bulk_insert_mappings(self, *args, **kwargs):
       raise RuntimeError("boom")
 
   base_session = session_factory()

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 import pytest
@@ -72,7 +73,9 @@ def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
 @pytest.fixture()
 def training_api_app(
   monkeypatch: pytest.MonkeyPatch,
-) -> tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]:
+) -> Generator[
+  tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub], None, None
+]:
   """Provide a FastAPI app wired to an in-memory database and fresh job manager."""
 
   engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
@@ -150,7 +153,7 @@ def test_start_training_creates_session_and_enqueues_job(
   assert entry["session_id"] == body["id"]
   assert entry["task_id"] == dispatcher.dispatched[0]["task_id"]
 
-  assert dispatcher.dispatched[0]["config"]["total_timesteps"] == payload["total_timesteps"]
+  assert dispatcher.dispatched[0]["config"]["total_timesteps"] == payload["total_timesteps"]  # type: ignore[index]
 
 
 def test_pause_unknown_session_returns_not_found(
@@ -254,8 +257,8 @@ def test_resume_requeues_paused_session_dispatches_job(
 
   assert len(dispatcher.dispatched) == 2
   resume_config = dispatcher.dispatched[-1]["config"]
-  assert resume_config["session_id"] == session_id
-  assert resume_config["total_timesteps"] == payload["total_timesteps"]
+  assert resume_config["session_id"] == session_id  # type: ignore[index]
+  assert resume_config["total_timesteps"] == payload["total_timesteps"]  # type: ignore[index]
 
 
 def test_stop_training_marks_job_failed_and_stops_queue_entry(

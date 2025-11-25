@@ -48,16 +48,16 @@ def test_map_generator_seeding():
 
   # Test all types
   for map_type in ["random", "maze", "room", "cave"]:
-    gen1 = create_generator(map_type, width, height, seed=seed)
+    gen1 = create_generator(map_type, width, height, seed=seed)  # type: ignore[arg-type]
     map1 = gen1.generate()
 
-    gen2 = create_generator(map_type, width, height, seed=seed)
+    gen2 = create_generator(map_type, width, height, seed=seed)  # type: ignore[arg-type]
     map2 = gen2.generate()
 
     assert map1 == map2, f"Map type {map_type} is not deterministic with seed {seed}"
 
     # Verify different seeds produce different maps (mostly)
-    gen3 = create_generator(map_type, width, height, seed=seed + 1)
+    gen3 = create_generator(map_type, width, height, seed=seed + 1)  # type: ignore[arg-type]
     map3 = gen3.generate()
     assert map1 != map3, f"Map type {map_type} produced same map with different seeds"
 
