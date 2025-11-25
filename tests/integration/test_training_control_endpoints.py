@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, TypedDict, cast
+from typing import TypedDict, cast
 
 from fastapi.testclient import TestClient
 import pytest

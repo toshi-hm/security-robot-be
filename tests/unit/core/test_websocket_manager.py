@@ -1,10 +1,9 @@
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any, cast
+from typing import Any
 
 import pytest
 import pytest_asyncio
-from starlette.websockets import WebSocket
 
 from app.core.websocket.manager import WebSocketManager
 

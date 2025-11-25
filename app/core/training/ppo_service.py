@@ -63,7 +63,7 @@ class PPOTrainingService:
     else:
       raise ValueError(f"Unknown environment type: {env_type}")
 
-    return env  # type: ignore[return-value]
+    return env
 
   def create_model(
     self,
@@ -159,7 +159,7 @@ class PPOTrainingService:
       playback_enabled = playback_config.pop("enabled", True)
 
       if effective_session_id is not None and db_session_factory is not None and playback_enabled:
-        environment = wrap_environment_for_playback(  # type: ignore[assignment]
+        environment = wrap_environment_for_playback(
           environment,
           session_id=int(effective_session_id),
           session_factory=db_session_factory,

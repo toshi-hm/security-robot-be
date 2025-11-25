@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import logging
 from typing import Any
 
+import gymnasium as gym
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -152,12 +153,16 @@ class _PlaybackRecorder:
         logger.debug("Failed to close playback recorder session", exc_info=True)
 
 
-class PlaybackRecordingWrapper:
-  """Proxy environment that records state snapshots for playback."""
+class PlaybackRecordingWrapper(gym.Wrapper):
+  """Proxy environment that records state snapshots for playback.
+
+  Inherits from gymnasium.Wrapper to ensure compatibility with
+  Stable-Baselines3's DummyVecEnv and other vectorized environment wrappers.
+  """
 
   def __init__(
     self,
-    env: Any,
+    env: gym.Env,
     *,
     session_id: int,
     session_factory: Callable[[], Session],
@@ -169,15 +174,8 @@ class PlaybackRecordingWrapper:
     if session_id <= 0:
       raise ValueError(f"Invalid session_id: {session_id}")
 
-    # Initialize Wrapper manually to support non-Gymnasium environments
-    # This allows wrapping of any duck-typed environment
-    self.env = env
-    # Copy standard attributes from wrapped environment
-    # Use getattr with defaults to support environments without these attributes
-    self.action_space = getattr(env, "action_space", None)
-    self.observation_space = getattr(env, "observation_space", None)
-    # Create a copy to avoid sharing mutable dict with wrapped environment
-    self.metadata = getattr(env, "metadata", {}).copy()
+    # Initialize parent Wrapper class
+    super().__init__(env)
 
     self._session_id = session_id
     self._record_interval = max(1, record_interval)
@@ -322,7 +320,7 @@ class PlaybackRecordingWrapper:
 
 
 def wrap_environment_for_playback(
-  env: Any,
+  env: gym.Env,
   *,
   session_id: int,
   session_factory: Callable[[], Session],
