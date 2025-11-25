@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import random
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rl._gym_compat import gym, spaces
+if TYPE_CHECKING:
+  # For type checking, import gymnasium directly
+  import gymnasium as gym
+  from gymnasium import spaces
+else:
+  # For runtime, use compatibility layer
+  from rl._gym_compat import gym, spaces
+
 from rl.environments.map_generator import MapType, create_generator
 
 # -----------------------------------------------------------------------------
