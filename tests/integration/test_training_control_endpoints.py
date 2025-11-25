@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from fastapi.testclient import TestClient
 import pytest
@@ -20,6 +20,24 @@ import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
+
+
+class _TrainingConfigDict(TypedDict, total=False):
+  """Type-safe dictionary for training configuration in dispatcher."""
+
+  session_id: int
+  total_timesteps: int
+  algorithm: str
+  environment_type: str
+  env_width: int
+  env_height: int
+  coverage_weight: float
+  exploration_weight: float
+  diversity_weight: float
+  learning_rate: float
+  batch_size: int
+  num_workers: int
+  config: dict[str, object] | None
 
 
 class _DispatcherStub:
@@ -153,7 +171,8 @@ def test_start_training_creates_session_and_enqueues_job(
   assert entry["session_id"] == body["id"]
   assert entry["task_id"] == dispatcher.dispatched[0]["task_id"]
 
-  assert dispatcher.dispatched[0]["config"]["total_timesteps"] == payload["total_timesteps"]  # type: ignore[index]
+  dispatch_config = cast(_TrainingConfigDict, dispatcher.dispatched[0]["config"])
+  assert dispatch_config["total_timesteps"] == payload["total_timesteps"]
 
 
 def test_pause_unknown_session_returns_not_found(
@@ -256,9 +275,9 @@ def test_resume_requeues_paused_session_dispatches_job(
   assert entry["task_id"] == dispatcher.dispatched[-1]["task_id"]
 
   assert len(dispatcher.dispatched) == 2
-  resume_config = dispatcher.dispatched[-1]["config"]
-  assert resume_config["session_id"] == session_id  # type: ignore[index]
-  assert resume_config["total_timesteps"] == payload["total_timesteps"]  # type: ignore[index]
+  resume_config = cast(_TrainingConfigDict, dispatcher.dispatched[-1]["config"])
+  assert resume_config["session_id"] == session_id
+  assert resume_config["total_timesteps"] == payload["total_timesteps"]
 
 
 def test_stop_training_marks_job_failed_and_stops_queue_entry(

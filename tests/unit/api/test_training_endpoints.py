@@ -95,7 +95,11 @@ def dispatcher_stub(monkeypatch: pytest.MonkeyPatch) -> _TrainingDispatcherStub:
 
 
 def _session_payload(**overrides: object) -> TrainingSessionCreate:
-  """Build a valid training session payload with optional overrides."""
+  """Build a valid training session payload with optional overrides.
+
+  Note: Uses type: ignore because this function accepts arbitrary overrides
+  for flexible test data construction. Pydantic will validate the final schema.
+  """
 
   base: dict[str, object] = {
     "name": "Queue job",
