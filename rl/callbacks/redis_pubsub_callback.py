@@ -69,6 +69,8 @@ class RedisTrainingCallback(BaseCallback):
     self._episode_lengths: list[int] = []
     self._current_episode_reward = 0.0
     self._current_episode_length = 0
+    self._last_coverage_ratio: float | None = None
+    self._last_exploration_score: float | None = None
 
   # ------------------------------------------------------------------
   # Stable-Baselines3 callback interface
@@ -90,6 +92,16 @@ class RedisTrainingCallback(BaseCallback):
       self._episode_lengths.append(self._current_episode_length)
       self._current_episode_reward = 0.0
       self._current_episode_length = 0
+
+    infos = self.locals.get("infos", [])
+    if infos:
+      info = infos[0]
+      if "coverage_ratio" in info:
+        self._last_coverage_ratio = float(info["coverage_ratio"])
+      if "exploration_score" in info:
+        self._last_exploration_score = float(info["exploration_score"])
+      elif "exploration_reward" in info:
+        self._last_exploration_score = float(info["exploration_reward"])
 
     if self.n_calls % self._update_interval == 0:
       self._publish_progress()
@@ -129,6 +141,8 @@ class RedisTrainingCallback(BaseCallback):
         ),
         "total_episodes": len(self._episode_rewards),
       },
+      "coverage_ratio": self._last_coverage_ratio,
+      "exploration_score": self._last_exploration_score,
     }
 
     self._publish(payload)
