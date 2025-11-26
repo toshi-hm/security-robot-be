@@ -16,11 +16,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Ruff
-        uses: chartboost/ruff-action@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          version: "0.14.5"
-          args: check --output-format=github
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run Ruff
+        run: uv run ruff check . --output-format=github
 
   mypy:
     name: Type Checking (mypy)
@@ -31,18 +41,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install dependencies
         run: uv sync --dev
 
       - name: Run mypy
-        run: uv run mypy app rl --pretty
+        run: uv run mypy --exclude scripts/ .
