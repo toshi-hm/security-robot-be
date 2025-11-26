@@ -34,6 +34,10 @@ class EnvironmentStateCreate(BaseModel):
   )
   reward_received: float | None = None
 
+  # Metrics
+  coverage_ratio: float | None = None
+  exploration_score: float | None = None
+
   # Battery system
   battery_percentage: float | None = None
   is_charging: bool = False
@@ -66,6 +70,10 @@ class EnvironmentStateResponse(BaseModel):
   # Action information
   action_taken: int | None
   reward_received: float | None
+
+  # Metrics
+  coverage_ratio: float | None = None
+  exploration_score: float | None = None
 
   # Battery system
   battery_percentage: float | None = None
