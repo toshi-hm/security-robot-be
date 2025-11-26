@@ -192,7 +192,7 @@ class A3CWorker:
       last_info = info
       if isinstance(info, list) and info:
         last_info = info[0]
-      
+
       if isinstance(last_info, dict):
         coverage_ratio = last_info.get("coverage_ratio")
         exploration_score = last_info.get("exploration_score")
