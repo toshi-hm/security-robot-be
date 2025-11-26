@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, TypedDict, cast
 from uuid import UUID
 
 import pytest
@@ -13,6 +13,22 @@ import pytest
 from app.core.training import job_manager as job_manager_module
 from app.core.training.job_manager import JobManager
 from tests.utils.time import set_time_sequence
+
+
+class _JobManagerEntry(TypedDict, total=False):
+  """Type-safe dictionary for job manager queue entry."""
+
+  session_id: int
+  task_id: str
+  status: str
+  enqueued_at: datetime
+  updated_at: datetime
+  forced: bool
+  stopped_at: datetime
+  paused_at: datetime
+  revoked_at: datetime
+  resumed_at: datetime
+  payload: dict[str, object]
 
 
 class InstrumentedLock(asyncio.Lock):
@@ -55,7 +71,7 @@ class InstrumentedLock(asyncio.Lock):
     await super().acquire()
     return True
 
-  def release(self) -> None:  # type: ignore[override]
+  def release(self) -> None:
     notify, signal = self._release_plan.popleft() if self._release_plan else (None, None)
 
     if notify is not None:
@@ -306,7 +322,7 @@ async def test_stop_then_resume_serializes_updates(
   await resume_started.wait()
 
   stop_result = await stop_task
-  stop_snapshot = dict(stop_result)
+  stop_snapshot = cast(_JobManagerEntry, stop_result)
 
   assert stop_released.is_set()
   assert stop_snapshot["status"] == "stopped"
@@ -367,7 +383,7 @@ async def test_resume_then_stop_preserves_resume_timestamp(
 
   await resume_started.wait()
   resume_result = await resume_task
-  resume_snapshot = dict(resume_result)
+  resume_snapshot = cast(_JobManagerEntry, resume_result)
 
   assert resume_finished.is_set()
   assert resume_snapshot["status"] == "queued"
@@ -427,7 +443,7 @@ async def test_resume_then_revoke_marks_forced(
 
   await resume_started.wait()
   resume_result = await resume_task
-  resume_snapshot = dict(resume_result)
+  resume_snapshot = cast(_JobManagerEntry, resume_result)
 
   assert resume_finished.is_set()
   assert resume_snapshot["status"] == "queued"

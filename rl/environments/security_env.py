@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import random
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+  # For type checking, import gymnasium directly
+  import gymnasium as gym
+  from gymnasium import spaces
+else:
+  # For runtime, use compatibility layer
+  from rl._gym_compat import gym, spaces
 
-from rl._gym_compat import gym, spaces
 from rl.environments.map_generator import MapType, create_generator
-
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
@@ -40,7 +46,11 @@ def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -
 
 
 class SecurityEnvironment(gym.Env):
-  """Grid-based environment modelling a security patrol robot."""
+  """Grid-based environment modelling a security patrol robot.
+
+  Inherits from gymnasium.Env for compatibility with Stable-Baselines3
+  and other RL frameworks that expect Gymnasium environments.
+  """
 
   metadata = {"render_modes": ["human"]}
 
@@ -52,8 +62,9 @@ class SecurityEnvironment(gym.Env):
     enable_logging: bool = False,
     max_episode_steps: int | None = None,
     map_type: MapType = "random",
-    **map_config,
+    **map_config: Any,
   ) -> None:
+    # Initialize parent Gymnasium Env class
     super().__init__()
 
     self.width = width
@@ -62,7 +73,7 @@ class SecurityEnvironment(gym.Env):
     self.enable_logging = enable_logging
     self.map_type = map_type
     self.map_config = map_config
-    self.logger = None
+    self.logger: object | None = None
 
     # エピソードステップ上限（None の場合は動的に計算）
     if max_episode_steps is None:
@@ -98,7 +109,8 @@ class SecurityEnvironment(gym.Env):
     seed: int | None = None,
     options: dict | None = None,
   ) -> tuple[list[list[list[float]]], dict]:
-    super().reset(seed=seed)
+    # Note: seed parameter is accepted for compatibility but not used
+    # as we use Python's random module which doesn't support per-instance seeding
 
     self.threat_levels = self._build_grid(0.0)
     self.last_patrolled = self._build_grid(0)

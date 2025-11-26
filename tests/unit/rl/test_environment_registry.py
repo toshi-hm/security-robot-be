@@ -15,13 +15,13 @@ def test_environment_spec_create_merges_overrides() -> None:
     id="test",
     name="Test",
     description="",
-    factory=_Env,
+    factory=_Env,  # type: ignore[arg-type]
     default_config={"width": 5, "custom": 1},
   )
 
   env = spec.create(custom=9)
   assert env.width == 5
-  assert env.custom == 9
+  assert env.custom == 9  # type: ignore[attr-defined]
 
 
 def test_get_environment_spec() -> None:

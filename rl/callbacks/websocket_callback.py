@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Any
 
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
@@ -19,8 +20,8 @@ class WebSocketTrainingCallback(BaseCallback):
   """
 
   def __init__(
-    self, session_id: int, websocket_manager, update_interval: int = 100, verbose: int = 0
-  ):
+    self, session_id: int, websocket_manager: Any, update_interval: int = 100, verbose: int = 0
+  ) -> None:
     """
     Initialize WebSocket callback.
 
@@ -34,8 +35,8 @@ class WebSocketTrainingCallback(BaseCallback):
     self.session_id = session_id
     self.websocket_manager = websocket_manager
     self.update_interval = update_interval
-    self.episode_rewards = []
-    self.episode_lengths = []
+    self.episode_rewards: list[float] = []
+    self.episode_lengths: list[int] = []
     self.current_episode_reward = 0
     self.current_episode_length = 0
 
@@ -143,7 +144,9 @@ class DatabaseMetricsCallback(BaseCallback):
   Callback that saves training metrics to the database.
   """
 
-  def __init__(self, session_id: int, db_session, update_interval: int = 100, verbose: int = 0):
+  def __init__(
+    self, session_id: int, db_session: Any, update_interval: int = 100, verbose: int = 0
+  ) -> None:
     """
     Initialize database metrics callback.
 
@@ -157,7 +160,7 @@ class DatabaseMetricsCallback(BaseCallback):
     self.session_id = session_id
     self.db_session = db_session
     self.update_interval = update_interval
-    self.episode_rewards = []
+    self.episode_rewards: list[float] = []
     self.current_episode_reward = 0
 
   def _on_step(self) -> bool:

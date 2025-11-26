@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -18,7 +19,7 @@ from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatu
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncSession:
+async def db_session() -> AsyncIterator[AsyncSession]:
   """Provide an isolated in-memory database session for each test."""
 
   engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)

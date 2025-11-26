@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Any, cast
 from zipfile import ZipFile
 
 import pytest
@@ -163,7 +164,7 @@ def test_archive_playback_session_registers_file(
   )
   job_id = _seed_playback_states(Session, job)
 
-  result = file_tasks.archive_playback_session.run(job_id)
+  result = cast(dict[str, Any], file_tasks.archive_playback_session.run(job_id))
 
   archive_path = storage_root / Path(result["file_path"])
   assert archive_path.exists()
@@ -194,7 +195,7 @@ def test_archive_playback_session_registers_file(
   assert published["client"] is redis_stub
   assert published["session_id"] == job_id
   assert published["critical"] is True
-  payload = published["payload"]
+  payload = cast(dict[str, Any], published["payload"])
   assert payload["event"] == "playback_archived"
   assert payload["file_id"] == result["file_id"]
   assert payload["file_path"] == result["file_path"]
@@ -370,4 +371,4 @@ def test_archive_playback_session_validates_session_id(monkeypatch: pytest.Monke
     file_tasks.archive_playback_session.run(-1)
 
   with pytest.raises(ValueError):
-    file_tasks.archive_playback_session.run("abc")  # type: ignore[arg-type]
+    file_tasks.archive_playback_session.run("abc")

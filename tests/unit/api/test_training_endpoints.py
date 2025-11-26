@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -22,7 +23,7 @@ from app.schemas.training import TrainingSessionCreate
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncSession:
+async def db_session() -> AsyncIterator[AsyncSession]:
   """Create an isolated in-memory database session for each test."""
   engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
   async with engine.begin() as conn:
@@ -94,7 +95,11 @@ def dispatcher_stub(monkeypatch: pytest.MonkeyPatch) -> _TrainingDispatcherStub:
 
 
 def _session_payload(**overrides: object) -> TrainingSessionCreate:
-  """Build a valid training session payload with optional overrides."""
+  """Build a valid training session payload with optional overrides.
+
+  Note: Uses type: ignore because this function accepts arbitrary overrides
+  for flexible test data construction. Pydantic will validate the final schema.
+  """
 
   base: dict[str, object] = {
     "name": "Queue job",
@@ -112,7 +117,7 @@ def _session_payload(**overrides: object) -> TrainingSessionCreate:
     "config": {"seed": 42},
   }
   base.update(overrides)
-  return TrainingSessionCreate(**base)
+  return TrainingSessionCreate(**base)  # type: ignore[arg-type]
 
 
 async def _create_job(session: AsyncSession) -> TrainingJob:

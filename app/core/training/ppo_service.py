@@ -249,7 +249,7 @@ class PPOTrainingService:
     self.model = model
     return model
 
-  def stop_training(self):
+  def stop_training(self) -> None:
     """Stop the current training session."""
     # Note: Stable-Baselines3 doesn't provide built-in stop mechanism
     # This would need to be implemented via a custom callback

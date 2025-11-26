@@ -7,13 +7,11 @@ from dataclasses import dataclass, field
 import logging
 from typing import Any
 
+import gymnasium as gym
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-
 from app.models.environment import EnvironmentState
-from rl._gym_compat import gym
-
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
@@ -131,7 +129,7 @@ class _PlaybackRecorder:
           text("SET LOCAL statement_timeout = :timeout"),
           {"timeout": self.statement_timeout_ms},
         )
-      session.bulk_insert_mappings(EnvironmentState, list(self._buffer))
+      session.bulk_insert_mappings(EnvironmentState, list(self._buffer))  # type: ignore[arg-type]
       session.commit()
       self._buffer.clear()
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -156,11 +154,15 @@ class _PlaybackRecorder:
 
 
 class PlaybackRecordingWrapper(gym.Wrapper):
-  """Proxy environment that records state snapshots for playback."""
+  """Proxy environment that records state snapshots for playback.
+
+  Inherits from gymnasium.Wrapper to ensure compatibility with
+  Stable-Baselines3's DummyVecEnv and other vectorized environment wrappers.
+  """
 
   def __init__(
     self,
-    env: Any,
+    env: gym.Env,
     *,
     session_id: int,
     session_factory: Callable[[], Session],
@@ -172,15 +174,8 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     if session_id <= 0:
       raise ValueError(f"Invalid session_id: {session_id}")
 
-    # Initialize Wrapper manually to support non-Gymnasium environments
-    # This allows wrapping of any duck-typed environment
-    self.env = env
-    # Copy standard attributes from wrapped environment
-    # Use getattr with defaults to support environments without these attributes
-    self.action_space = getattr(env, "action_space", None)
-    self.observation_space = getattr(env, "observation_space", None)
-    # Create a copy to avoid sharing mutable dict with wrapped environment
-    self.metadata = getattr(env, "metadata", {}).copy()
+    # Initialize parent Wrapper class
+    super().__init__(env)
 
     self._session_id = session_id
     self._record_interval = max(1, record_interval)
@@ -197,7 +192,9 @@ class PlaybackRecordingWrapper(gym.Wrapper):
   # ------------------------------------------------------------------
   # Gymnasium API
   # ------------------------------------------------------------------
-  def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+  def reset(
+    self, *, seed: int | None = None, options: dict[str, Any] | None = None
+  ) -> tuple[Any, dict[str, Any]]:
     observation, info = self.env.reset(seed=seed, options=options)
 
     self._episode += 1
@@ -214,7 +211,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
 
     return observation, info
 
-  def step(self, action: Any):
+  def step(self, action: Any) -> tuple[Any, Any, bool, bool, dict[str, Any]]:
     observation, reward, terminated, truncated, info = self.env.step(action)
 
     self._step_in_episode += 1
@@ -323,7 +320,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
 
 
 def wrap_environment_for_playback(
-  env: Any,
+  env: gym.Env,
   *,
   session_id: int,
   session_factory: Callable[[], Session],

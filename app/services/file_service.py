@@ -63,7 +63,7 @@ class FileService:
       select(FileMetadata).order_by(FileMetadata.created_at.desc()).offset(offset).limit(page_size)
     )
     records_result = await self._db.execute(records_stmt)
-    records = records_result.scalars().all()
+    records = list(records_result.scalars().all())
     return records, total
 
   async def get_file(self, file_id: int) -> FileMetadata | None:

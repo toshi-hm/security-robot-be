@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
 from datetime import timedelta
 import logging
 from typing import Any
@@ -153,12 +152,12 @@ class NonStringInfoEnvironment(TrackingEnvironment):
     return observation, reward, terminated, truncated, info
 
 
-def _build_specs() -> Iterable[EnvironmentSpec]:
+def _build_specs() -> tuple[EnvironmentSpec, EnvironmentSpec]:
   tracked_spec = EnvironmentSpec(
     id="tracked",
     name="Tracked",
     description="Env with coverage",
-    factory=lambda **config: TrackingEnvironment(**config),
+    factory=lambda **config: TrackingEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 3, "height": 2, "robot_vision_range": 1},
     features=["coverage"],
     observation_channels=["threat_levels"],
@@ -168,7 +167,7 @@ def _build_specs() -> Iterable[EnvironmentSpec]:
     id="minimal",
     name="Minimal",
     description="Env without optional arrays",
-    factory=lambda **config: MinimalEnvironment(**config),
+    factory=lambda **config: MinimalEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 2, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -232,10 +231,10 @@ def test_get_state_missing_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_refresh_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-  def first() -> Iterable[EnvironmentSpec]:
+  def first() -> tuple[EnvironmentSpec]:
     return (_build_specs()[0],)
 
-  def second() -> Iterable[EnvironmentSpec]:
+  def second() -> tuple[EnvironmentSpec]:
     return (_build_specs()[1],)
 
   monkeypatch.setattr(service_module, "available_environments", first)
@@ -282,7 +281,7 @@ def test_execute_action_serializes_info(monkeypatch: pytest.MonkeyPatch) -> None
     id="non-serializable",
     name="NonSerializable",
     description="",
-    factory=lambda **config: NonSerializableEnvironment(**config),
+    factory=lambda **config: NonSerializableEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 2, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -311,7 +310,7 @@ def test_create_session_enforces_capacity(monkeypatch: pytest.MonkeyPatch) -> No
     id="limited",
     name="Limited",
     description="",
-    factory=factory,
+    factory=factory,  # type: ignore[arg-type]
     default_config={"width": 2, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -334,7 +333,7 @@ def test_concurrent_actions_on_same_session(monkeypatch: pytest.MonkeyPatch) -> 
     id="guarded",
     name="Guarded",
     description="",
-    factory=lambda **config: GuardedEnvironment(**config),
+    factory=lambda **config: GuardedEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 3, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -346,7 +345,7 @@ def test_concurrent_actions_on_same_session(monkeypatch: pytest.MonkeyPatch) -> 
   session_id, _ = asyncio.run(service.create_session("guarded"))
 
   async def _run_steps() -> list[tuple[Any, float, bool, bool, dict[str, Any]]]:
-    return await asyncio.gather(*[service.execute_action(session_id, 0) for _ in range(5)])
+    return await asyncio.gather(*[service.execute_action(session_id, 0) for _ in range(5)])  # type: ignore[no-any-return]
 
   results = asyncio.run(_run_steps())
   assert len(results) == 5
@@ -360,7 +359,7 @@ def test_session_reuse_after_terminated(monkeypatch: pytest.MonkeyPatch) -> None
     id="terminating",
     name="Terminating",
     description="",
-    factory=lambda **config: TerminatingEnvironment(**config),
+    factory=lambda **config: TerminatingEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 3, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -383,7 +382,7 @@ def test_expired_session_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
     id="expiring",
     name="Expiring",
     description="",
-    factory=lambda **config: NonSerializableEnvironment(**config),
+    factory=lambda **config: NonSerializableEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 2, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],
@@ -410,7 +409,7 @@ def test_execute_action_logs_non_string_info_keys(
     id="non-string-info",
     name="NonStringInfo",
     description="",
-    factory=lambda **config: NonStringInfoEnvironment(**config),
+    factory=lambda **config: NonStringInfoEnvironment(**config),  # type: ignore[arg-type]
     default_config={"width": 3, "height": 2, "robot_vision_range": 1},
     features=[],
     observation_channels=[],

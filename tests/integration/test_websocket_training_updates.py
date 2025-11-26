@@ -141,7 +141,7 @@ def test_websocket_forwards_redis_payload(websocket_test_app) -> None:
   app, fake_redis, session_maker = websocket_test_app
 
   with TestClient(app) as client:
-    session_id = client.portal.call(_create_training_session, session_maker)
+    session_id = client.portal.call(_create_training_session, session_maker)  # type: ignore[union-attr]
 
     with client.websocket_connect(f"/api/v1/ws/training/{session_id}") as websocket:
       ack = websocket.receive_json()
@@ -149,11 +149,11 @@ def test_websocket_forwards_redis_payload(websocket_test_app) -> None:
       assert ack["session_id"] == session_id
       assert ack["client_id"]
 
-      client.portal.call(asyncio.sleep, 0.05)
+      client.portal.call(asyncio.sleep, 0.05)  # type: ignore[union-attr]
 
       payload = {"episode": 1, "reward": 1.25}
       channel = RedisTrainingEventForwarder._channel_name(session_id)
-      client.portal.call(fake_redis.publish, channel, payload)
+      client.portal.call(fake_redis.publish, channel, payload)  # type: ignore[union-attr]
 
       forwarded = websocket.receive_json()
       while forwarded.get("type") == "ping":
@@ -163,7 +163,7 @@ def test_websocket_forwards_redis_payload(websocket_test_app) -> None:
       assert forwarded["episode"] == payload["episode"]
       assert forwarded["reward"] == payload["reward"]
 
-    client.portal.call(asyncio.sleep, 0.1)
+    client.portal.call(asyncio.sleep, 0.1)  # type: ignore[union-attr]
 
   forwarder_instance = redis_forwarder_module.redis_forwarder
   assert session_id not in forwarder_instance._tasks

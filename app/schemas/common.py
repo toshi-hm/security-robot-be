@@ -41,7 +41,7 @@ class PaginatedResponse(BaseModel):
   total_pages: int = Field(..., description="Total number of pages")
 
   @classmethod
-  def from_items(cls, items: list, total: int, page: int, page_size: int):
+  def from_items(cls, items: list, total: int, page: int, page_size: int) -> "PaginatedResponse":
     """Create paginated response from items."""
     total_pages = (total + page_size - 1) // page_size
     return cls(total=total, page=page, page_size=page_size, total_pages=total_pages)

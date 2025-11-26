@@ -27,7 +27,7 @@ class FakeWebSocket:
 
 
 class FailingWebSocket(FakeWebSocket):
-  async def send_json(self, message: dict[str, Any]) -> None:  # type: ignore[override]
+  async def send_json(self, message: dict[str, Any]) -> None:
     raise RuntimeError("connection lost")
 
 
@@ -47,13 +47,13 @@ async def manager() -> AsyncIterator[WebSocketManager]:
 async def test_connect_and_disconnect_tracks_sessions(manager: WebSocketManager) -> None:
   websocket = FakeWebSocket()
 
-  await manager.connect(websocket, session_id=1, client_id="client-1")
+  await manager.connect(websocket, session_id=1, client_id="client-1")  # type: ignore[arg-type]
 
   assert websocket in manager.active_connections
   assert websocket in manager.session_connections[1]
   assert websocket.accepted is True
 
-  await manager.disconnect(websocket, session_id=1)
+  await manager.disconnect(websocket, session_id=1)  # type: ignore[arg-type]
 
   assert websocket not in manager.active_connections
   assert 1 not in manager.session_connections
@@ -67,8 +67,8 @@ async def test_broadcast_to_session_only_targets_matching_connections(
   session_websocket = FakeWebSocket()
   other_websocket = FakeWebSocket()
 
-  await manager.connect(session_websocket, session_id=5)
-  await manager.connect(other_websocket, session_id=7)
+  await manager.connect(session_websocket, session_id=5)  # type: ignore[arg-type]
+  await manager.connect(other_websocket, session_id=7)  # type: ignore[arg-type]
 
   payload = {"type": "test", "value": 123}
   await manager.broadcast_to_session(5, payload)
@@ -82,8 +82,8 @@ async def test_broadcast_to_session_removes_failed_connections(manager: WebSocke
   flaky_websocket = FailingWebSocket()
   healthy_websocket = FakeWebSocket()
 
-  await manager.connect(flaky_websocket, session_id=9)
-  await manager.connect(healthy_websocket, session_id=9)
+  await manager.connect(flaky_websocket, session_id=9)  # type: ignore[arg-type]
+  await manager.connect(healthy_websocket, session_id=9)  # type: ignore[arg-type]
 
   await manager.broadcast_to_session(9, {"type": "progress"})
 
@@ -96,14 +96,14 @@ async def test_broadcast_to_session_removes_failed_connections(manager: WebSocke
 async def test_mark_seen_updates_last_seen(manager: WebSocketManager) -> None:
   websocket = FakeWebSocket()
 
-  await manager.connect(websocket, session_id=42)
+  await manager.connect(websocket, session_id=42)  # type: ignore[arg-type]
 
-  before = manager.get_connection_metadata(websocket)["last_seen"]
+  before = manager.get_connection_metadata(websocket)["last_seen"]  # type: ignore[arg-type]
 
   await asyncio.sleep(0)
-  await manager.mark_seen(websocket)
+  await manager.mark_seen(websocket)  # type: ignore[arg-type]
 
-  after = manager.get_connection_metadata(websocket)["last_seen"]
+  after = manager.get_connection_metadata(websocket)["last_seen"]  # type: ignore[arg-type]
 
   assert after is not None
   assert after != before
@@ -114,8 +114,8 @@ async def test_broadcast_all_reaches_everyone(manager: WebSocketManager) -> None
   first = FakeWebSocket()
   second = FakeWebSocket()
 
-  await manager.connect(first, session_id=1)
-  await manager.connect(second, session_id=2)
+  await manager.connect(first, session_id=1)  # type: ignore[arg-type]
+  await manager.connect(second, session_id=2)  # type: ignore[arg-type]
 
   payload = {"type": "announcement"}
   await manager.broadcast_all(payload)
@@ -128,7 +128,7 @@ async def test_broadcast_all_reaches_everyone(manager: WebSocketManager) -> None
 async def test_send_server_ping_uses_ping_schema(manager: WebSocketManager) -> None:
   websocket = FakeWebSocket()
 
-  await manager.connect(websocket, session_id=100)
+  await manager.connect(websocket, session_id=100)  # type: ignore[arg-type]
 
   await manager._send_server_ping()
 
@@ -140,13 +140,13 @@ async def test_send_server_ping_uses_ping_schema(manager: WebSocketManager) -> N
 async def test_get_connection_metadata_returns_copy(manager: WebSocketManager) -> None:
   websocket = FakeWebSocket()
 
-  await manager.connect(websocket, session_id=7, client_id="client-7")
+  await manager.connect(websocket, session_id=7, client_id="client-7")  # type: ignore[arg-type]
 
-  metadata = manager.get_connection_metadata(websocket)
+  metadata = manager.get_connection_metadata(websocket)  # type: ignore[arg-type]
 
   assert metadata["session_id"] == 7
   assert metadata["client_id"] == "client-7"
 
   metadata["client_id"] = "mutated"
 
-  assert manager.get_connection_metadata(websocket)["client_id"] == "client-7"
+  assert manager.get_connection_metadata(websocket)["client_id"] == "client-7"  # type: ignore[arg-type]

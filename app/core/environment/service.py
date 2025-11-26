@@ -389,7 +389,7 @@ class EnvironmentService:
       result = [[fill_value for _ in range(height)] for _ in range(width)]
 
     if transform is None:
-      return result
+      return result  # type: ignore[no-any-return]
 
     return [[transform(cell) for cell in column] for column in result]
 

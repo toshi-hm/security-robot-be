@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import TypedDict, cast
 
 from fastapi.testclient import TestClient
 import pytest
@@ -19,6 +20,24 @@ import app.main as main_module
 from app.main import create_app
 from app.models.training import TrainingJob, TrainingJobStatus
 from fastapi import FastAPI
+
+
+class _TrainingConfigDict(TypedDict, total=False):
+  """Type-safe dictionary for training configuration in dispatcher."""
+
+  session_id: int
+  total_timesteps: int
+  algorithm: str
+  environment_type: str
+  env_width: int
+  env_height: int
+  coverage_weight: float
+  exploration_weight: float
+  diversity_weight: float
+  learning_rate: float
+  batch_size: int
+  num_workers: int
+  config: dict[str, object] | None
 
 
 class _DispatcherStub:
@@ -72,7 +91,9 @@ def _assert_recent(timestamp: datetime, *, window_seconds: int = 5) -> None:
 @pytest.fixture()
 def training_api_app(
   monkeypatch: pytest.MonkeyPatch,
-) -> tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub]:
+) -> Generator[
+  tuple[FastAPI, async_sessionmaker[AsyncSession], JobManager, _DispatcherStub], None, None
+]:
   """Provide a FastAPI app wired to an in-memory database and fresh job manager."""
 
   engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
@@ -150,7 +171,8 @@ def test_start_training_creates_session_and_enqueues_job(
   assert entry["session_id"] == body["id"]
   assert entry["task_id"] == dispatcher.dispatched[0]["task_id"]
 
-  assert dispatcher.dispatched[0]["config"]["total_timesteps"] == payload["total_timesteps"]
+  dispatch_config = cast(_TrainingConfigDict, dispatcher.dispatched[0]["config"])
+  assert dispatch_config["total_timesteps"] == payload["total_timesteps"]
 
 
 def test_pause_unknown_session_returns_not_found(
@@ -253,7 +275,7 @@ def test_resume_requeues_paused_session_dispatches_job(
   assert entry["task_id"] == dispatcher.dispatched[-1]["task_id"]
 
   assert len(dispatcher.dispatched) == 2
-  resume_config = dispatcher.dispatched[-1]["config"]
+  resume_config = cast(_TrainingConfigDict, dispatcher.dispatched[-1]["config"])
   assert resume_config["session_id"] == session_id
   assert resume_config["total_timesteps"] == payload["total_timesteps"]
 

@@ -54,7 +54,7 @@ else:
         return tuple(float(v) for v in value)
       return (float(value),) * len(self.shape)
 
-    def sample(self) -> list:
+    def sample(self) -> list[Any]:
       lows = self._expand(self.low)
       highs = self._expand(self.high)
 
@@ -66,7 +66,7 @@ else:
 
         return [_sample_dimension(idx + 1, dims[1:]) for _ in range(dims[0])]
 
-      return _sample_dimension(0, self.shape)
+      return _sample_dimension(0, self.shape)  # type: ignore[no-any-return]
 
   @dataclass(slots=True)
   class _Discrete:
@@ -89,7 +89,7 @@ else:
   class _GymModule:
     Env = _Env
 
-  gym = _GymModule()
+  gym = _GymModule()  # type: ignore[assignment]
   spaces = _SpacesModule()
 
 

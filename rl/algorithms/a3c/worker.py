@@ -135,6 +135,8 @@ class A3CWorker:
 
   def run(self) -> RolloutResult:
     """Execute a single rollout and update the shared global network."""
+    if self._env is None:
+      raise RuntimeError(f"Worker {self.worker_id} has no active environment")
 
     self._local_network.load_state_dict(self._global_network.state_dict())
     self._local_network.train()

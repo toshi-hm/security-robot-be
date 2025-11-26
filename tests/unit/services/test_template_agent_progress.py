@@ -30,7 +30,7 @@ async def test_broadcast_delivers_messages() -> None:
   manager = TemplateAgentProgressManager()
   websocket = DummyWebSocket()
 
-  await manager.connect("exec-1", websocket)
+  await manager.connect("exec-1", websocket)  # type: ignore[arg-type]
   await manager.broadcast("exec-1", {"type": "ping"})
 
   assert websocket.accepted is True
@@ -41,7 +41,7 @@ async def test_broadcast_delivers_messages() -> None:
 async def test_publisher_includes_execution_id() -> None:
   manager = TemplateAgentProgressManager()
   websocket = DummyWebSocket()
-  await manager.connect("exec-2", websocket)
+  await manager.connect("exec-2", websocket)  # type: ignore[arg-type]
 
   publisher = TemplateAgentProgressPublisher("exec-2", manager)
   await anyio.to_thread.run_sync(publisher, {"type": "episode_started", "episode": 1})

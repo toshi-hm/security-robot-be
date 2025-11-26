@@ -113,9 +113,10 @@ def execute_template_agent(
       )
     )
 
-  env_info_source = result.environment_info
-  if env_info_source is None:
-    env_info_source = TemplateAgentEnvironmentInfo(
+  # Convert EnvironmentInfo to TemplateAgentEnvironmentInfo
+  env_info: TemplateAgentEnvironmentInfo
+  if result.environment_info is None:
+    env_info = TemplateAgentEnvironmentInfo(
       width=request.width,
       height=request.height,
       threat_grid=[],
@@ -129,18 +130,18 @@ def execute_template_agent(
       suspicious_objects=[],
     )
   else:
-    env_info_source = TemplateAgentEnvironmentInfo(
-      width=env_info_source.width,
-      height=env_info_source.height,
-      threat_grid=env_info_source.threat_grid,
-      average_threat_level=env_info_source.average_threat_level,
-      max_threat_level=env_info_source.max_threat_level,
-      min_threat_level=env_info_source.min_threat_level,
-      threat_histogram=env_info_source.threat_histogram,
-      high_threat_tiles=env_info_source.high_threat_tiles,
-      obstacles=env_info_source.obstacles,
-      charging_station=env_info_source.charging_station,
-      suspicious_objects=env_info_source.suspicious_objects,
+    env_info = TemplateAgentEnvironmentInfo(
+      width=result.environment_info.width,
+      height=result.environment_info.height,
+      threat_grid=result.environment_info.threat_grid,
+      average_threat_level=result.environment_info.average_threat_level,
+      max_threat_level=result.environment_info.max_threat_level,
+      min_threat_level=result.environment_info.min_threat_level,
+      threat_histogram=result.environment_info.threat_histogram,
+      high_threat_tiles=result.environment_info.high_threat_tiles,
+      obstacles=result.environment_info.obstacles,
+      charging_station=result.environment_info.charging_station,
+      suspicious_objects=result.environment_info.suspicious_objects,
     )
 
   episode_playbacks: list[TemplateAgentEpisodePlayback] = []
@@ -185,7 +186,7 @@ def execute_template_agent(
     average_min_battery=result.avg_min_battery,
     total_battery_deaths=result.total_battery_deaths,
     episode_metrics=episode_metrics,
-    environment_info=env_info_source,
+    environment_info=env_info,
     episode_playbacks=episode_playbacks,
   )
 

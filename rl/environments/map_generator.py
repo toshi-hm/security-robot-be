@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import abc
 import random
-
-from typing import Literal
-
+from typing import Any, Literal
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
@@ -255,7 +253,7 @@ class RoomGenerator(MapGenerator):
     obstacles = [[True for _ in range(self.width)] for _ in range(self.height)]
 
     # Create rooms
-    rooms = []
+    rooms: list[tuple[int, int, int, int]] = []
     attempts = 0
     max_rooms = (self.width * self.height) // 50
 
@@ -419,7 +417,7 @@ MapType = Literal["random", "maze", "room", "cave"]
 
 
 def create_generator(
-  map_type: MapType, width: int, height: int, seed: int | None = None, **kwargs
+  map_type: MapType, width: int, height: int, seed: int | None = None, **kwargs: Any
 ) -> MapGenerator:
   if map_type == "maze":
     return MazeGenerator(width, height, seed=seed)

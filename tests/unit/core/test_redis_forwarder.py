@@ -79,7 +79,7 @@ async def test_forwarder_broadcasts_messages_to_active_session() -> None:
 
   manager = WebSocketManager(heartbeat_interval=0.01)
   websocket = FakeWebSocket()
-  await manager.connect(websocket, session_id=1)
+  await manager.connect(websocket, session_id=1)  # type: ignore[arg-type]
 
   payload = {"type": "training_progress", "session_id": 1, "timestep": 5}
   pubsub = FakePubSub(
@@ -100,7 +100,7 @@ async def test_forwarder_broadcasts_messages_to_active_session() -> None:
   assert websocket.sent_messages, "expected redis message to be forwarded to websocket clients"
   assert websocket.sent_messages[0]["type"] == "training_progress"
 
-  await manager.disconnect(websocket, session_id=1)
+  await manager.disconnect(websocket, session_id=1)  # type: ignore[arg-type]
   await forwarder.remove_session_listener(1)
 
 
@@ -110,7 +110,7 @@ async def test_forwarder_reuses_existing_listener_task() -> None:
 
   manager = WebSocketManager(heartbeat_interval=0.01)
   websocket = FakeWebSocket()
-  await manager.connect(websocket, session_id=2)
+  await manager.connect(websocket, session_id=2)  # type: ignore[arg-type]
 
   redis = FakeRedis(FakePubSub([]))
   forwarder = RedisTrainingEventForwarder(
@@ -123,5 +123,5 @@ async def test_forwarder_reuses_existing_listener_task() -> None:
   await forwarder.ensure_session_listener(2)
   assert forwarder._tasks[2] is first_task
 
-  await manager.disconnect(websocket, session_id=2)
+  await manager.disconnect(websocket, session_id=2)  # type: ignore[arg-type]
   await forwarder.remove_session_listener(2)

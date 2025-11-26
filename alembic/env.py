@@ -33,12 +33,15 @@ target_metadata = Base.metadata
 # ... etc.
 
 
-def get_url():
+def get_url() -> str:
   url = os.getenv("DATABASE_URL")
   if url:
     # Replace asyncpg with psycopg for synchronous alembic execution
     return url.replace("postgresql+asyncpg", "postgresql+psycopg")
-  return config.get_main_option("sqlalchemy.url")
+  config_url = config.get_main_option("sqlalchemy.url")
+  if not config_url:
+    raise ValueError("No database URL configured in environment or alembic.ini")
+  return config_url
 
 
 def run_migrations_offline() -> None:

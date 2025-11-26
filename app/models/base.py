@@ -16,5 +16,5 @@ class Base(DeclarativeBase):
   )
 
   @declared_attr.directive
-  def __tablename__(cls) -> str:  # type: ignore[misc]
+  def __tablename__(cls) -> str:
     return cls.__name__.lower()

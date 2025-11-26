@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
@@ -25,7 +25,7 @@ from fastapi import FastAPI
 @pytest.fixture()
 def playback_api_app(
   monkeypatch: pytest.MonkeyPatch,
-) -> tuple[FastAPI, async_sessionmaker[AsyncSession]]:
+) -> Generator[tuple[FastAPI, async_sessionmaker[AsyncSession]], None, None]:
   """Create a FastAPI app backed by an in-memory database for playback tests."""
 
   engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)

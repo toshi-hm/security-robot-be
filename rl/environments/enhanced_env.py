@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from rl.environments.map_generator import MapType
 
 from .security_env import SecurityEnvironment
@@ -20,7 +22,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     exploration_weight: float = 2.0,
     diversity_weight: float = 1.5,
     map_type: MapType = "random",
-    **map_config,
+    **map_config: Any,
   ) -> None:
     self.coverage_weight = coverage_weight
     self.exploration_weight = exploration_weight

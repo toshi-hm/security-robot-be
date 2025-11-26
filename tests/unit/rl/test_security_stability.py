@@ -1,11 +1,12 @@
 """Tests for security and stability improvements."""
 
 # Mock a3c_service to avoid actual training during pipeline test
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rl.environments.map_generator import create_generator
+from rl.environments.map_generator import MapType, create_generator
 
 
 @pytest.mark.asyncio
@@ -48,16 +49,17 @@ def test_map_generator_seeding():
 
   # Test all types
   for map_type in ["random", "maze", "room", "cave"]:
-    gen1 = create_generator(map_type, width, height, seed=seed)
+    typed_map_type = cast(MapType, map_type)
+    gen1 = create_generator(typed_map_type, width, height, seed=seed)
     map1 = gen1.generate()
 
-    gen2 = create_generator(map_type, width, height, seed=seed)
+    gen2 = create_generator(typed_map_type, width, height, seed=seed)
     map2 = gen2.generate()
 
     assert map1 == map2, f"Map type {map_type} is not deterministic with seed {seed}"
 
     # Verify different seeds produce different maps (mostly)
-    gen3 = create_generator(map_type, width, height, seed=seed + 1)
+    gen3 = create_generator(typed_map_type, width, height, seed=seed + 1)
     map3 = gen3.generate()
     assert map1 != map3, f"Map type {map_type} produced same map with different seeds"
 
