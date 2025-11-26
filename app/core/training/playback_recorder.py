@@ -266,6 +266,22 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "reward_received": float(reward) if reward is not None else None,
     }
 
+    # Extract metrics from info dict if available
+    if info:
+      if "coverage_ratio" in info:
+        payload["coverage_ratio"] = float(info["coverage_ratio"])
+      if "exploration_score" in info:
+        payload["exploration_score"] = float(info["exploration_score"])
+      elif "exploration_reward" in info:
+        # Fallback to exploration_reward if score is not explicitly available
+        payload["exploration_score"] = float(info["exploration_reward"])
+
+    # Fallback to environment attributes if not in info
+    if "coverage_ratio" not in payload and hasattr(self.env, "coverage_ratio"):
+      payload["coverage_ratio"] = float(self.env.coverage_ratio)
+    if "exploration_score" not in payload and hasattr(self.env, "exploration_score"):
+      payload["exploration_score"] = float(self.env.exploration_score)
+
     # Extract battery information from info dict if available
     if info:
       if "battery_percentage" in info:
