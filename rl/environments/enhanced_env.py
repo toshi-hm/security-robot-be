@@ -65,7 +65,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       {
         "coverage_ratio": coverage_ratio,
         "visited_cells": visited_count,
-        "exploration_reward": enhanced_reward - base_reward,
+        "exploration_reward_bonus": enhanced_reward - base_reward,
       }
     )
 

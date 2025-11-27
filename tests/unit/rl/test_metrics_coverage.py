@@ -27,7 +27,7 @@ def test_security_env_metrics():
 
 def test_security_env_metrics_update_after_movement():
   """移動後に訪問セル数が増加することを検証"""
-  env = SecurityEnvironment(width=5, height=5, count=0)  # 障害物なし
+  env = SecurityEnvironment(width=5, height=5, map_type="random", count=0)  # 障害物なし
   env.reset()
 
   initial_score = env._get_info()["exploration_score"]
