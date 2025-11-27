@@ -10,7 +10,7 @@ from typing import Any, NotRequired, TypedDict
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-from app.core.training.a3c_service import a3c_service  # noqa: E402
+from app.core.training.ppo_service import ppo_service  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus  # noqa: E402
 
@@ -113,7 +113,7 @@ async def run_pipeline() -> None:
       with SessionLocal() as session:
         job = TrainingJob(
           name=f"Pipeline: {stage['name']}",
-          algorithm=TrainingAlgorithm.a3c,
+          algorithm=TrainingAlgorithm.ppo,
           status=TrainingJobStatus.running,
           environment_type=stage["config"].get("environment_type", "standard"),
           env_width=stage["config"].get("env_width", 8),
@@ -131,7 +131,7 @@ async def run_pipeline() -> None:
       stage_config: dict[str, Any] = dict(stage["config"])
       stage_config["playback"] = {"enabled": True, "record_interval": 1}
 
-      result = await a3c_service.start_training(
+      result = await ppo_service.start_training(
         config=stage_config, session_id=job_id, db_session_factory=SessionLocal
       )
 
