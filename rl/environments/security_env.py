@@ -401,4 +401,5 @@ class SecurityEnvironment(gym.Env):
       ),
       "coverage_ratio": len(self.visited_cells) / (self.width * self.height),
       "exploration_score": float(len(self.visited_cells)),
+      "exploration_reward": 0.0,
     }
