@@ -266,6 +266,16 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "reward_received": float(reward) if reward is not None else None,
     }
 
+    # Extract metrics using helper
+    payload["coverage_ratio"] = self._extract_metric(info, "coverage_ratio", "coverage_ratio")
+    payload["exploration_score"] = self._extract_metric(
+      info,
+      "exploration_score",
+      "exploration_score",
+      "exploration_reward_bonus",
+      "exploration_reward",
+    )
+
     # Extract battery information from info dict if available
     if info:
       if "battery_percentage" in info:
@@ -282,10 +292,11 @@ class PlaybackRecordingWrapper(gym.Wrapper):
 
     for payload_key, (source_attr, default) in ATTR_MAPPING.items():
       value = getattr(self.env, source_attr, default)
-      if isinstance(value, int | float):
-        payload[payload_key] = int(value)
-      else:
-        payload[payload_key] = value
+      if payload_key not in payload:
+        if isinstance(value, int | float):
+          payload[payload_key] = int(value)
+        else:
+          payload[payload_key] = value
 
     coverage_source = None
     if hasattr(self.env, "visit_count"):
@@ -299,6 +310,16 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       payload["reward_received"] = float(reward)
 
     self._recorder.record(payload)
+
+  def _extract_metric(self, info: dict[str, Any] | None, env_attr: str, *keys: str) -> float | None:
+    """Extract metric from info dict with fallback to env attribute."""
+    if info:
+      for key in keys:
+        if key in info:
+          return float(info[key])
+    if hasattr(self.env, env_attr):
+      return float(getattr(self.env, env_attr))
+    return None
 
   def _normalise_action(self, action: Any) -> int | None:
     if action is None:

@@ -48,6 +48,10 @@ class EnvironmentState(Base):
   action_taken: Mapped[int | None] = mapped_column(default=None)  # 0-3: Up, Right, Down, Left
   reward_received: Mapped[float | None] = mapped_column(default=None)
 
+  # Metrics
+  coverage_ratio: Mapped[float | None] = mapped_column(default=None)
+  exploration_score: Mapped[float | None] = mapped_column(default=None)
+
   # Battery system
   battery_percentage: Mapped[float | None] = mapped_column(default=None)
   is_charging: Mapped[bool] = mapped_column(default=False)

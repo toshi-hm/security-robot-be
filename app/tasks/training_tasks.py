@@ -435,6 +435,8 @@ def run_a3c_training_task(self: Any, session_id: int, config: dict[str, Any]) ->
         "reward": metrics.get("reward"),
         "loss": metrics.get("loss"),
         "additional_metrics": metrics.get("additional_metrics"),
+        "coverage_ratio": metrics.get("coverage_ratio"),
+        "exploration_score": metrics.get("exploration_score"),
       }
       _publish_training_event(redis_client, session_id, payload)
 

@@ -186,6 +186,8 @@ class A3CTrainer:
                   "value_loss": result.value_loss,
                   "entropy": result.entropy,
                 },
+                "coverage_ratio": result.coverage_ratio,
+                "exploration_score": result.exploration_score,
               }
               progress_callback(current_timesteps, metrics_payload)
 
@@ -224,6 +226,8 @@ class A3CTrainer:
           "value_loss": final_metrics.value_loss,
           "entropy": final_metrics.entropy,
         },
+        "coverage_ratio": final_metrics.coverage_ratio,
+        "exploration_score": final_metrics.exploration_score,
         "force_emit": True,
       }
       progress_callback(final_timesteps, metrics_payload)

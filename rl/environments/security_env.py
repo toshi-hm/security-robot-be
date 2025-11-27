@@ -116,6 +116,7 @@ class SecurityEnvironment(gym.Env):
     self.last_patrolled = self._build_grid(0)
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
+    self.visited_cells: set[tuple[int, int]] = set()
 
     # 充電ステーションをランダムな位置に配置
     self._place_charging_station()
@@ -124,6 +125,7 @@ class SecurityEnvironment(gym.Env):
     self.robot_x = self.charging_station_x
     self.robot_y = self.charging_station_y
     self.robot_direction = 0
+    self.visited_cells.add((self.robot_x, self.robot_y))
     self.time_step = 0
 
     # バッテリーを100%に初期化
@@ -233,6 +235,7 @@ class SecurityEnvironment(gym.Env):
       new_x, new_y = self._get_front_position()
       if self._is_valid_position(new_x, new_y):
         self.robot_x, self.robot_y = new_x, new_y
+        self.visited_cells.add((self.robot_x, self.robot_y))
         reward -= 0.1
         reward += self._check_suspicious_object_removal()
     elif action == 1:
@@ -396,4 +399,7 @@ class SecurityEnvironment(gym.Env):
         self.charging_station_x,
         self.charging_station_y,
       ),
+      "coverage_ratio": len(self.visited_cells) / (self.width * self.height),
+      "exploration_score": float(len(self.visited_cells)),
+      "exploration_reward": 0.0,
     }

@@ -75,6 +75,8 @@ class RolloutResult:
   value_loss: float
   entropy: float
   episode_done: bool
+  coverage_ratio: float | None = None
+  exploration_score: float | None = None
 
 
 class A3CWorker:
@@ -151,6 +153,8 @@ class A3CWorker:
     episode_reward = 0.0
     timesteps = 0
 
+    last_info = {}
+
     for _ in range(self._rollout_steps):
       state_tensor = _to_tensor(np.asarray(self._state), device=self._device).flatten()
       # logger.info("Forward pass...")
@@ -159,9 +163,15 @@ class A3CWorker:
       action = dist.sample()
 
       # logger.info("Env step...")
-      next_state, reward, terminated, truncated, _ = self._env.step(int(action.item()))
+      next_state, reward, terminated, truncated, info = self._env.step(int(action.item()))
       # logger.info("Env step done.")
       done = bool(terminated or truncated)
+
+      # Update last_info for metrics extraction later
+      if isinstance(info, list) and info:
+        last_info = info[0]
+      elif isinstance(info, dict):
+        last_info = info
 
       states.append(state_tensor)
       actions.append(action)
@@ -180,6 +190,12 @@ class A3CWorker:
 
     if not states:
       return RolloutResult(0, 0.0, 0.0, 0.0, 0.0, 0.0, False)
+
+    # Extract metrics from the last step's info
+    coverage_ratio = last_info.get("coverage_ratio")
+    exploration_score = last_info.get("exploration_score")
+    if exploration_score is None:
+      exploration_score = last_info.get("exploration_reward")
 
     with torch.no_grad():
       if dones[-1]:
@@ -245,4 +261,6 @@ class A3CWorker:
       value_loss=float(value_loss.item()),
       entropy=float(entropy.mean().item()),
       episode_done=self._episode_done,
+      coverage_ratio=float(coverage_ratio) if coverage_ratio is not None else None,
+      exploration_score=float(exploration_score) if exploration_score is not None else None,
     )
