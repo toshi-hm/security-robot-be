@@ -153,6 +153,8 @@ class A3CWorker:
     episode_reward = 0.0
     timesteps = 0
 
+    last_info = {}
+
     for _ in range(self._rollout_steps):
       state_tensor = _to_tensor(np.asarray(self._state), device=self._device).flatten()
       # logger.info("Forward pass...")
@@ -164,6 +166,12 @@ class A3CWorker:
       next_state, reward, terminated, truncated, info = self._env.step(int(action.item()))
       # logger.info("Env step done.")
       done = bool(terminated or truncated)
+
+      # Update last_info for metrics extraction later
+      if isinstance(info, list) and info:
+        last_info = info[0]
+      elif isinstance(info, dict):
+        last_info = info
 
       states.append(state_tensor)
       actions.append(action)
@@ -184,20 +192,10 @@ class A3CWorker:
       return RolloutResult(0, 0.0, 0.0, 0.0, 0.0, 0.0, False)
 
     # Extract metrics from the last step's info
-    # Note: 'info' variable holds the info from the last step of the rollout loop
-    coverage_ratio = None
-    exploration_score = None
-    if "info" in locals():
-      # Check if info is a dict (standard) or list of dicts (vector env)
-      last_info = info
-      if isinstance(info, list) and info:
-        last_info = info[0]
-
-      if isinstance(last_info, dict):
-        coverage_ratio = last_info.get("coverage_ratio")
-        exploration_score = last_info.get("exploration_score")
-        if exploration_score is None:
-          exploration_score = last_info.get("exploration_reward")
+    coverage_ratio = last_info.get("coverage_ratio")
+    exploration_score = last_info.get("exploration_score")
+    if exploration_score is None:
+      exploration_score = last_info.get("exploration_reward")
 
     with torch.no_grad():
       if dones[-1]:
