@@ -56,7 +56,6 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     self._update_exploration_state()
 
     total_cells = self.width * self.height
-    total_cells = self.width * self.height
     visited_count = len(self.visited_cells)
     coverage_ratio = visited_count / total_cells if total_cells else 0.0
 
@@ -79,23 +78,24 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
   def _init_tracking_structures(self) -> None:
     # self.visited_cells is handled by base class (set)
-    self.visit_count = [[0 for _ in range(self.height)] for _ in range(self.width)]
-    self.last_visited = [[-1 for _ in range(self.height)] for _ in range(self.width)]
+    # Grid indexing: grid[y][x] (row-major)
+    self.visit_count = [[0 for _ in range(self.width)] for _ in range(self.height)]
+    self.last_visited = [[-1 for _ in range(self.width)] for _ in range(self.height)]
     self.recent_positions: list[tuple[int, int]] = []
     self.position_history_length = 10
     self.coverage_history: list[float] = []
 
   def _mark_current_position(self) -> None:
     self.visited_cells.add((self.robot_x, self.robot_y))
-    self.visit_count[self.robot_x][self.robot_y] = 1
-    self.last_visited[self.robot_x][self.robot_y] = self.time_step
+    self.visit_count[self.robot_y][self.robot_x] = 1
+    self.last_visited[self.robot_y][self.robot_x] = self.time_step
     self.recent_positions = [(self.robot_x, self.robot_y)]
 
   def _update_exploration_state(self) -> None:
     x, y = self.robot_x, self.robot_y
     self.visited_cells.add((x, y))
-    self.visit_count[x][y] += 1
-    self.last_visited[x][y] = self.time_step
+    self.visit_count[y][x] += 1
+    self.last_visited[y][x] = self.time_step
     self.recent_positions.append((x, y))
     if len(self.recent_positions) > self.position_history_length:
       self.recent_positions.pop(0)
@@ -116,7 +116,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     return total_reward
 
   def _calculate_exploration_reward(self) -> float:
-    visits = self.visit_count[self.robot_x][self.robot_y]
+    visits = self.visit_count[self.robot_y][self.robot_x]
     if visits == 1:
       return 5.0
     if visits <= 3:
@@ -158,7 +158,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     if (front_x, front_y) not in self.visited_cells:
       return 1.0
-    if self.visit_count[front_x][front_y] < 3:
+    if self.visit_count[front_y][front_x] < 3:
       return 0.5
     return 0.0
 
