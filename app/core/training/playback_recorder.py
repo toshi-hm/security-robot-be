@@ -311,9 +311,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
 
     self._recorder.record(payload)
 
-  def _extract_metric(
-    self, info: dict[str, Any] | None, env_attr: str, *keys: str
-  ) -> float | None:
+  def _extract_metric(self, info: dict[str, Any] | None, env_attr: str, *keys: str) -> float | None:
     """Extract metric from info dict with fallback to env attribute."""
     if info:
       for key in keys:
