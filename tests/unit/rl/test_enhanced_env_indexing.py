@@ -16,10 +16,13 @@ def test_enhanced_env_grid_indexing():
   assert len(env.last_visited) == height
   assert len(env.last_visited[0]) == width
 
+  # Reset tracking structures to ensure clean state (ignore charging station visit)
+  env.visit_count = [[0 for _ in range(width)] for _ in range(height)]
+  env.last_visited = [[-1 for _ in range(width)] for _ in range(height)]
+
   # Check access
   # Robot starts at a specific position. Let's force it to (x=2, y=1)
-  env.robot_x = 2
-  env.robot_y = 1
+  env.robot_positions[0] = (2, 1)
 
   # Manually call internal update to check if it crashes or updates wrong cell
   env._update_exploration_state()

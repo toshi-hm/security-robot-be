@@ -19,8 +19,8 @@ async def test_pipeline_path_traversal_prevention(tmp_path, caplog):
 
   # Mock project_root in pipeline
   with patch("scripts.pipeline.project_root", project_root):
-    # Mock a3c_service
-    with patch("scripts.pipeline.a3c_service") as mock_service:
+    # Mock ppo_service
+    with patch("scripts.pipeline.ppo_service") as mock_service:
       mock_service.start_training = AsyncMock(return_value="Success")
 
       # Define a config with a malicious path (unused variable removed)

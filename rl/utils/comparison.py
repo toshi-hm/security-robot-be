@@ -272,9 +272,9 @@ def evaluate_template_agent(
 
     for step in range(effective_max_steps):  # noqa: B007
       action = agent.get_action(
-        env.robot_x,
-        env.robot_y,
-        env.robot_direction,
+        env.robot_positions[0][0],
+        env.robot_positions[0][1],
+        env.robot_directions[0],
         obstacle_coords,
       )
 
@@ -285,27 +285,27 @@ def evaluate_template_agent(
       elif action == 3:
         metrics.patrol_count += 1
 
-      _obs, reward, terminated, truncated, info = env.step(action)
+      _obs, reward, terminated, truncated, info = env.step([action])
       reward_value = float(reward)
       metrics.total_reward += reward_value
       cumulative_reward += reward_value
 
-      battery = float(info.get("battery_percentage", env.battery_percentage))
+      battery = float(info.get("battery_levels", [env.battery_levels[0]])[0])
       metrics.min_battery = min(metrics.min_battery, battery)
-      if info.get("is_charging", False):
+      if info.get("is_charging_list", [False])[0]:
         metrics.charging_events += 1
 
       if save_frames:
         frames.append(
           FrameData(
             timestep=step,
-            robot_x=int(env.robot_x),
-            robot_y=int(env.robot_y),
-            robot_orientation=int(env.robot_direction),
+            robot_x=int(env.robot_positions[0][0]),
+            robot_y=int(env.robot_positions[0][1]),
+            robot_orientation=int(env.robot_directions[0]),
             action=int(action),
             reward=reward_value,
             battery_percentage=battery,
-            is_charging=bool(info.get("is_charging", False)),
+            is_charging=bool(info.get("is_charging_list", [False])[0]),
             coverage_map=_copy_grid(getattr(env, "last_patrolled", []), cast_func=int),
             timestamp=_iso_timestamp(),
           )

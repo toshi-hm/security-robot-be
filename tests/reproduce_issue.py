@@ -36,6 +36,9 @@ class TestReproduction(unittest.TestCase):
     # Run for 50 steps
     for i in range(50):
       action = env.action_space.sample()
+      # Multi-agent step expects list of actions
+      # action_space is MultiDiscrete([4] * num_robots)
+      # sample() returns array([a1, a2, ...])
       obs, reward, terminated, truncated, info = wrapped_env.step(action)
 
       # Check if obstacles changed
@@ -44,10 +47,11 @@ class TestReproduction(unittest.TestCase):
 
       # Check threat levels
       # Robot position
-      rx, ry = env.robot_x, env.robot_y
+      rx, ry = env.robot_positions[0]
 
       # If action was patrol (3), area around robot should be 0
-      if action == 3:
+      # action is array, take first element
+      if action[0] == 3:
         # Check vision range
         vision = env.robot_vision_range
         for dx in range(-vision, vision + 1):
@@ -94,7 +98,7 @@ class TestReproduction(unittest.TestCase):
     env.threat_levels[0][1] = 0.9
 
     # Step to trigger another recording
-    wrapped_env.step(0)  # Action 0 (Move Forward)
+    wrapped_env.step([0])  # Action 0 (Move Forward) as list
 
     # Inspect buffer
     # _buffer is private, but we can access it for testing
@@ -131,20 +135,20 @@ class TestReproduction(unittest.TestCase):
         env.threat_levels[y][x] = 0.5
 
     # Place robot at 5,5
-    env.robot_y = 5
-    env.robot_x = 5
-    env.obstacles[env.robot_y][env.robot_x] = False  # Ensure no obstacle at robot position
+    env.robot_positions[0] = (5, 5)
+    env.obstacles[5][5] = False  # Ensure no obstacle at robot position
 
     # Action 3 is Patrol
     # step() calls _update_threat_levels then _execute_action
     # _update_threat_levels adds 0.01 -> 0.51
     # _execute_action(3) sets area to 0.0
 
-    env.step(3)
+    env.step([3])
 
     # Check center
+    rx, ry = env.robot_positions[0]
     self.assertEqual(
-      env.threat_levels[env.robot_y][env.robot_x], 0.0, "Center threat level should be 0.0"
+      env.threat_levels[ry][rx], 0.0, "Center threat level should be 0.0"
     )
 
     # Check outside vision (vision=2)

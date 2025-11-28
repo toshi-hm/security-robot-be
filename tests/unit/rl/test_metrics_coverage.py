@@ -17,7 +17,7 @@ def test_security_env_metrics():
 
   # 1ステップ実行して指標が更新されることを確認
   # (実際の移動成功は環境のテストで保証されるべき)
-  obs, reward, term, trunc, info = env.step(0)
+  obs, reward, term, trunc, info = env.step([0])
 
   assert "coverage_ratio" in info
   assert "exploration_score" in info
@@ -34,12 +34,12 @@ def test_security_env_metrics_update_after_movement():
 
   # 4方向に移動試行(いずれかは成功するはず)
   for _ in range(4):
-    obs, _, _, _, info = env.step(0)  # 前進
+    obs, _, _, _, info = env.step([0])  # 前進
     if info["exploration_score"] > initial_score:
       # 移動成功を確認
       assert info["coverage_ratio"] > 1.0 / 25.0
       return
-    env.step(2)  # 右回転
+    env.step([1])  # 右回転
 
   pytest.fail("4方向すべてで移動できませんでした(環境生成の問題)")
 
@@ -56,4 +56,4 @@ def test_enhanced_env_metrics_compatibility():
 
   # Check if visited_cells is working as set
   assert isinstance(env.visited_cells, set)
-  assert (env.robot_x, env.robot_y) in env.visited_cells
+  assert env.robot_positions[0] in env.visited_cells

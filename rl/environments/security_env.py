@@ -5,6 +5,8 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 if TYPE_CHECKING:
   # For type checking, import gymnasium directly
   import gymnasium as gym
@@ -62,6 +64,7 @@ class SecurityEnvironment(gym.Env):
     enable_logging: bool = False,
     max_episode_steps: int | None = None,
     map_type: MapType = "random",
+    num_robots: int = 1,
     **map_config: Any,
   ) -> None:
     # Initialize parent Gymnasium Env class
@@ -72,6 +75,7 @@ class SecurityEnvironment(gym.Env):
     self.robot_vision_range = robot_vision_range
     self.enable_logging = enable_logging
     self.map_type = map_type
+    self.num_robots = num_robots
     self.map_config = map_config
     self.logger: object | None = None
 
@@ -81,21 +85,25 @@ class SecurityEnvironment(gym.Env):
     else:
       self.max_episode_steps = max_episode_steps
 
-    # バッテリーシステム
+    # バッテリーシステム (Multi-agent: list of values)
     self.initial_battery = 100.0
-    self.battery_percentage = 100.0
-    self.battery_drain_rate = 0.001  # 1ステップあたり0.001% (1000ステップで1%)
-    self.battery_charge_rate = 1.0  # 1ステップあたり1%
-    self.charging_station_x = 0  # reset()で設定
-    self.charging_station_y = 0  # reset()で設定
-    self.is_charging = False
+    self.battery_levels: list[float] = [100.0] * self.num_robots
+    self.battery_drain_rate = 0.001
+    self.battery_charge_rate = 1.0
+    self.charging_station_x = 0
+    self.charging_station_y = 0
+    self.is_charging_list: list[bool] = [False] * self.num_robots
+
+    # Robot states
+    self.robot_positions: list[tuple[int, int]] = [(0, 0)] * self.num_robots
+    self.robot_directions: list[int] = [0] * self.num_robots
 
     self.observation_space = spaces.Box(
       low=0,
       high=1,
       shape=(width, height, 5),  # 3→5チャンネルに拡張
     )
-    self.action_space = spaces.Discrete(4)
+    self.action_space = spaces.MultiDiscrete([4] * self.num_robots)
 
     self.reset()
 
@@ -108,7 +116,7 @@ class SecurityEnvironment(gym.Env):
     *,
     seed: int | None = None,
     options: dict | None = None,
-  ) -> tuple[list[list[list[float]]], dict]:
+  ) -> tuple[np.ndarray, dict]:
     # Note: seed parameter is accepted for compatibility but not used
     # as we use Python's random module which doesn't support per-instance seeding
 
@@ -122,27 +130,30 @@ class SecurityEnvironment(gym.Env):
     self._place_charging_station()
 
     # ロボットを充電ステーション上に配置
-    self.robot_x = self.charging_station_x
-    self.robot_y = self.charging_station_y
-    self.robot_direction = 0
-    self.visited_cells.add((self.robot_x, self.robot_y))
+    self.robot_positions = [(self.charging_station_x, self.charging_station_y)] * self.num_robots
+    self.robot_directions = [0] * self.num_robots
+
+    # Initialize visited cells with starting positions
+    for pos in self.robot_positions:
+        self.visited_cells.add(pos)
+
     self.time_step = 0
 
     # バッテリーを100%に初期化
-    self.battery_percentage = self.initial_battery
-    self.is_charging = False
+    self.battery_levels = [self.initial_battery] * self.num_robots
+    self.is_charging_list = [False] * self.num_robots
 
     return self._get_observation(), self._get_info()
 
-  def step(self, action: int) -> tuple[list[list[list[float]]], float, bool, bool, dict]:
+  def step(self, actions: list[int] | np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
     self.time_step += 1
 
     # バッテリー更新
     self._update_battery()
 
-    # バッテリー切れチェック
-    if self.battery_percentage <= 0.0:
-      # 特大ペナルティとエピソード終了
+    # バッテリー切れチェック (Any robot dead = episode over? Or just that robot stops?
+    # For now, if ANY robot dies, episode over with penalty)
+    if any(b <= 0.0 for b in self.battery_levels):
       reward = -100.0
       terminated = True
       return self._get_observation(), reward, terminated, False, self._get_info()
@@ -150,26 +161,45 @@ class SecurityEnvironment(gym.Env):
     self._update_threat_levels()
     self._add_suspicious_objects()
 
-    # 充電中は警備活動を制限
-    if self.is_charging:
-      reward = self._calculate_charging_reward()
-    else:
-      reward = self._execute_action(action)
+    total_reward = 0.0
+
+    # Execute actions for all robots
+    # Note: actions is now a list/array of ints
+    for i in range(self.num_robots):
+        action = actions[i]
+
+        # 充電中は警備活動を制限
+        if self.is_charging_list[i]:
+            # Charging robots effectively do nothing but get charging reward
+            # (Action is ignored)
+            pass
+        else:
+            total_reward += self._execute_action(i, action)
+
+    # Add charging rewards (calculated globally/summed)
+    total_reward += self._calculate_charging_reward()
 
     # バッテリー関連の報酬調整
-    reward += self._calculate_battery_penalty()
+    total_reward += self._calculate_battery_penalty()
 
     terminated = self.time_step >= self.max_episode_steps
 
-    return self._get_observation(), reward, terminated, False, self._get_info()
+    return self._get_observation(), total_reward, terminated, False, self._get_info()
 
   def render(self, mode: str = "human") -> None:
     if mode != "human":
       return
 
     print(f"Time: {self.time_step}")
-    print(f"Robot position: ({self.robot_x}, {self.robot_y}), Direction: {self.robot_direction}")
-    print(f"Battery: {self.battery_percentage:.1f}% {'[CHARGING]' if self.is_charging else ''}")
+    for i in range(self.num_robots):
+        print(
+            f"Robot {i}: ({self.robot_positions[i][0]}, {self.robot_positions[i][1]}), "
+            f"Dir: {self.robot_directions[i]}"
+        )
+        print(
+            f"  Battery: {self.battery_levels[i]:.1f}% "
+            f"{'[CHARGING]' if self.is_charging_list[i] else ''}"
+        )
     print(f"Charging station: ({self.charging_station_x}, {self.charging_station_y})")
     print(f"Threat levels: {self.threat_levels}")
     print(f"Suspicious objects: {len(self.suspicious_objects)}")
@@ -186,7 +216,7 @@ class SecurityEnvironment(gym.Env):
     generator = create_generator(self.map_type, self.width, self.height, **self.map_config)
     return generator.generate()
 
-  def _get_observation(self) -> list[list[list[float]]]:
+  def _get_observation(self) -> np.ndarray:
     observation = [[[0.0] * 5 for _ in range(self.width)] for _ in range(self.height)]
 
     for y in range(self.height):
@@ -202,12 +232,21 @@ class SecurityEnvironment(gym.Env):
           observation[y][x][3] = 1.0
 
         # チャンネル4: バッテリー残量（正規化）
-        observation[y][x][4] = self.battery_percentage / 100.0
+        # If multiple robots are on the same cell, take the max battery
+        # (or average? Visualizing max is probably better)
+        max_battery = 0.0
+        for i in range(self.num_robots):
+            if self.robot_positions[i] == (x, y):
+                max_battery = max(max_battery, self.battery_levels[i])
+        observation[y][x][4] = max_battery / 100.0
 
     # チャンネル2: ロボット位置・向き
-    observation[self.robot_y][self.robot_x][2] = (self.robot_direction + 1) / 4.0
+    for i in range(self.num_robots):
+        rx, ry = self.robot_positions[i]
+        # If multiple robots, the last one overwrites. That's acceptable for now.
+        observation[ry][rx][2] = (self.robot_directions[i] + 1) / 4.0
 
-    return observation
+    return np.array(observation, dtype=np.float32)
 
   def _update_threat_levels(self) -> None:
     for y in range(self.height):
@@ -228,36 +267,45 @@ class SecurityEnvironment(gym.Env):
     if not self.obstacles[y][x] and (x, y) not in self.suspicious_objects:
       self.suspicious_objects[(x, y)] = self.time_step
 
-  def _execute_action(self, action: int) -> float:
+  def _execute_action(self, robot_idx: int, action: int) -> float:
     reward = 0.0
 
     if action == 0:
-      new_x, new_y = self._get_front_position()
+      new_x, new_y = self._get_front_position(robot_idx)
       if self._is_valid_position(new_x, new_y):
-        self.robot_x, self.robot_y = new_x, new_y
-        self.visited_cells.add((self.robot_x, self.robot_y))
-        reward -= 0.1
-        reward += self._check_suspicious_object_removal()
+        # Check collision with other robots
+        collision = False
+        for i in range(self.num_robots):
+            if i != robot_idx and self.robot_positions[i] == (new_x, new_y):
+                collision = True
+                break
+
+        if not collision:
+            self.robot_positions[robot_idx] = (new_x, new_y)
+            self.visited_cells.add((new_x, new_y))
+            reward -= 0.1
+            reward += self._check_suspicious_object_removal(robot_idx)
     elif action == 1:
-      self.robot_direction = (self.robot_direction - 1) % 4
+      self.robot_directions[robot_idx] = (self.robot_directions[robot_idx] - 1) % 4
       reward -= 0.05
     elif action == 2:
-      self.robot_direction = (self.robot_direction + 1) % 4
+      self.robot_directions[robot_idx] = (self.robot_directions[robot_idx] + 1) % 4
       reward -= 0.05
     elif action == 3:
-      reward += self._patrol_area()
+      reward += self._patrol_area(robot_idx)
 
     return reward
 
-  def _get_front_position(self) -> tuple[int, int]:
-    dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_direction]
-    return self.robot_x + dx, self.robot_y + dy
+  def _get_front_position(self, robot_idx: int) -> tuple[int, int]:
+    dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_directions[robot_idx]]
+    rx, ry = self.robot_positions[robot_idx]
+    return rx + dx, ry + dy
 
   def _is_valid_position(self, x: int, y: int) -> bool:
     return 0 <= x < self.width and 0 <= y < self.height and not self.obstacles[y][x]
 
-  def _check_suspicious_object_removal(self) -> float:
-    location = (self.robot_x, self.robot_y)
+  def _check_suspicious_object_removal(self, robot_idx: int) -> float:
+    location = self.robot_positions[robot_idx]
     if location not in self.suspicious_objects:
       return 0.0
 
@@ -284,20 +332,23 @@ class SecurityEnvironment(gym.Env):
 
     if not hasattr(self, "last_patrol_info"):
       self.last_patrol_info = []
+    rx, ry = self.robot_positions[robot_idx]
     self.last_patrol_info.append(
-      f"不審物除去 ({self.robot_x},{self.robot_y}): +{time_bonus:.1f}"
+      f"不審物除去 ({rx},{ry}): +{time_bonus:.1f}"
       f" ({speed_rating}発見, {detection_time}ステップ)"
     )
     return time_bonus
 
-  def _patrol_area(self) -> float:
+  def _patrol_area(self, robot_idx: int) -> float:
     total_reward = 0.0
     self.last_patrol_info = []
 
+    rx, ry = self.robot_positions[robot_idx]
+
     for dx in range(-self.robot_vision_range, self.robot_vision_range + 1):
       for dy in range(-self.robot_vision_range, self.robot_vision_range + 1):
-        x = self.robot_x + dx
-        y = self.robot_y + dy
+        x = rx + dx
+        y = ry + dy
         if not self._is_valid_position(x, y):
           continue
 
@@ -338,67 +389,75 @@ class SecurityEnvironment(gym.Env):
 
   def _update_battery(self) -> None:
     """バッテリー残量を更新"""
-    # 充電ステーション上にいる場合
-    if self.robot_x == self.charging_station_x and self.robot_y == self.charging_station_y:
-      # 充電
-      if self.battery_percentage < 100.0:
-        self.battery_percentage = min(100.0, self.battery_percentage + self.battery_charge_rate)
-        self.is_charging = True
-      else:
-        self.is_charging = False
-    else:
-      # 充電ステーション外では消費
-      self.battery_percentage -= self.battery_drain_rate
-      self.battery_percentage = max(0.0, self.battery_percentage)
-      self.is_charging = False
+    for i in range(self.num_robots):
+        # 充電ステーション上にいる場合
+        if self.robot_positions[i] == (self.charging_station_x, self.charging_station_y):
+            # 充電
+            if self.battery_levels[i] < 100.0:
+                self.battery_levels[i] = min(
+                    100.0, self.battery_levels[i] + self.battery_charge_rate
+                )
+                self.is_charging_list[i] = True
+            else:
+                self.is_charging_list[i] = False
+        else:
+            # 充電ステーション外では消費
+            self.battery_levels[i] -= self.battery_drain_rate
+            self.battery_levels[i] = max(0.0, self.battery_levels[i])
+            self.is_charging_list[i] = False
 
   def _calculate_battery_penalty(self) -> float:
-    """バッテリー関連のペナルティを計算"""
-    penalty = 0.0
+    """バッテリー関連のペナルティを計算 (Sum for all robots)"""
+    total_penalty = 0.0
 
-    # バッテリー低下警告
-    if self.battery_percentage < 20.0:
-      penalty -= 0.5 * (20.0 - self.battery_percentage) / 20.0
+    for i in range(self.num_robots):
+        penalty = 0.0
+        battery = self.battery_levels[i]
 
-    if self.battery_percentage < 10.0:
-      penalty -= 1.0 * (10.0 - self.battery_percentage) / 10.0
+        # バッテリー低下警告
+        if battery < 20.0:
+            penalty -= 0.5 * (20.0 - battery) / 20.0
 
-    # 充電ステーションからの距離ペナルティ(バッテリー低下時)
-    if self.battery_percentage < 30.0:
-      distance = abs(self.robot_x - self.charging_station_x) + abs(
-        self.robot_y - self.charging_station_y
-      )
-      max_distance = self.width + self.height
-      penalty -= 0.2 * (distance / max_distance) * (1.0 - self.battery_percentage / 30.0)
+        if battery < 10.0:
+            penalty -= 1.0 * (10.0 - battery) / 10.0
 
-    return penalty
+        # 充電ステーションからの距離ペナルティ(バッテリー低下時)
+        if battery < 30.0:
+            rx, ry = self.robot_positions[i]
+            distance = abs(rx - self.charging_station_x) + abs(ry - self.charging_station_y)
+            max_distance = self.width + self.height
+            penalty -= 0.2 * (distance / max_distance) * (1.0 - battery / 30.0)
+
+        total_penalty += penalty
+
+    return total_penalty
 
   def _calculate_charging_reward(self) -> float:
-    """充電中の報酬を計算"""
-    # 平均脅威レベルに応じた機会損失コスト
+    """充電中の報酬を計算 (Sum for all charging robots)"""
+    total_reward = 0.0
     avg_threat = sum(sum(row) for row in self.threat_levels) / (self.width * self.height)
-    reward = -0.1 * avg_threat
 
-    # バッテリーが低い場合はコスト減免
-    if self.battery_percentage < 30.0:
-      reward *= 0.5
+    for i in range(self.num_robots):
+        if self.is_charging_list[i]:
+            reward = -0.1 * avg_threat
+            # バッテリーが低い場合はコスト減免
+            if self.battery_levels[i] < 30.0:
+                reward *= 0.5
+            total_reward += reward
 
-    return reward
+    return total_reward
 
   def _get_info(self) -> dict:
     """Info辞書を生成"""
-    distance_to_station = abs(self.robot_x - self.charging_station_x) + abs(
-      self.robot_y - self.charging_station_y
-    )
+    # Use average battery for simple logging, but provide details
+    avg_battery = sum(self.battery_levels) / self.num_robots
 
     return {
-      "battery_percentage": self.battery_percentage,
-      "is_charging": self.is_charging,
-      "distance_to_charging_station": distance_to_station,
-      "charging_station_position": (
-        self.charging_station_x,
-        self.charging_station_y,
-      ),
+      "battery_percentage": avg_battery, # Legacy compatibility
+      "battery_levels": self.battery_levels,
+      "is_charging": any(self.is_charging_list), # Legacy
+      "is_charging_list": self.is_charging_list,
+      "robot_positions": self.robot_positions,
       "coverage_ratio": len(self.visited_cells) / (self.width * self.height),
       "exploration_score": float(len(self.visited_cells)),
       "exploration_reward": 0.0,
