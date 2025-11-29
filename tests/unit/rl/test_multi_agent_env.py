@@ -49,6 +49,9 @@ class TestMultiAgentSecurityEnv:
         env.robot_positions = [(1, 1), (1, 2)]
         env.robot_directions = [1, 1] # East
 
+        # Ensure not charging so they can move
+        env.is_charging_list = [False, False]
+
         # Both move East
         # R0: (1,1) -> (2,1)
         # R1: (1,2) -> (2,2)
@@ -66,6 +69,9 @@ class TestMultiAgentSecurityEnv:
         env.robot_positions = [(1, 1), (2, 2)]
         env.robot_directions = [1, 1] # Facing East (1)
 
+        # Ensure not charging
+        env.is_charging_list = [False, False]
+
         # Action: Robot 0 moves forward (0), Robot 1 turns right (2)
         actions = [0, 2]
         obs, reward, terminated, truncated, info = env.step(actions)
@@ -82,6 +88,9 @@ class TestMultiAgentSecurityEnv:
         # Place robots facing each other
         env.robot_positions = [(1, 1), (2, 1)]
         env.robot_directions = [1, 3] # R0 East, R1 West
+
+        # Ensure not charging
+        env.is_charging_list = [False, False]
 
         # Both try to move forward into each other
         actions = [0, 0]

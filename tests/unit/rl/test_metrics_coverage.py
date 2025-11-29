@@ -39,7 +39,7 @@ def test_security_env_metrics_update_after_movement():
       # 移動成功を確認
       assert info["coverage_ratio"] > 1.0 / 25.0
       return
-    env.step([1])  # 右回転
+    env.step([1])  # 左回転
 
   pytest.fail("4方向すべてで移動できませんでした(環境生成の問題)")
 

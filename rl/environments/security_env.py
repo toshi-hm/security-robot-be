@@ -107,6 +107,35 @@ class SecurityEnvironment(gym.Env):
 
     self.reset()
 
+  @property
+  def robot_x(self) -> int:
+    """Legacy property for single-agent compatibility."""
+    return self.robot_positions[0][0]
+
+  @robot_x.setter
+  def robot_x(self, value: int) -> None:
+    x, y = self.robot_positions[0]
+    self.robot_positions[0] = (value, y)
+
+  @property
+  def robot_y(self) -> int:
+    """Legacy property for single-agent compatibility."""
+    return self.robot_positions[0][1]
+
+  @robot_y.setter
+  def robot_y(self, value: int) -> None:
+    x, y = self.robot_positions[0]
+    self.robot_positions[0] = (x, value)
+
+  @property
+  def robot_direction(self) -> int:
+    """Legacy property for single-agent compatibility."""
+    return self.robot_directions[0]
+
+  @robot_direction.setter
+  def robot_direction(self, value: int) -> None:
+    self.robot_directions[0] = value
+
   def set_logger(self, logger: object) -> None:
     self.logger = logger
     self.enable_logging = True
@@ -125,6 +154,7 @@ class SecurityEnvironment(gym.Env):
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
+    self.last_patrol_info: list[str] = []
 
     # 充電ステーションをランダムな位置に配置
     self._place_charging_station()
@@ -160,6 +190,9 @@ class SecurityEnvironment(gym.Env):
 
     self._update_threat_levels()
     self._add_suspicious_objects()
+
+    # Initialize patrol info for this step
+    self.last_patrol_info = []
 
     total_reward = 0.0
 
@@ -381,18 +414,20 @@ class SecurityEnvironment(gym.Env):
 
     del self.suspicious_objects[location]
 
+    # Use existing last_patrol_info list
     if not hasattr(self, "last_patrol_info"):
-      self.last_patrol_info = []
+        self.last_patrol_info = []
+
     rx, ry = self.robot_positions[robot_idx]
     self.last_patrol_info.append(
-      f"不審物除去 ({rx},{ry}): +{time_bonus:.1f}"
+      f"Robot {robot_idx}: 不審物除去 ({rx},{ry}): +{time_bonus:.1f}"
       f" ({speed_rating}発見, {detection_time}ステップ)"
     )
     return time_bonus
 
   def _patrol_area(self, robot_idx: int) -> float:
     total_reward = 0.0
-    self.last_patrol_info = []
+    # Do not reset last_patrol_info here
 
     rx, ry = self.robot_positions[robot_idx]
 
@@ -406,7 +441,9 @@ class SecurityEnvironment(gym.Env):
         threat_reward = self.threat_levels[y][x] * 10
         if threat_reward > 0:
           total_reward += threat_reward
-          self.last_patrol_info.append(f"脅威度除去 ({x},{y}): +{threat_reward:.1f}")
+          self.last_patrol_info.append(
+              f"Robot {robot_idx}: 脅威度除去 ({x},{y}): +{threat_reward:.1f}"
+          )
 
         self.threat_levels[y][x] = 0.0
         self.last_patrolled[y][x] = self.time_step

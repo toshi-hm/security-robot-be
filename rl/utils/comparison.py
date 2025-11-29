@@ -252,10 +252,19 @@ def evaluate_template_agent(
 
   env_info_captured = False
 
+  import copy
+
+  # Create agents for each robot
+  # We use deepcopy to ensure each robot has its own agent instance with independent state
+  agents = [agent] + [copy.deepcopy(agent) for _ in range(env.num_robots - 1)]
+
   for episode in range(episodes):
     episode_seed = (seed + episode) if seed is not None else None
     env.reset(seed=episode_seed)
-    agent.reset()
+
+    # Reset all agents
+    for a in agents:
+        a.reset()
 
     if not env_info_captured:
       result.environment_info = _capture_environment_info(env)
@@ -271,41 +280,54 @@ def evaluate_template_agent(
     cumulative_reward = 0.0
 
     for step in range(effective_max_steps):  # noqa: B007
-      action = agent.get_action(
-        env.robot_positions[0][0],
-        env.robot_positions[0][1],
-        env.robot_directions[0],
-        obstacle_coords,
-      )
+      actions = []
 
-      if action == 0:
-        metrics.move_count += 1
-      elif action in [1, 2]:
-        metrics.turn_count += 1
-      elif action == 3:
-        metrics.patrol_count += 1
+      # Get actions for all robots
+      for i in range(env.num_robots):
+          robot_action = agents[i].get_action(
+            env.robot_positions[i][0],
+            env.robot_positions[i][1],
+            env.robot_directions[i],
+            obstacle_coords,
+          )
+          actions.append(robot_action)
 
-      _obs, reward, terminated, truncated, info = env.step([action])
+          # Update metrics for each robot
+          if robot_action == 0:
+            metrics.move_count += 1
+          elif robot_action in [1, 2]:
+            metrics.turn_count += 1
+          elif robot_action == 3:
+            metrics.patrol_count += 1
+
+      _obs, reward, terminated, truncated, info = env.step(actions)
       reward_value = float(reward)
       metrics.total_reward += reward_value
       cumulative_reward += reward_value
 
-      battery = float(info.get("battery_levels", [env.battery_levels[0]])[0])
-      metrics.min_battery = min(metrics.min_battery, battery)
-      if info.get("is_charging_list", [False])[0]:
-        metrics.charging_events += 1
+      # Metrics aggregation (using min/sum as appropriate)
+      # Min battery across all robots
+      current_min_battery = min(env.battery_levels)
+      metrics.min_battery = min(metrics.min_battery, current_min_battery)
+
+      # Count charging events
+      charging_count = sum(1 for is_charging in env.is_charging_list if is_charging)
+      metrics.charging_events += charging_count
 
       if save_frames:
+        # Note: FrameData currently supports single robot visualization.
+        # We log Robot 0's data for backward compatibility.
+        # Future TODO: Update FrameData to support multi-agent visualization.
         frames.append(
           FrameData(
             timestep=step,
             robot_x=int(env.robot_positions[0][0]),
             robot_y=int(env.robot_positions[0][1]),
             robot_orientation=int(env.robot_directions[0]),
-            action=int(action),
+            action=int(actions[0]),
             reward=reward_value,
-            battery_percentage=battery,
-            is_charging=bool(info.get("is_charging_list", [False])[0]),
+            battery_percentage=float(env.battery_levels[0]),
+            is_charging=bool(env.is_charging_list[0]),
             coverage_map=_copy_grid(getattr(env, "last_patrolled", []), cast_func=int),
             timestamp=_iso_timestamp(),
           )
@@ -318,6 +340,8 @@ def evaluate_template_agent(
         or truncated
         or current_step == effective_max_steps
       ):
+        # Use Robot 0 battery for progress update consistency
+        battery = float(env.battery_levels[0])
         emit(
           "step_update",
           episode=episode + 1,
@@ -328,7 +352,8 @@ def evaluate_template_agent(
         )
 
       if terminated or truncated:
-        if battery <= 0:
+        # Check if ANY robot died
+        if any(b <= 0 for b in env.battery_levels):
           metrics.battery_deaths += 1
         break
 
