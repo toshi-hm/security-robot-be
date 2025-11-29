@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -11,18 +12,21 @@ if TYPE_CHECKING:
   # For type checking, import gymnasium directly
   import gymnasium as gym
   from gymnasium import spaces
+  from gymnasium.spaces import MultiDiscrete
 else:
   # For runtime, use compatibility layer
   from rl._gym_compat import gym, spaces
+  # from rl._gym_compat.spaces import MultiDiscrete # This fails because _gym_compat is a module
 
 from rl.environments.map_generator import MapType, create_generator
+
+logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # Grid Indexing Convention:
 #   - Format: grid[y][x] (row-major)
-#   - y: row index (0 to height-1)
-#   - x: col index (0 to width-1)
-#   - Access: grid[y][x]
+#   - y: Row index (vertical), 0 is top
+#   - x: Column index (horizontal), 0 is left
 # -----------------------------------------------------------------------------
 
 
@@ -484,16 +488,20 @@ class SecurityEnvironment(gym.Env):
       y = random.randint(1, self.height - 2)
 
       # 障害物がない位置に配置
-      if not self.obstacles[y][x]:
+      # また、前方(y-1)も空いていることを確認（ロボットは北向きで開始するため）
+      if not self.obstacles[y][x] and not self.obstacles[y - 1][x]:
         self.charging_station_x = x
         self.charging_station_y = y
         return
 
     # 配置できない場合は中央に配置（フォールバック）
+    logger.warning("Could not find a suitable charging station location. Placing at center.")
     self.charging_station_x = self.width // 2
     self.charging_station_y = self.height // 2
-    # 中央の障害物を強制的に削除
+    # 中央とその前方の障害物を強制的に削除
     self.obstacles[self.charging_station_y][self.charging_station_x] = False
+    if self.charging_station_y > 0:
+        self.obstacles[self.charging_station_y - 1][self.charging_station_x] = False
 
   def _get_scattered_start_positions(self) -> list[tuple[int, int]]:
     """Get scattered start positions around charging station using BFS."""
@@ -523,8 +531,13 @@ class SecurityEnvironment(gym.Env):
             break
 
     # If we still don't have enough positions (e.g. trapped), fill with start_pos
-    while len(positions) < self.num_robots:
-      positions.append(start_pos)
+    if len(positions) < self.num_robots:
+      logger.warning(
+          f"Could not find enough unique start positions for {self.num_robots} robots. "
+          f"Found {len(positions)}. Some robots will start at the charging station."
+      )
+      while len(positions) < self.num_robots:
+          positions.append(start_pos)
 
     return positions
 

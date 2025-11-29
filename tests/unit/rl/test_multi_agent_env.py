@@ -186,3 +186,48 @@ class TestMultiAgentSecurityEnv:
         # Note: Exact value depends on implementation details, but should be positive
         assert reward > 0
 
+    def test_initialization_trapped(self):
+        """Test behavior when charging station is surrounded by obstacles."""
+        env = SecurityEnvironment(width=10, height=10, num_robots=5)
+        env.reset()
+        
+        # Manually trap the charging station
+        cx, cy = env.charging_station_x, env.charging_station_y
+        # Surround with obstacles
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0: continue
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < 10 and 0 <= ny < 10:
+                    env.obstacles[ny][nx] = True
+                    
+        # Force re-scattering
+        positions = env._get_scattered_start_positions()
+        
+        # Should return 5 positions
+        assert len(positions) == 5
+        # Should contain duplicates (start_pos) because trapped
+        assert len(set(positions)) < 5
+        
+    def test_charging_station_fallback_clearing(self):
+        """Test that charging station placement clears obstacles in fallback mode."""
+        env = SecurityEnvironment(width=10, height=10, num_robots=1)
+        env.reset()
+        
+        # Fill map with obstacles to force fallback
+        env.obstacles = [[True for _ in range(10)] for _ in range(10)]
+        
+        # Run placement
+        env._place_charging_station()
+        
+        cx, cy = env.charging_station_x, env.charging_station_y
+        
+        # Should be at center
+        assert cx == 5
+        assert cy == 5
+        
+        # Center should be clear
+        assert not env.obstacles[cy][cx]
+        # Front (North, y-1) should be clear
+        assert not env.obstacles[cy - 1][cx]
+
