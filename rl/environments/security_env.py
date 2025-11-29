@@ -101,7 +101,7 @@ class SecurityEnvironment(gym.Env):
     self.observation_space = spaces.Box(
       low=0,
       high=1,
-      shape=(width, height, 5 * self.num_robots),  # 5 channels per robot
+      shape=(width, height, 3 + 2 * self.num_robots),  # Shared global + 2 per robot
     )
     self.action_space = spaces.MultiDiscrete([4] * self.num_robots)
 
@@ -346,48 +346,40 @@ class SecurityEnvironment(gym.Env):
     return generator.generate()
 
   def _get_observation(self) -> np.ndarray:
-    # Shape: (height, width, 5 * num_robots)
-    # Each robot gets 5 channels:
-    # 0: Threat (Global)
-    # 1: Obstacles (Global)
-    # 2: Robot Position & Direction (Specific to this robot + others?)
-    #    Actually, for centralized training, we usually want each slice to be "what this robot sees"
-    #    OR "global state relative to this robot".
-    #    But here we are just stacking global maps.
-    #    Let's make each slice [Threat, Obstacle, MyPos, Charging, MyBattery].
-    #    Wait, if we do that, the policy needs to know "I am robot i".
-    #    If we just stack them, the policy input is (H, W, 5N).
-    #    The policy will learn that channels 0-4 are R0, 5-9 are R1, etc.
-    #    So:
-    #    Channels 5*i + 0: Threat (Global)
-    #    Channels 5*i + 1: Obstacles (Global)
-    #    Channels 5*i + 2: Robot i Position & Direction
-    #    Channels 5*i + 3: Charging Station (Global)
-    #    Channels 5*i + 4: Robot i Battery
+    # Shape: (height, width, 3 + 2 * num_robots)
+    # Shared Global Channels:
+    # 0: Threat Levels
+    # 1: Obstacles
+    # 2: Charging Station
+    # Robot-Specific Channels (for robot i):
+    # 3 + 2*i: Robot i Position & Direction
+    # 4 + 2*i: Robot i Battery
 
-    observation = np.zeros((self.height, self.width, 5 * self.num_robots), dtype=np.float32)
+    observation = np.zeros((self.height, self.width, 3 + 2 * self.num_robots), dtype=np.float32)
 
+    # Fill Shared Global Channels
+    for y in range(self.height):
+        for x in range(self.width):
+            # Channel 0: Threat
+            observation[y, x, 0] = float(self.threat_levels[y][x])
+            # Channel 1: Obstacles
+            observation[y, x, 1] = 1.0 if self.obstacles[y][x] else 0.0
+            # Channel 2: Charging Station
+            if x == self.charging_station_x and y == self.charging_station_y:
+                observation[y, x, 2] = 1.0
+
+    # Fill Robot-Specific Channels
     for i in range(self.num_robots):
-        base_ch = i * 5
-        for y in range(self.height):
-            for x in range(self.width):
-                # Channel 0: Threat
-                observation[y, x, base_ch + 0] = float(self.threat_levels[y][x])
+        base_ch = 3 + i * 2
+        rx, ry = self.robot_positions[i]
 
-                # Channel 1: Obstacles
-                observation[y, x, base_ch + 1] = 1.0 if self.obstacles[y][x] else 0.0
+        # Channel 3 + 2*i: Position & Direction
+        # Only mark the specific cell where the robot is
+        observation[ry, rx, base_ch] = (self.robot_directions[i] + 1) / 4.0
 
-                # Channel 2: Robot Position & Direction (Only for Robot i)
-                if self.robot_positions[i] == (x, y):
-                    observation[y, x, base_ch + 2] = (self.robot_directions[i] + 1) / 4.0
-
-                # Channel 3: Charging Station
-                if x == self.charging_station_x and y == self.charging_station_y:
-                    observation[y, x, base_ch + 3] = 1.0
-
-                # Channel 4: Battery (Only for Robot i)
-                if self.robot_positions[i] == (x, y):
-                    observation[y, x, base_ch + 4] = self.battery_levels[i] / 100.0
+        # Channel 4 + 2*i: Battery
+        # Only mark the specific cell where the robot is
+        observation[ry, rx, base_ch + 1] = self.battery_levels[i] / 100.0
 
     return observation
 

@@ -20,13 +20,42 @@ class TestMultiAgentSecurityEnv:
         assert isinstance(env.action_space, MultiDiscrete)
         assert np.all(env.action_space.nvec == [4, 4])
 
+    def test_observation_space(self):
+        """Test observation space shape and content."""
+        env = SecurityEnvironment(width=10, height=10, num_robots=2)
+        obs, _ = env.reset() # reset returns obs, info
+
+        # Shape should be (width, height, 3 + 2 * num_robots)
+        # For 2 robots: 3 + 2*2 = 7 channels
+        assert obs.shape == (10, 10, 7)
+
+        # Check channels
+        # Channel 0: Threat (Global)
+        assert np.any(obs[:, :, 0] >= 0)
+        # Channel 1: Obstacles (Global)
+        assert np.any(obs[:, :, 1] >= 0)
+        # Channel 2: Charging Station (Global)
+        assert np.sum(obs[:, :, 2]) == 1.0 # One charging station
+
+        # Robot 0
+        # Channel 3: Position
+        assert np.sum(obs[:, :, 3]) > 0 # Robot 0 exists
+        # Channel 4: Battery
+        assert np.sum(obs[:, :, 4]) > 0 # Robot 0 has battery
+
+        # Robot 1
+        # Channel 5: Position
+        assert np.sum(obs[:, :, 5]) > 0 # Robot 1 exists
+        # Channel 6: Battery
+        assert np.sum(obs[:, :, 6]) > 0 # Robot 1 has battery
+
     def test_reset(self):
         env = SecurityEnvironment(width=10, height=10, num_robots=3)
         obs, info = env.reset()
 
         # Check observation shape
-        # 5 channels per robot * 3 robots = 15 channels
-        assert obs.shape == (10, 10, 15)
+        # 3 global + 2 per robot * 3 robots = 9 channels
+        assert obs.shape == (10, 10, 9)
 
         # Check if all robots are in the observation (Channel 2 for each robot)
         # Robot i is in channel 5*i + 2
