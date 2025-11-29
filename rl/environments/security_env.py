@@ -571,6 +571,17 @@ class SecurityEnvironment(gym.Env):
 
   def _update_battery(self) -> None:
     """バッテリー残量を更新 (Vectorized)"""
+    # Update is_charging_list based on position FIRST
+    for i in range(self.num_robots):
+        on_station = self.robot_positions[i] == (self.charging_station_x, self.charging_station_y)
+        if on_station:
+             if self.battery_levels[i] < 100.0:
+                 self.is_charging_list[i] = True
+             else:
+                 self.is_charging_list[i] = False
+        else:
+             self.is_charging_list[i] = False
+
     batteries = np.array(self.battery_levels)
     is_charging = np.array(self.is_charging_list)
     
@@ -583,19 +594,6 @@ class SecurityEnvironment(gym.Env):
         batteries[~is_charging] = np.maximum(0.0, batteries[~is_charging] - self.battery_drain_rate)
     
     self.battery_levels = batteries.tolist()
-    
-    # Update is_charging_list based on position (needed for next step logic)
-    # Note: The original logic updated is_charging_list inside the loop based on position.
-    # We need to preserve that behavior.
-    for i in range(self.num_robots):
-        on_station = self.robot_positions[i] == (self.charging_station_x, self.charging_station_y)
-        if on_station:
-             if self.battery_levels[i] < 100.0:
-                 self.is_charging_list[i] = True
-             else:
-                 self.is_charging_list[i] = False
-        else:
-             self.is_charging_list[i] = False
 
   def _calculate_battery_penalty(self) -> float:
     """バッテリー関連のペナルティを計算 (Sum for all robots)"""
