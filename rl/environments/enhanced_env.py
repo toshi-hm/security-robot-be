@@ -70,29 +70,40 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # Let's calculate based on the collective result.
 
     # Calculate additional rewards
-    additional_reward = 0.0
-    additional_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
-    additional_reward += self._calculate_diversity_reward() * self.diversity_weight
+    # Split into Global (shared) and Per-Robot (individual) rewards
+    
+    # Global Rewards: Applied to the team as a whole, NOT normalized by N
+    # (or rather, they are added to the average reward directly)
+    global_reward = 0.0
+    global_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
+    global_reward += self._calculate_diversity_reward() * self.diversity_weight
 
-    # Per-robot rewards
+    # Per-Robot Rewards: Calculated per robot, then averaged
+    per_robot_reward_sum = 0.0
     for i in range(self.num_robots):
         action = actions[i]
-        additional_reward += self._calculate_exploration_reward(i) * self.exploration_weight
-        additional_reward += self._calculate_movement_reward(i, action)
-        additional_reward += self._calculate_patrol_optimization_reward(i, action)
+        per_robot_reward_sum += self._calculate_exploration_reward(i) * self.exploration_weight
+        per_robot_reward_sum += self._calculate_movement_reward(i, action)
+        per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
 
-    # Normalize additional reward by number of robots
-    # base_reward is already normalized in super().step()
+    # Normalize per-robot reward sum by number of robots to get average per-robot reward
+    average_per_robot_reward = per_robot_reward_sum
     if self.num_robots > 1:
-        additional_reward /= self.num_robots
+        average_per_robot_reward /= self.num_robots
 
-    enhanced_reward = base_reward + additional_reward
+    # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Global
+    # Note: Base reward from SecurityEnv is (Sum(Collision + Move + Patrol) / N)
+    # So it is an average per-robot reward.
+    # We add our enhanced average per-robot reward.
+    # And we add Global reward (which is achieved by the team).
+    # If we treat the single scalar reward as "Team Reward", then Global should be added as is.
+    enhanced_reward = base_reward + average_per_robot_reward + global_reward
 
     info.update(
       {
         "coverage_ratio": coverage_ratio,
         "visited_cells": visited_count,
-        "exploration_reward_bonus": additional_reward,
+        "exploration_reward_bonus": average_per_robot_reward + global_reward,
         "exploration_score": float(visited_count),
       }
     )

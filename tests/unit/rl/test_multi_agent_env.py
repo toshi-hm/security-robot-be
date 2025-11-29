@@ -102,6 +102,12 @@ class TestMultiAgentSecurityEnv:
         # Ensure not charging
         env.is_charging_list = [False, False]
 
+        # Ensure target positions are clear of obstacles
+        # Robot 0 moves to (2, 1)
+        env.obstacles[1][2] = False
+        # Robot 1 stays at (2, 2) (turning)
+        env.obstacles[2][2] = False
+
         # Action: Robot 0 moves forward (0), Robot 1 turns right (2)
         actions = [0, 2]
         obs, reward, terminated, truncated, info = env.step(actions)
@@ -133,7 +139,43 @@ class TestMultiAgentSecurityEnv:
         # Verify collision penalty
         # Both collide -> -0.5 * 2 = -1.0
         # Normalized by 2 robots -> -0.5
+        # Verify collision penalty
+        # Both collide (swap) -> -0.5 * 2 = -1.0
+        # Normalized by 2 robots -> -0.5
         assert reward == -0.5
+
+    def test_collision_scaling(self):
+        """Test that collision penalty scales with number of robots."""
+        env = SecurityEnvironment(width=10, height=10, num_robots=3)
+        env.reset()
+        
+        # Place 3 robots around (1, 1)
+        # R0 at (0, 1) facing East -> Target (1, 1)
+        # R1 at (1, 0) facing South -> Target (1, 1)
+        # R2 at (2, 1) facing West -> Target (1, 1)
+        env.robot_positions = [(0, 1), (1, 0), (2, 1)]
+        env.robot_directions = [1, 2, 3]
+        
+        # Ensure target (1, 1) is valid
+        env.obstacles[1][1] = False
+        
+        actions = [0, 0, 0] # All move forward
+        _, reward, _, _, _ = env.step(actions)
+        
+        # All 3 target (1, 1)
+        # Penalty formula: -0.5 * N * (1.0 + (N - 2) * 0.5)
+        # N=3 -> -0.5 * 3 * (1.0 + 0.5) = -1.5 * 1.5 = -2.25
+        # Normalized by 3 robots -> -0.75
+        
+        # Check expected reward
+        # Movement reward: 0 (failed move)
+        # Collision penalty: -2.25
+        # Total: -2.25 / 3 = -0.75
+        
+        # Note: There might be other small penalties (battery drain?)
+        # Battery drain is small (0.001).
+        # Let's check approx value.
+        assert -0.76 < reward < -0.74
 
     def test_reward_normalization(self):
         """Test that rewards are normalized by number of robots."""

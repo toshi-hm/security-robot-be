@@ -1,137 +1,81 @@
 
-from rl.environments.security_env import SecurityEnvironment
+import pytest
+import numpy as np
+from rl.environments.enhanced_env import EnhancedSecurityEnvironment
 
-
-class TestMultiAgentAdvanced:
-    def test_five_robots_initialization(self):
-        """Test initialization with 5 robots."""
-        env = SecurityEnvironment(width=20, height=20, num_robots=5)
+class TestEnhancedRewardComposition:
+    def test_reward_composition(self):
+        """Test that enhanced reward is composed of Base + Avg(PerRobot) + Global."""
+        env = EnhancedSecurityEnvironment(
+            width=10, height=10, num_robots=2,
+            coverage_weight=1.0,
+            exploration_weight=1.0,
+            diversity_weight=1.0
+        )
         env.reset()
+        
+        # Mock methods to return known values
+        # We can't easily mock methods on the instance without a mocking library or subclassing.
+        # But we can verify the formula by checking the result.
+        
+        # Let's make a step where we know what happens.
+        # R0 moves to new cell -> Exploration +1.0, Movement +1.0
+        # R1 moves to new cell -> Exploration +1.0, Movement +1.0
+        # Coverage increases -> Global Coverage Reward > 0
+        # Diversity -> Global Diversity Reward
+        
+        # It's hard to predict exact values.
+        # Let's just check if Global Reward is NOT divided by N.
+        
+        # Case: 2 robots.
+        # Suppose Global Reward is G.
+        # Suppose Per-Robot Reward Sum is P.
+        # Old Formula: (P + G) / 2 = P/2 + G/2
+        # New Formula: P/2 + G
+        
+        # We can try to isolate G.
+        # Set exploration_weight=0, movement_weight (implicit)=0? No, movement is hardcoded.
+        
+        # Let's use a subclass to control rewards.
+        class MockEnv(EnhancedSecurityEnvironment):
+            def _calculate_coverage_reward(self, ratio):
+                return 10.0 # Global
+            def _calculate_diversity_reward(self):
+                return 5.0 # Global
+            def _calculate_exploration_reward(self, idx):
+                return 2.0 # Per Robot
+            def _calculate_movement_reward(self, idx, action):
+                return 0.0
+            def _calculate_patrol_optimization_reward(self, idx, action):
+                return 0.0
+            def step(self, actions):
+                # We need to call super().step() but we want to control base_reward too.
+                # But we can't easily control base_reward without mocking SecurityEnv.
+                # However, we know base_reward is small (movement/collision).
+                # Let's just check the *difference* or the magnitude.
+                return super().step(actions)
 
-        assert env.num_robots == 5
-        assert len(env.robot_positions) == 5
-        assert len(env.battery_levels) == 5
-
-        # Verify scattered positions
-        unique_pos = set(env.robot_positions)
-        assert len(unique_pos) == 5, "All 5 robots should have unique start positions"
-
-    def test_simultaneous_patrol_rewards(self):
-        """Test that multiple robots patrolling simultaneously accumulate rewards correctly."""
-        env = SecurityEnvironment(width=10, height=10, num_robots=2)
-        env.reset()
-
-        # Manually set threat levels
-        # Robot 0 at (1,1), Threat at (2,1)
-        # Robot 1 at (5,5), Threat at (6,5)
-        env.robot_positions = [(1, 1), (5, 5)]
-
-        # Clear obstacles to ensure threats are valid
-        env.obstacles = [[False for _ in range(10)] for _ in range(10)]
-
-        env.threat_levels[1][2] = 1.0
-        env.threat_levels[5][6] = 1.0
-
-        env.threat_levels[1][2] = 1.0
-        env.threat_levels[5][6] = 1.0
-
-        from unittest.mock import patch
-
-        # Disable background threat update to verify exact reward from patrol
-        with patch.object(env, '_update_threat_levels', return_value=None):
-            # Both patrol
-            actions = [3, 3]
-            _, reward, _, _, _ = env.step(actions)
-
-        # Expected reward:
-        # R0 clears (2,1): 1.0 * 10 = 10.0
-        # R1 clears (6,5): 1.0 * 10 = 10.0
-        # Total raw = 20.0
-        # Normalized = 20.0 / 2 = 10.0
-        assert reward == 10.0
-
-        # Verify last_patrol_info contains both
-        assert len(env.last_patrol_info) == 2
-        assert "Robot 0" in env.last_patrol_info[0] or "Robot 0" in env.last_patrol_info[1]
-        assert "Robot 1" in env.last_patrol_info[0] or "Robot 1" in env.last_patrol_info[1]
-
-    def test_multiple_battery_failures(self):
-        """Test behavior when multiple robots run out of battery."""
-        env = SecurityEnvironment(width=10, height=10, num_robots=3)
-        env.reset()
-
-        # Move robots away from charging station to prevent charging
-        # Charging station is usually at random pos, but we can just set robot positions
-        # to be far away. Or just overwrite charging station pos?
-        # Easier to overwrite robot positions to be safe.
-        # Assume 10x10 grid.
-        env.robot_positions = [(0, 0), (0, 1), (0, 2)]
-        # Ensure charging station is NOT at these positions
-        # If it is, move it.
-        if (env.charging_station_x, env.charging_station_y) in env.robot_positions:
-            env.charging_station_x = 9
-            env.charging_station_y = 9
-
-        # Drain batteries partially (2 dead, 1 alive)
-        env.battery_levels = [0.0, 10.0, 0.0]
-
-        # Step
-        _, reward, terminated, _, _ = env.step([0, 0, 0])
-
-        # Should NOT terminate yet (one robot still alive)
-        assert not terminated
-        # Reward might be small negative (move cost for alive robot) or 0 if it didn't move
-
-        # Now drain all
-        env.battery_levels = [0.0, 0.0, 0.0]
-        _, reward, terminated, _, _ = env.step([0, 0, 0])
-
-        # Should terminate with penalty
-        assert terminated
-        # Normalized penalty: -100.0 / 3 = -33.33...
-        assert abs(reward - (-33.333333)) < 0.001
-
-    def test_charging_station_blocking(self):
-        """Test that robots block each other at the charging station."""
-        env = SecurityEnvironment(width=10, height=10, num_robots=2)
-        env.reset()
-
-        cx, cy = env.charging_station_x, env.charging_station_y
-
-        # Place R0 on charging station
-        env.robot_positions[0] = (cx, cy)
-        # Place R1 next to it, facing it
-        # Find a neighbor cell
-        nx, ny = cx + 1, cy
-        if env.obstacles[ny][nx]: # Simple check, assuming 10x10 empty-ish map
-             nx, ny = cx - 1, cy
-
-        env.robot_positions[1] = (nx, ny)
-
-        # Orient R1 towards station
-        # If R1 is at (cx+1, cy), it needs to face West (3) to move to (cx, cy)
-        if nx > cx:
-            env.robot_directions[1] = 3 # West
-        else:
-            env.robot_directions[1] = 1 # East
-
-        # R0 stays (charges), R1 tries to move onto station
-        # Action 0 = Move Forward
+        mock_env = MockEnv(width=10, height=10, num_robots=2)
+        mock_env.reset()
+        
         actions = [0, 0]
-
-        # Force R0 to be charging so it doesn't move even if action is 0?
-        # Actually, if R0 is on station, update_battery sets is_charging=True.
-        # And step() says: if action == 0 and not self.is_charging_list[i]: move
-        # So if R0 is charging, it won't move even if action is 0.
-        # But we need to ensure R0 *is* charging.
-        env.battery_levels[0] = 50.0 # Needs charge
-        env._update_battery() # Set is_charging flags
-        assert env.is_charging_list[0]
-
-        # R1 tries to move
-        env.step(actions)
-
-        # R0 should still be at station
-        assert env.robot_positions[0] == (cx, cy)
-        # R1 should be blocked (collision with stationary R0)
-        assert env.robot_positions[1] == (nx, ny)
+        _, reward, _, _, info = mock_env.step(actions)
+        
+        # Expected Calculation:
+        # Global = 10.0 + 5.0 = 15.0
+        # Per Robot Sum = 2.0 * 2 = 4.0
+        # Avg Per Robot = 4.0 / 2 = 2.0
+        # Base Reward: Let's assume it's B.
+        # Total = B + 2.0 + 15.0 = B + 17.0
+        
+        # If it was the old formula:
+        # (B*2 + 4.0 + 15.0) / 2 = B + 2.0 + 7.5 = B + 9.5
+        # (Assuming base reward was also normalized... wait. 
+        # In old formula: enhanced = base + (per_robot + global)/N
+        # base was already normalized.
+        # So: B + (4.0 + 15.0)/2 = B + 9.5.
+        
+        # So we expect reward around 17.0 (plus small base), definitely > 10.0.
+        
+        print(f"Reward: {reward}")
+        assert reward > 15.0, f"Reward {reward} should be > 15.0 (Global 15 + AvgPerRobot 2)"

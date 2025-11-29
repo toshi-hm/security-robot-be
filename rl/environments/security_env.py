@@ -319,10 +319,49 @@ class SecurityEnvironment(gym.Env):
       for target_pos, robot_indices in target_map.items():
           if len(robot_indices) > 1:
               # 複数ロボットが同じ位置を目指す → 全員その場に留まる
-              penalty -= 0.5 * len(robot_indices) # Penalty is negative reward
+              # Penalty scales with number of robots involved
+              # e.g. 2 robots -> -1.0 total (avg -0.5)
+              #      3 robots -> -1.5 total (avg -0.5)
+              # Wait, if total_reward is divided by N, then we want the impact to be consistent?
+              # Original: -0.5 * len(indices).
+              # If we have 3 robots colliding, penalty is -1.5.
+              # If N=3, average penalty is -0.5 per robot.
+              # If N=10, average penalty is -0.15 per robot.
+              # The user feedback says: "3 robots colliding -> -1.5. If total / N, effective is -0.5 (same as 2 robots)."
+              # User wants "larger collisions have larger impact".
+              # If we want larger impact per robot, we need to increase the penalty per robot.
+              # But -0.5 per robot seems fair?
+              # Maybe the user meant that for the *team*, a 3-robot collision is worse than a 2-robot collision.
+              # And -0.5 per robot reflects that.
+              # Let's look at the user request again:
+              # "3台のロボットが同じ位置を目指すと、ペナルティは -1.5 になります
+              # しかし、最終的に total_reward は num_robots で割られるため、実質的なペナルティは -0.5 になり、2台衝突時と同じです"
+              # The user implies that a 3-robot collision SHOULD be worse than a 2-robot collision *per robot*?
+              # Or maybe they just want to ensure the penalty is significant.
+              # "推奨: 衝突の深刻さに応じて適切なペナルティを設定するか、正規化を考慮したペナルティ計算を行ってください。"
+              # Let's try increasing the penalty slightly for larger groups?
+              # Or maybe just keep it as is, but ensure we understand it.
+              # Actually, if 3 robots collide, they all lose a turn. That is bad.
+              # -0.5 per robot is consistent.
+              # But maybe the user thinks -0.5 is too low?
+              # Let's try to make it non-linear? e.g. 0.5 * (len(indices) ** 2)?
+              # No, that might be too harsh.
+              # Let's stick to linear for now but maybe increase the base?
+              # Or maybe the user meant that if we divide by N (total robots), a local collision of 3 robots
+              # affects the global average less if N is large?
+              # No, if N=10, 3 collide -> -1.5 / 10 = -0.15.
+              # If N=3, 3 collide -> -1.5 / 3 = -0.5.
+              # So for larger swarms, local collisions matter less. That makes sense.
+              # But if we want to discourage collisions regardless of swarm size, maybe we shouldn't divide by N?
+              # But we divide EVERYTHING by N.
+              # Let's try to scale it by N/num_colliding? No.
+              # Let's just implement what seems reasonable:
+              # Penalty = -0.5 * len(indices) * (1.0 + 0.1 * len(indices)) ?
+              # Let's just use the user's suggestion of "scaling".
+              # I will use a slightly higher penalty for larger groups.
+              penalty -= 0.5 * len(robot_indices) * (1.0 + (len(robot_indices) - 2) * 0.5)
+              
               # final_positions is already self.robot_positions, so no update needed for these indices
-              # BUT we need to ensure we don't update them if they were planning to move
-              # (Wait, final_positions was initialized to self.robot_positions, so if we do nothing, they stay)
               pass
           elif len(robot_indices) == 1:
               robot_idx = robot_indices[0]
@@ -508,7 +547,8 @@ class SecurityEnvironment(gym.Env):
 
       # 障害物がない位置に配置
       # また、前方(y-1)も空いていることを確認（ロボットは北向きで開始するため）
-      if not self.obstacles[y][x] and not self.obstacles[y - 1][x]:
+      # Boundary check added: y > 0
+      if not self.obstacles[y][x] and y > 0 and not self.obstacles[y - 1][x]:
         self.charging_station_x = x
         self.charging_station_y = y
         return
