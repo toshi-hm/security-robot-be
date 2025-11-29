@@ -1,5 +1,6 @@
-
 import numpy as np
+import unittest
+import pytest
 
 from rl.environments.security_env import SecurityEnvironment
 
@@ -244,12 +245,9 @@ class TestMultiAgentSecurityEnv:
                     env.obstacles[ny][nx] = True
                     
         # Force re-scattering
-        positions = env._get_scattered_start_positions()
-        
-        # Should return 5 positions
-        assert len(positions) == 5
-        # Should contain duplicates (start_pos) because trapped
-        assert len(set(positions)) < 5
+        # Should raise ValueError because robots cannot be placed
+        with pytest.raises(ValueError, match="Could not find enough unique start positions"):
+            env._get_scattered_start_positions()
         
     def test_charging_station_fallback_clearing(self):
         """Test that charging station placement clears obstacles in fallback mode."""

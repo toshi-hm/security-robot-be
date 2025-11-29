@@ -589,14 +589,12 @@ class SecurityEnvironment(gym.Env):
           if len(positions) >= self.num_robots:
             break
 
-    # If we still don't have enough positions (e.g. trapped), fill with start_pos
+    # If we still don't have enough positions (e.g. trapped), raise error
     if len(positions) < self.num_robots:
-      logger.warning(
+      raise ValueError(
           f"Could not find enough unique start positions for {self.num_robots} robots. "
-          f"Found {len(positions)}. Some robots will start at the charging station."
+          f"Found {len(positions)}. Robots might be trapped by obstacles."
       )
-      while len(positions) < self.num_robots:
-          positions.append(start_pos)
 
     return positions
 
