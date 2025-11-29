@@ -279,25 +279,46 @@ def evaluate_template_agent(
     emit("episode_started", episode=episode + 1)
     cumulative_reward = 0.0
 
-    for step in range(effective_max_steps):  # noqa: B007
-      actions = []
+    # Convert obstacles grid to set of coordinates for template agents
+    obstacle_set = set()
+    if hasattr(env, "obstacles"):
+        for y in range(len(env.obstacles)):
+            for x in range(len(env.obstacles[0])):
+                if env.obstacles[y][x]:
+                    obstacle_set.add((x, y))
 
-      # Get actions for all robots
-      for i in range(env.num_robots):
-          robot_action = agents[i].get_action(
-            env.robot_positions[i][0],
-            env.robot_positions[i][1],
-            env.robot_directions[i],
-            obstacle_coords,
+    for step in range(effective_max_steps):  # noqa: B007
+      # Get robot state (Multi-agent compatible)
+      if hasattr(env, "robot_positions"):
+          robot_positions = env.robot_positions
+          robot_directions = env.robot_directions
+      else:
+          # Legacy single-agent fallback
+          robot_positions = [(env.robot_x, env.robot_y)]
+          robot_directions = [env.robot_direction]
+
+      # Collect actions for all robots
+      actions = []
+      for i in range(len(robot_positions)):
+          # Use separate agent instance for each robot to maintain independent state
+          agent_instance = agents[i]
+
+          # Get action for this robot
+          # Note: Template agents do not use battery or charging station info
+          action = agent_instance.get_action(
+              robot_positions[i][0],
+              robot_positions[i][1],
+              robot_directions[i],
+              obstacle_set
           )
-          actions.append(robot_action)
+          actions.append(action)
 
           # Update metrics for each robot
-          if robot_action == 0:
+          if action == 0:
             metrics.move_count += 1
-          elif robot_action in [1, 2]:
+          elif action in [1, 2]:
             metrics.turn_count += 1
-          elif robot_action == 3:
+          elif action == 3:
             metrics.patrol_count += 1
 
       _obs, reward, terminated, truncated, info = env.step(actions)

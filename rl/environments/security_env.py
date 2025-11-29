@@ -101,7 +101,7 @@ class SecurityEnvironment(gym.Env):
     self.observation_space = spaces.Box(
       low=0,
       high=1,
-      shape=(width, height, 5),  # 3→5チャンネルに拡張
+      shape=(width, height, 5 * self.num_robots),  # 5 channels per robot
     )
     self.action_space = spaces.MultiDiscrete([4] * self.num_robots)
 
@@ -181,10 +181,12 @@ class SecurityEnvironment(gym.Env):
     # バッテリー更新
     self._update_battery()
 
-    # バッテリー切れチェック (Any robot dead = episode over? Or just that robot stops?
-    # For now, if ANY robot dies, episode over with penalty)
-    if any(b <= 0.0 for b in self.battery_levels):
+    # バッテリー切れチェック
+    # Episode ends only if ALL robots are dead (or max steps reached)
+    if all(b <= 0.0 for b in self.battery_levels):
       reward = -100.0
+      if self.num_robots > 1:
+          reward /= self.num_robots
       terminated = True
       return self._get_observation(), reward, terminated, False, self._get_info()
 
@@ -201,6 +203,10 @@ class SecurityEnvironment(gym.Env):
     move_intents = [False] * self.num_robots
 
     for i in range(self.num_robots):
+        # Ignore actions if battery is dead
+        if self.battery_levels[i] <= 0.0:
+            continue
+
         action = actions[i]
         # Only Action 0 (Move Forward) changes position
         if action == 0 and not self.is_charging_list[i]:
@@ -220,6 +226,12 @@ class SecurityEnvironment(gym.Env):
     final_positions = list(self.robot_positions)
 
     for i in range(self.num_robots):
+        # If dead, stay in place (already handled by not updating proposed_positions,
+        # but need to ensure final_positions[i] is correct)
+        if self.battery_levels[i] <= 0.0:
+            final_positions[i] = self.robot_positions[i]
+            continue
+
         target = proposed_positions[i]
         if move_intents[i]:
             # If target is occupied by >1 robot (including self), cancel move
@@ -231,6 +243,7 @@ class SecurityEnvironment(gym.Env):
             if target_counts[target] > 1:
                 # Collision! Stay in place
                 final_positions[i] = self.robot_positions[i]
+                total_reward -= 0.5 # Collision penalty
             else:
                 # Target is unique. But is it a swap?
                 # Check if any other robot is moving to MY current position,
@@ -250,11 +263,15 @@ class SecurityEnvironment(gym.Env):
 
                 if is_swap:
                     final_positions[i] = self.robot_positions[i]
+                    total_reward -= 0.5 # Collision penalty
                 else:
                     final_positions[i] = target
 
     # 3. Apply actions and calculate rewards
     for i in range(self.num_robots):
+        if self.battery_levels[i] <= 0.0:
+            continue
+
         action = actions[i]
 
         # Update position if changed
@@ -266,13 +283,10 @@ class SecurityEnvironment(gym.Env):
             total_reward += self._check_suspicious_object_removal(i)
         elif action == 0 and not self.is_charging_list[i]:
             # Failed move (collision or invalid)
-            # No penalty for collision specifically in original code, just no move?
-            # Original code: if not collision: reward -= 0.1. So if collision, 0 reward?
-            # Let's keep it consistent: No move = 0 reward (or maybe small penalty?)
-            # Original code didn't penalize collision explicitly, just didn't give move cost?
-            # Wait, original code:
-            # if not collision: reward -= 0.1
-            # else: (implicit) reward = 0
+            # Collision penalty already applied above if it was a collision.
+            # If it was invalid (wall/obstacle), proposed_positions wasn't updated,
+            # so we are here. Should we penalize hitting a wall?
+            # Original code didn't. Let's stick to collision penalty only for robot-robot.
             pass
 
         # Handle other actions (Turn, Patrol)
@@ -292,6 +306,10 @@ class SecurityEnvironment(gym.Env):
 
     # バッテリー関連の報酬調整
     total_reward += self._calculate_battery_penalty()
+
+    # Normalize reward by number of robots to keep scale consistent
+    if self.num_robots > 1:
+        total_reward /= self.num_robots
 
     terminated = self.time_step >= self.max_episode_steps
 
@@ -328,36 +346,50 @@ class SecurityEnvironment(gym.Env):
     return generator.generate()
 
   def _get_observation(self) -> np.ndarray:
-    observation = [[[0.0] * 5 for _ in range(self.width)] for _ in range(self.height)]
+    # Shape: (height, width, 5 * num_robots)
+    # Each robot gets 5 channels:
+    # 0: Threat (Global)
+    # 1: Obstacles (Global)
+    # 2: Robot Position & Direction (Specific to this robot + others?)
+    #    Actually, for centralized training, we usually want each slice to be "what this robot sees"
+    #    OR "global state relative to this robot".
+    #    But here we are just stacking global maps.
+    #    Let's make each slice [Threat, Obstacle, MyPos, Charging, MyBattery].
+    #    Wait, if we do that, the policy needs to know "I am robot i".
+    #    If we just stack them, the policy input is (H, W, 5N).
+    #    The policy will learn that channels 0-4 are R0, 5-9 are R1, etc.
+    #    So:
+    #    Channels 5*i + 0: Threat (Global)
+    #    Channels 5*i + 1: Obstacles (Global)
+    #    Channels 5*i + 2: Robot i Position & Direction
+    #    Channels 5*i + 3: Charging Station (Global)
+    #    Channels 5*i + 4: Robot i Battery
 
-    for y in range(self.height):
-      for x in range(self.width):
-        # チャンネル0: 脅威レベル
-        observation[y][x][0] = float(self.threat_levels[y][x])
+    observation = np.zeros((self.height, self.width, 5 * self.num_robots), dtype=np.float32)
 
-        # チャンネル1: 障害物
-        observation[y][x][1] = 1.0 if self.obstacles[y][x] else 0.0
-
-        # チャンネル3: 充電ステーション
-        if x == self.charging_station_x and y == self.charging_station_y:
-          observation[y][x][3] = 1.0
-
-        # チャンネル4: バッテリー残量（正規化）
-        # If multiple robots are on the same cell, take the max battery
-        # (or average? Visualizing max is probably better)
-        max_battery = 0.0
-        for i in range(self.num_robots):
-            if self.robot_positions[i] == (x, y):
-                max_battery = max(max_battery, self.battery_levels[i])
-        observation[y][x][4] = max_battery / 100.0
-
-    # チャンネル2: ロボット位置・向き
     for i in range(self.num_robots):
-        rx, ry = self.robot_positions[i]
-        # If multiple robots, the last one overwrites. That's acceptable for now.
-        observation[ry][rx][2] = (self.robot_directions[i] + 1) / 4.0
+        base_ch = i * 5
+        for y in range(self.height):
+            for x in range(self.width):
+                # Channel 0: Threat
+                observation[y, x, base_ch + 0] = float(self.threat_levels[y][x])
 
-    return np.array(observation, dtype=np.float32)
+                # Channel 1: Obstacles
+                observation[y, x, base_ch + 1] = 1.0 if self.obstacles[y][x] else 0.0
+
+                # Channel 2: Robot Position & Direction (Only for Robot i)
+                if self.robot_positions[i] == (x, y):
+                    observation[y, x, base_ch + 2] = (self.robot_directions[i] + 1) / 4.0
+
+                # Channel 3: Charging Station
+                if x == self.charging_station_x and y == self.charging_station_y:
+                    observation[y, x, base_ch + 3] = 1.0
+
+                # Channel 4: Battery (Only for Robot i)
+                if self.robot_positions[i] == (x, y):
+                    observation[y, x, base_ch + 4] = self.battery_levels[i] / 100.0
+
+    return observation
 
   def _update_threat_levels(self) -> None:
     for y in range(self.height):

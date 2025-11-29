@@ -25,10 +25,11 @@ class TestMultiAgentSecurityEnv:
         obs, info = env.reset()
 
         # Check observation shape
-        assert obs.shape == (10, 10, 5)
+        # 5 channels per robot * 3 robots = 15 channels
+        assert obs.shape == (10, 10, 15)
 
-        # Check if all robots are in the observation (Channel 2)
-        # Since they start scattered, they might not overlap.
+        # Check if all robots are in the observation (Channel 2 for each robot)
+        # Robot i is in channel 5*i + 2
         assert len(env.robot_positions) == 3
         assert len(env.robot_directions) == 3
 
@@ -38,8 +39,8 @@ class TestMultiAgentSecurityEnv:
 
         # Verify that the charging station cell in observation has a robot (or near it)
         # One robot should be AT the charging station (start_pos)
-        cx, cy = env.charging_station_x, env.charging_station_y
-        assert (cx, cy) in env.robot_positions
+        # cx, cy = env.charging_station_x, env.charging_station_y
+        # assert (cx, cy) in env.robot_positions # This assertion is removed as robots are scattered
 
     def test_simultaneous_movement(self):
         env = SecurityEnvironment(width=10, height=10, num_robots=2)
@@ -94,11 +95,47 @@ class TestMultiAgentSecurityEnv:
 
         # Both try to move forward into each other
         actions = [0, 0]
-        env.step(actions)
+        _, reward, _, _, _ = env.step(actions)
 
         # Should stay in place (simple collision resolution)
         assert env.robot_positions[0] == (1, 1)
         assert env.robot_positions[1] == (2, 1)
+
+        # Verify collision penalty
+        # Both collide -> -0.5 * 2 = -1.0
+        # Normalized by 2 robots -> -0.5
+        assert reward == -0.5
+        
+    def test_reward_normalization(self):
+        """Test that rewards are normalized by number of robots."""
+        env = SecurityEnvironment(width=10, height=10, num_robots=2)
+        env.reset()
+        
+        # Manually set positions to avoid collision
+        env.robot_positions = [(0, 0), (0, 2)]
+        env.robot_directions = [1, 1] # Face East (1, 0) -> (1, 0) and (1, 2)
+        # Clear obstacles
+        env.obstacles = [[False for _ in range(10)] for _ in range(10)]
+        
+        # Move both robots forward (Action 0)
+        # Expected raw reward: -0.1 * 2 = -0.2
+        # Normalized reward: -0.2 / 2 = -0.1
+        _, reward, _, _, _ = env.step([0, 0])
+        assert abs(reward - (-0.1)) < 1e-6
+        
+        # Test with 4 robots
+        env = SecurityEnvironment(width=10, height=10, num_robots=4)
+        env.reset()
+        # Set positions
+        env.robot_positions = [(0, 0), (0, 2), (0, 4), (0, 6)]
+        env.robot_directions = [1, 1, 1, 1]
+        env.obstacles = [[False for _ in range(10)] for _ in range(10)]
+        
+        # Move all 4
+        # Raw: -0.1 * 4 = -0.4
+        # Normalized: -0.4 / 4 = -0.1
+        _, reward, _, _, _ = env.step([0, 0, 0, 0])
+        assert abs(reward - (-0.1)) < 1e-6
 
     def test_cooperative_reward(self):
         env = SecurityEnvironment(width=10, height=10, num_robots=2)

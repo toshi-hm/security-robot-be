@@ -46,8 +46,9 @@ class TestMultiAgentAdvanced:
         # Expected reward:
         # R0 clears (2,1): 1.0 * 10 = 10.0
         # R1 clears (6,5): 1.0 * 10 = 10.0
-        # Total = 20.0
-        assert reward == 20.0
+        # Total raw = 20.0
+        # Normalized = 20.0 / 2 = 10.0
+        assert reward == 10.0
 
         # Verify last_patrol_info contains both
         assert len(env.last_patrol_info) == 2
@@ -59,15 +60,36 @@ class TestMultiAgentAdvanced:
         env = SecurityEnvironment(width=10, height=10, num_robots=3)
         env.reset()
 
-        # Drain batteries
+        # Move robots away from charging station to prevent charging
+        # Charging station is usually at random pos, but we can just set robot positions
+        # to be far away. Or just overwrite charging station pos?
+        # Easier to overwrite robot positions to be safe.
+        # Assume 10x10 grid.
+        env.robot_positions = [(0, 0), (0, 1), (0, 2)]
+        # Ensure charging station is NOT at these positions
+        # If it is, move it.
+        if (env.charging_station_x, env.charging_station_y) in env.robot_positions:
+            env.charging_station_x = 9
+            env.charging_station_y = 9
+
+        # Drain batteries partially (2 dead, 1 alive)
         env.battery_levels = [0.0, 10.0, 0.0]
 
         # Step
         _, reward, terminated, _, _ = env.step([0, 0, 0])
 
+        # Should NOT terminate yet (one robot still alive)
+        assert not terminated
+        # Reward might be small negative (move cost for alive robot) or 0 if it didn't move
+
+        # Now drain all
+        env.battery_levels = [0.0, 0.0, 0.0]
+        _, reward, terminated, _, _ = env.step([0, 0, 0])
+
         # Should terminate with penalty
         assert terminated
-        assert reward == -100.0
+        # Normalized penalty: -100.0 / 3 = -33.33...
+        assert abs(reward - (-33.333333)) < 0.001
 
     def test_charging_station_blocking(self):
         """Test that robots block each other at the charging station."""

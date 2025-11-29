@@ -90,6 +90,10 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       }
     )
 
+    # Normalize enhanced reward by number of robots
+    if self.num_robots > 1:
+        enhanced_reward /= self.num_robots
+
     self.coverage_history.append(coverage_ratio)
     return observation, enhanced_reward, terminated, truncated, info
 
@@ -154,23 +158,29 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     return 0.0
 
   def _calculate_diversity_reward(self) -> float:
-    # Calculate diversity across ALL robots?
-    # Or average diversity?
-    # Let's average diversity of each robot
+    # Calculate diversity across ALL robots
+    # Average diversity of each robot
     total_diversity_reward = 0.0
     for i in range(self.num_robots):
-        if len(self.recent_positions[i]) < self.position_history_length:
+        history = self.recent_positions[i]
+        if not history:
             continue
 
-        unique_positions = len(set(self.recent_positions[i]))
-        diversity_ratio = unique_positions / len(self.recent_positions[i])
+        unique_positions = len(set(history))
+        diversity_ratio = unique_positions / len(history)
+        
+        # Scale factor for short history
+        scale_factor = min(1.0, len(history) / self.position_history_length)
 
+        reward = 0.0
         if diversity_ratio > 0.8:
-            total_diversity_reward += 2.0
+            reward = 2.0
         elif diversity_ratio > 0.6:
-            total_diversity_reward += 1.0
+            reward = 1.0
         elif diversity_ratio < 0.3:
-            total_diversity_reward += -1.0
+            reward = -1.0
+            
+        total_diversity_reward += reward * scale_factor
 
     return total_diversity_reward
 
