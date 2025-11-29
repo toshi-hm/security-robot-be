@@ -168,7 +168,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
         unique_positions = len(set(history))
         diversity_ratio = unique_positions / len(history)
-        
+
         # Scale factor for short history
         scale_factor = min(1.0, len(history) / self.position_history_length)
 
@@ -179,7 +179,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
             reward = 1.0
         elif diversity_ratio < 0.3:
             reward = -1.0
-            
+
         total_diversity_reward += reward * scale_factor
 
     return total_diversity_reward

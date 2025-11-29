@@ -105,24 +105,24 @@ class TestMultiAgentSecurityEnv:
         # Both collide -> -0.5 * 2 = -1.0
         # Normalized by 2 robots -> -0.5
         assert reward == -0.5
-        
+
     def test_reward_normalization(self):
         """Test that rewards are normalized by number of robots."""
         env = SecurityEnvironment(width=10, height=10, num_robots=2)
         env.reset()
-        
+
         # Manually set positions to avoid collision
         env.robot_positions = [(0, 0), (0, 2)]
         env.robot_directions = [1, 1] # Face East (1, 0) -> (1, 0) and (1, 2)
         # Clear obstacles
         env.obstacles = [[False for _ in range(10)] for _ in range(10)]
-        
+
         # Move both robots forward (Action 0)
         # Expected raw reward: -0.1 * 2 = -0.2
         # Normalized reward: -0.2 / 2 = -0.1
         _, reward, _, _, _ = env.step([0, 0])
         assert abs(reward - (-0.1)) < 1e-6
-        
+
         # Test with 4 robots
         env = SecurityEnvironment(width=10, height=10, num_robots=4)
         env.reset()
@@ -130,7 +130,7 @@ class TestMultiAgentSecurityEnv:
         env.robot_positions = [(0, 0), (0, 2), (0, 4), (0, 6)]
         env.robot_directions = [1, 1, 1, 1]
         env.obstacles = [[False for _ in range(10)] for _ in range(10)]
-        
+
         # Move all 4
         # Raw: -0.1 * 4 = -0.4
         # Normalized: -0.4 / 4 = -0.1
