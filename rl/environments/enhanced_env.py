@@ -87,9 +87,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
         per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
 
     # Normalize per-robot reward sum by number of robots to get average per-robot reward
-    average_per_robot_reward = per_robot_reward_sum
-    if self.num_robots > 1:
-        average_per_robot_reward /= self.num_robots
+    # Normalize per-robot reward sum by number of robots to get average per-robot reward
+    # Always normalize for consistency
+    average_per_robot_reward = per_robot_reward_sum / self.num_robots
 
     # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Global
     # Note: Base reward from SecurityEnv is (Sum(Collision + Move + Patrol) / N)
@@ -172,6 +172,13 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     return 0.0
 
   def _calculate_diversity_reward(self) -> float:
+    """
+    Calculate diversity reward based on the diversity of visited locations.
+    
+    This calculates a global diversity score for the team. It iterates through
+    each robot's history, calculates individual diversity, and sums them up.
+    The result is treated as a global reward component added to the team's total reward.
+    """
     # Calculate diversity across ALL robots
     # Average diversity of each robot
     total_diversity_reward = 0.0

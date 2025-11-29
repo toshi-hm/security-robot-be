@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 else:
   # For runtime, use compatibility layer
   from rl._gym_compat import gym, spaces
-  # from rl._gym_compat.spaces import MultiDiscrete # This fails because _gym_compat is a module
 
 from rl.environments.map_generator import MapType, create_generator
 
@@ -59,6 +58,11 @@ class SecurityEnvironment(gym.Env):
   """
 
   metadata = {"render_modes": ["human"]}
+
+  # Constants
+  MOVE_COST = 0.1
+  TURN_COST = 0.05
+  COLLISION_BASE_PENALTY = 0.5
 
   def __init__(
     self,
@@ -188,6 +192,8 @@ class SecurityEnvironment(gym.Env):
         raise ValueError(
             f"Expected {self.num_robots} actions, got {len(actions)}"
         )
+    if np.any((actions < 0) | (actions > 3)):
+        raise ValueError("Actions must be in range [0, 3]")
 
     self.time_step += 1
 
@@ -198,8 +204,8 @@ class SecurityEnvironment(gym.Env):
     # Episode ends only if ALL robots are dead (or max steps reached)
     if all(b <= 0.0 for b in self.battery_levels):
       reward = -100.0
-      if self.num_robots > 1:
-          reward /= self.num_robots
+      # Always normalize by number of robots for consistency
+      reward /= self.num_robots
       terminated = True
       return self._get_observation(), reward, terminated, False, self._get_info()
 
@@ -214,8 +220,6 @@ class SecurityEnvironment(gym.Env):
     # 1. Calculate proposed positions
     proposed_positions = list(self.robot_positions)
     
-    # Pre-calculate move intents to avoid iterating again
-    move_intents = [False] * self.num_robots
     for i in range(self.num_robots):
         if self.battery_levels[i] <= 0.0:
             continue
@@ -224,7 +228,6 @@ class SecurityEnvironment(gym.Env):
              new_x, new_y = self._get_front_position(i)
              if self._is_valid_position(new_x, new_y):
                  proposed_positions[i] = (new_x, new_y)
-                 move_intents[i] = True
 
     # 2. Resolve Collisions
     final_positions, collision_penalty = self._resolve_collisions(proposed_positions)
@@ -242,7 +245,7 @@ class SecurityEnvironment(gym.Env):
             self.robot_positions[i] = final_positions[i]
             self.visited_cells.add(final_positions[i])
             # Move reward logic
-            total_reward -= 0.1
+            total_reward -= self.MOVE_COST
             total_reward += self._check_suspicious_object_removal(i)
         elif action == 0 and not self.is_charging_list[i]:
             # Failed move (collision or invalid)
@@ -257,10 +260,10 @@ class SecurityEnvironment(gym.Env):
              pass
         elif action == 1:
             self.robot_directions[i] = (self.robot_directions[i] - 1) % 4
-            total_reward -= 0.05
+            total_reward -= self.TURN_COST
         elif action == 2:
             self.robot_directions[i] = (self.robot_directions[i] + 1) % 4
-            total_reward -= 0.05
+            total_reward -= self.TURN_COST
         elif action == 3:
             total_reward += self._patrol_area(i)
 
@@ -271,8 +274,8 @@ class SecurityEnvironment(gym.Env):
     total_reward += self._calculate_battery_penalty()
 
     # Normalize reward by number of robots to keep scale consistent
-    if self.num_robots > 1:
-        total_reward /= self.num_robots
+    # Always normalize, even for single robot, to ensure consistent scale if num_robots changes dynamically or for comparison
+    total_reward /= self.num_robots
 
     terminated = self.time_step >= self.max_episode_steps
 
@@ -318,48 +321,12 @@ class SecurityEnvironment(gym.Env):
       # 衝突検出
       for target_pos, robot_indices in target_map.items():
           if len(robot_indices) > 1:
-              # 複数ロボットが同じ位置を目指す → 全員その場に留まる
-              # Penalty scales with number of robots involved
-              # e.g. 2 robots -> -1.0 total (avg -0.5)
-              #      3 robots -> -1.5 total (avg -0.5)
-              # Wait, if total_reward is divided by N, then we want the impact to be consistent?
-              # Original: -0.5 * len(indices).
-              # If we have 3 robots colliding, penalty is -1.5.
-              # If N=3, average penalty is -0.5 per robot.
-              # If N=10, average penalty is -0.15 per robot.
-              # The user feedback says: "3 robots colliding -> -1.5. If total / N, effective is -0.5 (same as 2 robots)."
-              # User wants "larger collisions have larger impact".
-              # If we want larger impact per robot, we need to increase the penalty per robot.
-              # But -0.5 per robot seems fair?
-              # Maybe the user meant that for the *team*, a 3-robot collision is worse than a 2-robot collision.
-              # And -0.5 per robot reflects that.
-              # Let's look at the user request again:
-              # "3台のロボットが同じ位置を目指すと、ペナルティは -1.5 になります
-              # しかし、最終的に total_reward は num_robots で割られるため、実質的なペナルティは -0.5 になり、2台衝突時と同じです"
-              # The user implies that a 3-robot collision SHOULD be worse than a 2-robot collision *per robot*?
-              # Or maybe they just want to ensure the penalty is significant.
-              # "推奨: 衝突の深刻さに応じて適切なペナルティを設定するか、正規化を考慮したペナルティ計算を行ってください。"
-              # Let's try increasing the penalty slightly for larger groups?
-              # Or maybe just keep it as is, but ensure we understand it.
-              # Actually, if 3 robots collide, they all lose a turn. That is bad.
-              # -0.5 per robot is consistent.
-              # But maybe the user thinks -0.5 is too low?
-              # Let's try to make it non-linear? e.g. 0.5 * (len(indices) ** 2)?
-              # No, that might be too harsh.
-              # Let's stick to linear for now but maybe increase the base?
-              # Or maybe the user meant that if we divide by N (total robots), a local collision of 3 robots
-              # affects the global average less if N is large?
-              # No, if N=10, 3 collide -> -1.5 / 10 = -0.15.
-              # If N=3, 3 collide -> -1.5 / 3 = -0.5.
-              # So for larger swarms, local collisions matter less. That makes sense.
-              # But if we want to discourage collisions regardless of swarm size, maybe we shouldn't divide by N?
-              # But we divide EVERYTHING by N.
-              # Let's try to scale it by N/num_colliding? No.
-              # Let's just implement what seems reasonable:
-              # Penalty = -0.5 * len(indices) * (1.0 + 0.1 * len(indices)) ?
-              # Let's just use the user's suggestion of "scaling".
-              # I will use a slightly higher penalty for larger groups.
-              penalty -= 0.5 * len(robot_indices) * (1.0 + (len(robot_indices) - 2) * 0.5)
+              # Multiple robots targeting same position -> Collision
+              # Penalty scales with number of robots involved:
+              # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5)
+              # - 3 robots: -0.5 * 3 * 1.5 = -2.25 (avg -0.75)
+              scale_factor = 1.0 + (len(robot_indices) - 2) * 0.5
+              penalty -= self.COLLISION_BASE_PENALTY * len(robot_indices) * scale_factor
               
               # final_positions is already self.robot_positions, so no update needed for these indices
               pass
@@ -371,7 +338,7 @@ class SecurityEnvironment(gym.Env):
                   
               # スワップチェック
               if self._is_swap(robot_idx, target_pos, proposed_positions):
-                  penalty -= 0.5
+                  penalty -= self.COLLISION_BASE_PENALTY
                   # Stay in place (default)
               else:
                   final_positions[robot_idx] = target_pos

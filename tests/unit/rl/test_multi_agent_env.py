@@ -83,6 +83,10 @@ class TestMultiAgentSecurityEnv:
         # Ensure not charging so they can move
         env.is_charging_list = [False, False]
 
+        # Ensure target positions are clear of obstacles
+        env.obstacles[1][2] = False
+        env.obstacles[2][2] = False
+
         # Both move East
         # R0: (1,1) -> (2,1)
         # R1: (1,2) -> (2,2)
@@ -207,6 +211,19 @@ class TestMultiAgentSecurityEnv:
         # Raw: -0.1 * 4 = -0.4
         # Normalized: -0.4 / 4 = -0.1
         _, reward, _, _, _ = env.step([0, 0, 0, 0])
+        assert abs(reward - (-0.1)) < 1e-6
+
+        # Test with 1 robot (should also be normalized)
+        env = SecurityEnvironment(width=10, height=10, num_robots=1)
+        env.reset()
+        env.robot_positions = [(0, 0)]
+        env.robot_directions = [1]
+        env.obstacles = [[False for _ in range(10)] for _ in range(10)]
+        
+        # Move 1 robot
+        # Raw: -0.1
+        # Normalized: -0.1 / 1 = -0.1
+        _, reward, _, _, _ = env.step([0])
         assert abs(reward - (-0.1)) < 1e-6
 
     def test_cooperative_reward(self):

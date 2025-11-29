@@ -256,7 +256,7 @@ def evaluate_template_agent(
 
   # Create agents for each robot
   # We use deepcopy to ensure each robot has its own agent instance with independent state
-  agents = [agent] + [copy.deepcopy(agent) for _ in range(env.num_robots - 1)]
+  agents: list[Any] = [agent] + [copy.deepcopy(agent) for _ in range(env.num_robots - 1)]
 
   for episode in range(episodes):
     episode_seed = (seed + episode) if seed is not None else None
