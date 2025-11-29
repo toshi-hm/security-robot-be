@@ -58,7 +58,7 @@ async def test_multi_agent_training_pipeline():
         assert Path(result["model_path"]).exists()
 
         from rl.environments.security_env import SecurityEnvironment
-        
+
         # Verify environment state
         assert ppo_service.env is not None
         # Cast to SecurityEnvironment to satisfy mypy

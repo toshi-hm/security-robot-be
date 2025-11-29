@@ -129,8 +129,8 @@ class SecurityEnvironment(gym.Env):
     # 充電ステーションをランダムな位置に配置
     self._place_charging_station()
 
-    # ロボットを充電ステーション上に配置
-    self.robot_positions = [(self.charging_station_x, self.charging_station_y)] * self.num_robots
+    # ロボットを充電ステーション周辺に分散配置
+    self.robot_positions = self._get_scattered_start_positions()
     self.robot_directions = [0] * self.num_robots
 
     # Initialize visited cells with starting positions
@@ -163,18 +163,96 @@ class SecurityEnvironment(gym.Env):
 
     total_reward = 0.0
 
-    # Execute actions for all robots
-    # Note: actions is now a list/array of ints
+    # 1. Calculate proposed positions
+    proposed_positions = list(self.robot_positions)
+    move_intents = [False] * self.num_robots
+
+    for i in range(self.num_robots):
+        action = actions[i]
+        # Only Action 0 (Move Forward) changes position
+        if action == 0 and not self.is_charging_list[i]:
+            new_x, new_y = self._get_front_position(i)
+            if self._is_valid_position(new_x, new_y):
+                proposed_positions[i] = (new_x, new_y)
+                move_intents[i] = True
+
+    # 2. Detect and Resolve Collisions
+    # Count targets
+    target_counts: dict[tuple[int, int], int] = {}
+    for pos in proposed_positions:
+        target_counts[pos] = target_counts.get(pos, 0) + 1
+
+    # If multiple robots target the same cell, ALL of them stay in place (cancel move)
+    # This is a simple rule to ensure fairness and avoid order dependency.
+    final_positions = list(self.robot_positions)
+
+    for i in range(self.num_robots):
+        target = proposed_positions[i]
+        if move_intents[i]:
+            # If target is occupied by >1 robot (including self), cancel move
+            # OR if target is occupied by another robot that IS NOT moving (stationary obstacle)
+            # The target_counts handles "multiple robots moving to same spot"
+
+            # We also need to handle "swapping" or "moving into a stationary robot"
+            # If target_counts[target] > 1, it means collision at target -> Cancel
+            if target_counts[target] > 1:
+                # Collision! Stay in place
+                final_positions[i] = self.robot_positions[i]
+            else:
+                # Target is unique. But is it a swap?
+                # Check if any other robot is moving to MY current position,
+                # AND I am moving to THEIR current position
+                is_swap = False
+                for j in range(self.num_robots):
+                    if i == j:
+                        continue
+
+                    # Swap condition:
+                    # I am moving to J's current pos
+                    # J is moving to MY current pos
+                    if (target == self.robot_positions[j] and
+                        proposed_positions[j] == self.robot_positions[i]):
+                        is_swap = True
+                        break
+
+                if is_swap:
+                    final_positions[i] = self.robot_positions[i]
+                else:
+                    final_positions[i] = target
+
+    # 3. Apply actions and calculate rewards
     for i in range(self.num_robots):
         action = actions[i]
 
-        # 充電中は警備活動を制限
-        if self.is_charging_list[i]:
-            # Charging robots effectively do nothing but get charging reward
-            # (Action is ignored)
+        # Update position if changed
+        if final_positions[i] != self.robot_positions[i]:
+            self.robot_positions[i] = final_positions[i]
+            self.visited_cells.add(final_positions[i])
+            # Move reward logic
+            total_reward -= 0.1
+            total_reward += self._check_suspicious_object_removal(i)
+        elif action == 0 and not self.is_charging_list[i]:
+            # Failed move (collision or invalid)
+            # No penalty for collision specifically in original code, just no move?
+            # Original code: if not collision: reward -= 0.1. So if collision, 0 reward?
+            # Let's keep it consistent: No move = 0 reward (or maybe small penalty?)
+            # Original code didn't penalize collision explicitly, just didn't give move cost?
+            # Wait, original code:
+            # if not collision: reward -= 0.1
+            # else: (implicit) reward = 0
             pass
-        else:
-            total_reward += self._execute_action(i, action)
+
+        # Handle other actions (Turn, Patrol)
+        if self.is_charging_list[i]:
+             pass
+        elif action == 1:
+            self.robot_directions[i] = (self.robot_directions[i] - 1) % 4
+            total_reward -= 0.05
+        elif action == 2:
+            self.robot_directions[i] = (self.robot_directions[i] + 1) % 4
+            total_reward -= 0.05
+        elif action == 3:
+            total_reward += self._patrol_area(i)
 
     # Add charging rewards (calculated globally/summed)
     total_reward += self._calculate_charging_reward()
@@ -267,34 +345,7 @@ class SecurityEnvironment(gym.Env):
     if not self.obstacles[y][x] and (x, y) not in self.suspicious_objects:
       self.suspicious_objects[(x, y)] = self.time_step
 
-  def _execute_action(self, robot_idx: int, action: int) -> float:
-    reward = 0.0
 
-    if action == 0:
-      new_x, new_y = self._get_front_position(robot_idx)
-      if self._is_valid_position(new_x, new_y):
-        # Check collision with other robots
-        collision = False
-        for i in range(self.num_robots):
-            if i != robot_idx and self.robot_positions[i] == (new_x, new_y):
-                collision = True
-                break
-
-        if not collision:
-            self.robot_positions[robot_idx] = (new_x, new_y)
-            self.visited_cells.add((new_x, new_y))
-            reward -= 0.1
-            reward += self._check_suspicious_object_removal(robot_idx)
-    elif action == 1:
-      self.robot_directions[robot_idx] = (self.robot_directions[robot_idx] - 1) % 4
-      reward -= 0.05
-    elif action == 2:
-      self.robot_directions[robot_idx] = (self.robot_directions[robot_idx] + 1) % 4
-      reward -= 0.05
-    elif action == 3:
-      reward += self._patrol_area(robot_idx)
-
-    return reward
 
   def _get_front_position(self, robot_idx: int) -> tuple[int, int]:
     dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_directions[robot_idx]]
@@ -382,6 +433,39 @@ class SecurityEnvironment(gym.Env):
     self.charging_station_y = self.height // 2
     # 中央の障害物を強制的に削除
     self.obstacles[self.charging_station_y][self.charging_station_x] = False
+
+  def _get_scattered_start_positions(self) -> list[tuple[int, int]]:
+    """Get scattered start positions around charging station using BFS."""
+    start_pos = (self.charging_station_x, self.charging_station_y)
+    positions = [start_pos]
+    queue = [start_pos]
+    visited = {start_pos}
+
+    while len(positions) < self.num_robots and queue:
+      cx, cy = queue.pop(0)
+
+      # Check neighbors
+      for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+        nx, ny = cx + dx, cy + dy
+
+        if (
+          0 <= nx < self.width
+          and 0 <= ny < self.height
+          and not self.obstacles[ny][nx]
+          and (nx, ny) not in visited
+        ):
+          visited.add((nx, ny))
+          queue.append((nx, ny))
+          positions.append((nx, ny))
+
+          if len(positions) >= self.num_robots:
+            break
+
+    # If we still don't have enough positions (e.g. trapped), fill with start_pos
+    while len(positions) < self.num_robots:
+      positions.append(start_pos)
+
+    return positions
 
   # ------------------------------------------------------------------
   # Battery management

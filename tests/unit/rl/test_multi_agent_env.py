@@ -13,7 +13,7 @@ class TestMultiAgentSecurityEnv:
         assert len(env.battery_levels) == 2
 
         from gymnasium.spaces import MultiDiscrete
-        
+
         # Check action space
         # MultiDiscrete([4, 4]) for 2 robots
         assert env.action_space.shape == (2,)
@@ -28,14 +28,35 @@ class TestMultiAgentSecurityEnv:
         assert obs.shape == (10, 10, 5)
 
         # Check if all robots are in the observation (Channel 2)
-        # Since they start at the same position (charging station), they overlap.
-        # So we check the internal state.
+        # Since they start scattered, they might not overlap.
         assert len(env.robot_positions) == 3
         assert len(env.robot_directions) == 3
 
-        # Verify that the charging station cell in observation has a robot
+        # Verify positions are unique (scattered)
+        unique_positions = set(env.robot_positions)
+        assert len(unique_positions) == 3, "Robots should be scattered to unique positions"
+
+        # Verify that the charging station cell in observation has a robot (or near it)
+        # One robot should be AT the charging station (start_pos)
         cx, cy = env.charging_station_x, env.charging_station_y
-        assert obs[cy, cx, 2] > 0
+        assert (cx, cy) in env.robot_positions
+
+    def test_simultaneous_movement(self):
+        env = SecurityEnvironment(width=10, height=10, num_robots=2)
+        env.reset()
+
+        # Place robots side by side facing same direction
+        env.robot_positions = [(1, 1), (1, 2)]
+        env.robot_directions = [1, 1] # East
+
+        # Both move East
+        # R0: (1,1) -> (2,1)
+        # R1: (1,2) -> (2,2)
+        actions = [0, 0]
+        env.step(actions)
+
+        assert env.robot_positions[0] == (2, 1)
+        assert env.robot_positions[1] == (2, 2)
 
     def test_step_movement(self):
         env = SecurityEnvironment(width=10, height=10, num_robots=2)
