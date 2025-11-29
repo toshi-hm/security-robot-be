@@ -180,6 +180,15 @@ class SecurityEnvironment(gym.Env):
     return self._get_observation(), self._get_info()
 
   def step(self, actions: list[int] | np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+    # 入力の正規化
+    if isinstance(actions, list):
+        actions = np.array(actions, dtype=np.int32)
+    
+    if len(actions) != self.num_robots:
+        raise ValueError(
+            f"Expected {self.num_robots} actions, got {len(actions)}"
+        )
+
     self.time_step += 1
 
     # バッテリー更新
@@ -204,72 +213,22 @@ class SecurityEnvironment(gym.Env):
 
     # 1. Calculate proposed positions
     proposed_positions = list(self.robot_positions)
+    
+    # Pre-calculate move intents to avoid iterating again
     move_intents = [False] * self.num_robots
-
     for i in range(self.num_robots):
-        # Ignore actions if battery is dead
         if self.battery_levels[i] <= 0.0:
             continue
+        
+        if actions[i] == 0 and not self.is_charging_list[i]:
+             new_x, new_y = self._get_front_position(i)
+             if self._is_valid_position(new_x, new_y):
+                 proposed_positions[i] = (new_x, new_y)
+                 move_intents[i] = True
 
-        action = actions[i]
-        # Only Action 0 (Move Forward) changes position
-        if action == 0 and not self.is_charging_list[i]:
-            new_x, new_y = self._get_front_position(i)
-            if self._is_valid_position(new_x, new_y):
-                proposed_positions[i] = (new_x, new_y)
-                move_intents[i] = True
-
-    # 2. Detect and Resolve Collisions
-    # Count targets
-    target_counts: dict[tuple[int, int], int] = {}
-    for pos in proposed_positions:
-        target_counts[pos] = target_counts.get(pos, 0) + 1
-
-    # If multiple robots target the same cell, ALL of them stay in place (cancel move)
-    # This is a simple rule to ensure fairness and avoid order dependency.
-    final_positions = list(self.robot_positions)
-
-    for i in range(self.num_robots):
-        # If dead, stay in place (already handled by not updating proposed_positions,
-        # but need to ensure final_positions[i] is correct)
-        if self.battery_levels[i] <= 0.0:
-            final_positions[i] = self.robot_positions[i]
-            continue
-
-        target = proposed_positions[i]
-        if move_intents[i]:
-            # If target is occupied by >1 robot (including self), cancel move
-            # OR if target is occupied by another robot that IS NOT moving (stationary obstacle)
-            # The target_counts handles "multiple robots moving to same spot"
-
-            # We also need to handle "swapping" or "moving into a stationary robot"
-            # If target_counts[target] > 1, it means collision at target -> Cancel
-            if target_counts[target] > 1:
-                # Collision! Stay in place
-                final_positions[i] = self.robot_positions[i]
-                total_reward -= 0.5 # Collision penalty
-            else:
-                # Target is unique. But is it a swap?
-                # Check if any other robot is moving to MY current position,
-                # AND I am moving to THEIR current position
-                is_swap = False
-                for j in range(self.num_robots):
-                    if i == j:
-                        continue
-
-                    # Swap condition:
-                    # I am moving to J's current pos
-                    # J is moving to MY current pos
-                    if (target == self.robot_positions[j] and
-                        proposed_positions[j] == self.robot_positions[i]):
-                        is_swap = True
-                        break
-
-                if is_swap:
-                    final_positions[i] = self.robot_positions[i]
-                    total_reward -= 0.5 # Collision penalty
-                else:
-                    final_positions[i] = target
+    # 2. Resolve Collisions
+    final_positions, collision_penalty = self._resolve_collisions(proposed_positions)
+    total_reward += collision_penalty
 
     # 3. Apply actions and calculate rewards
     for i in range(self.num_robots):
@@ -337,6 +296,66 @@ class SecurityEnvironment(gym.Env):
     print(f"Threat levels: {self.threat_levels}")
     print(f"Suspicious objects: {len(self.suspicious_objects)}")
     print("-" * 50)
+
+  def _resolve_collisions(
+      self, 
+      proposed_positions: list[tuple[int, int]]
+  ) -> tuple[list[tuple[int, int]], float]:
+      """
+      衝突を解決し、最終位置とペナルティを返す。
+      
+      Returns:
+          (最終位置リスト, 衝突ペナルティの合計)
+      """
+      final_positions = list(self.robot_positions)
+      penalty = 0.0
+      
+      # 位置の占有マップを作成
+      target_map: dict[tuple[int, int], list[int]] = {}
+      for i, pos in enumerate(proposed_positions):
+          target_map.setdefault(pos, []).append(i)
+      
+      # 衝突検出
+      for target_pos, robot_indices in target_map.items():
+          if len(robot_indices) > 1:
+              # 複数ロボットが同じ位置を目指す → 全員その場に留まる
+              penalty -= 0.5 * len(robot_indices) # Penalty is negative reward
+              # final_positions is already self.robot_positions, so no update needed for these indices
+              # BUT we need to ensure we don't update them if they were planning to move
+              # (Wait, final_positions was initialized to self.robot_positions, so if we do nothing, they stay)
+              pass
+          elif len(robot_indices) == 1:
+              robot_idx = robot_indices[0]
+              # Dead robots don't move
+              if self.battery_levels[robot_idx] <= 0.0:
+                  continue
+                  
+              # スワップチェック
+              if self._is_swap(robot_idx, target_pos, proposed_positions):
+                  penalty -= 0.5
+                  # Stay in place (default)
+              else:
+                  final_positions[robot_idx] = target_pos
+      
+      return final_positions, penalty
+
+  def _is_swap(
+      self, 
+      robot_idx: int, 
+      target: tuple[int, int],
+      proposed: list[tuple[int, int]]
+  ) -> bool:
+      """ロボット間のスワップを検出"""
+      for j, proposed_pos in enumerate(proposed):
+          if j == robot_idx:
+              continue
+          # Swap condition:
+          # I am moving to J's current pos (target == self.robot_positions[j])
+          # J is moving to MY current pos (proposed_pos == self.robot_positions[robot_idx])
+          if (target == self.robot_positions[j] and 
+              proposed_pos == self.robot_positions[robot_idx]):
+              return True
+      return False
 
   # ------------------------------------------------------------------
   # Internal helpers
@@ -546,23 +565,32 @@ class SecurityEnvironment(gym.Env):
   # ------------------------------------------------------------------
 
   def _update_battery(self) -> None:
-    """バッテリー残量を更新"""
+    """バッテリー残量を更新 (Vectorized)"""
+    batteries = np.array(self.battery_levels)
+    is_charging = np.array(self.is_charging_list)
+    
+    # 充電中のロボット
+    if np.any(is_charging):
+        batteries[is_charging] = np.minimum(100.0, batteries[is_charging] + self.battery_charge_rate)
+    
+    # 移動中のロボット
+    if np.any(~is_charging):
+        batteries[~is_charging] = np.maximum(0.0, batteries[~is_charging] - self.battery_drain_rate)
+    
+    self.battery_levels = batteries.tolist()
+    
+    # Update is_charging_list based on position (needed for next step logic)
+    # Note: The original logic updated is_charging_list inside the loop based on position.
+    # We need to preserve that behavior.
     for i in range(self.num_robots):
-        # 充電ステーション上にいる場合
-        if self.robot_positions[i] == (self.charging_station_x, self.charging_station_y):
-            # 充電
-            if self.battery_levels[i] < 100.0:
-                self.battery_levels[i] = min(
-                    100.0, self.battery_levels[i] + self.battery_charge_rate
-                )
-                self.is_charging_list[i] = True
-            else:
-                self.is_charging_list[i] = False
+        on_station = self.robot_positions[i] == (self.charging_station_x, self.charging_station_y)
+        if on_station:
+             if self.battery_levels[i] < 100.0:
+                 self.is_charging_list[i] = True
+             else:
+                 self.is_charging_list[i] = False
         else:
-            # 充電ステーション外では消費
-            self.battery_levels[i] -= self.battery_drain_rate
-            self.battery_levels[i] = max(0.0, self.battery_levels[i])
-            self.is_charging_list[i] = False
+             self.is_charging_list[i] = False
 
   def _calculate_battery_penalty(self) -> float:
     """バッテリー関連のペナルティを計算 (Sum for all robots)"""

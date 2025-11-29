@@ -69,30 +69,33 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # Now we have multiple actions.
     # Let's calculate based on the collective result.
 
-    enhanced_reward = base_reward
-    # Add extra rewards
-    enhanced_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
-    enhanced_reward += self._calculate_diversity_reward() * self.diversity_weight
+    # Calculate additional rewards
+    additional_reward = 0.0
+    additional_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
+    additional_reward += self._calculate_diversity_reward() * self.diversity_weight
 
     # Per-robot rewards
     for i in range(self.num_robots):
         action = actions[i]
-        enhanced_reward += self._calculate_exploration_reward(i) * self.exploration_weight
-        enhanced_reward += self._calculate_movement_reward(i, action)
-        enhanced_reward += self._calculate_patrol_optimization_reward(i, action)
+        additional_reward += self._calculate_exploration_reward(i) * self.exploration_weight
+        additional_reward += self._calculate_movement_reward(i, action)
+        additional_reward += self._calculate_patrol_optimization_reward(i, action)
+
+    # Normalize additional reward by number of robots
+    # base_reward is already normalized in super().step()
+    if self.num_robots > 1:
+        additional_reward /= self.num_robots
+
+    enhanced_reward = base_reward + additional_reward
 
     info.update(
       {
         "coverage_ratio": coverage_ratio,
         "visited_cells": visited_count,
-        "exploration_reward_bonus": enhanced_reward - base_reward,
+        "exploration_reward_bonus": additional_reward,
         "exploration_score": float(visited_count),
       }
     )
-
-    # Normalize enhanced reward by number of robots
-    if self.num_robots > 1:
-        enhanced_reward /= self.num_robots
 
     self.coverage_history.append(coverage_ratio)
     return observation, enhanced_reward, terminated, truncated, info
@@ -169,8 +172,8 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
         unique_positions = len(set(history))
         diversity_ratio = unique_positions / len(history)
 
-        # Scale factor for short history
-        scale_factor = min(1.0, len(history) / self.position_history_length)
+        # Constant scale factor (removed history length dependency)
+        scale_factor = 1.0
 
         reward = 0.0
         if diversity_ratio > 0.8:
