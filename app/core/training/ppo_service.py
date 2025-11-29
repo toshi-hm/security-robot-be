@@ -58,6 +58,7 @@ class PPOTrainingService:
       env = EnhancedSecurityEnvironment(
         width=env_config.get("env_width", 8),
         height=env_config.get("env_height", 8),
+        num_robots=env_config.get("num_robots", 1),
         coverage_weight=env_config.get("coverage_weight", 1.5),
         exploration_weight=env_config.get("exploration_weight", 3.0),
         diversity_weight=env_config.get("diversity_weight", 2.0),
