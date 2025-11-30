@@ -54,7 +54,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     self._mark_current_position()
     return observation, info
 
-  def step(self, actions: list[int] | np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+  def step(self, actions: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
     observation, base_reward, terminated, truncated, info = super().step(actions)
 
     self._update_exploration_state()
@@ -71,12 +71,14 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     # Calculate additional rewards
     # Split into Global (shared) and Per-Robot (individual) rewards
-    
-    # Global Rewards: Applied to the team as a whole, NOT normalized by N
-    # (or rather, they are added to the average reward directly)
+
+    # Global Rewards: Team-wide achievements normalized by number of robots
+    # to maintain consistent reward scale across different team sizes
     global_reward = 0.0
     global_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
     global_reward += self._calculate_diversity_reward() * self.diversity_weight
+    # Normalize global rewards to maintain scale consistency
+    global_reward /= self.num_robots
 
     # Per-Robot Rewards: Calculated per robot, then averaged
     per_robot_reward_sum = 0.0
@@ -87,16 +89,10 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
         per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
 
     # Normalize per-robot reward sum by number of robots to get average per-robot reward
-    # Normalize per-robot reward sum by number of robots to get average per-robot reward
-    # Always normalize for consistency
     average_per_robot_reward = per_robot_reward_sum / self.num_robots
 
-    # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Global
-    # Note: Base reward from SecurityEnv is (Sum(Collision + Move + Patrol) / N)
-    # So it is an average per-robot reward.
-    # We add our enhanced average per-robot reward.
-    # And we add Global reward (which is achieved by the team).
-    # If we treat the single scalar reward as "Team Reward", then Global should be added as is.
+    # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Normalized Global
+    # All components are now normalized by num_robots for consistent scale
     enhanced_reward = base_reward + average_per_robot_reward + global_reward
 
     info.update(
@@ -174,24 +170,24 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
   def _calculate_diversity_reward(self) -> float:
     """
     Calculate diversity reward based on the diversity of visited locations.
-    
-    This calculates a global diversity score for the team. It iterates through
-    each robot's history, calculates individual diversity, and sums them up.
-    The result is treated as a global reward component added to the team's total reward.
+
+    This calculates the average diversity score across all robots. Each robot's
+    position history is evaluated for diversity (how many unique positions vs total),
+    and the average diversity reward is returned. The caller will normalize this
+    by num_robots along with other global rewards.
     """
-    # Calculate diversity across ALL robots
-    # Average diversity of each robot
+    # Calculate average diversity across all robots
     total_diversity_reward = 0.0
+    active_robots = 0
+
     for i in range(self.num_robots):
         history = self.recent_positions[i]
         if not history:
             continue
 
+        active_robots += 1
         unique_positions = len(set(history))
         diversity_ratio = unique_positions / len(history)
-
-        # Constant scale factor (removed history length dependency)
-        scale_factor = 1.0
 
         reward = 0.0
         if diversity_ratio > 0.8:
@@ -201,8 +197,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
         elif diversity_ratio < 0.3:
             reward = -1.0
 
-        total_diversity_reward += reward * scale_factor
+        total_diversity_reward += reward
 
+    # Return sum (will be normalized by num_robots in step())
     return total_diversity_reward
 
   def _calculate_movement_reward(self, robot_idx: int, action: int) -> float:

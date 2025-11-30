@@ -183,11 +183,30 @@ class SecurityEnvironment(gym.Env):
 
     return self._get_observation(), self._get_info()
 
-  def step(self, actions: list[int] | np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
-    # 入力の正規化
-    if isinstance(actions, list):
+  def step(self, actions: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+    """
+    Execute one time step within the environment.
+
+    Args:
+        actions: Array of actions for each robot, shape (num_robots,).
+                 Each action must be in range [0, 3]:
+                 - 0: Move forward
+                 - 1: Turn left
+                 - 2: Turn right
+                 - 3: Patrol area
+
+    Returns:
+        tuple containing:
+        - observation (np.ndarray): Current observation, shape (height, width, 3 + 2*num_robots)
+        - reward (float): Reward value, normalized by num_robots
+        - terminated (bool): Whether episode has ended
+        - truncated (bool): Whether episode was truncated (always False)
+        - info (dict): Additional information about the environment state
+    """
+    # 入力の正規化 - accept list for convenience but convert to ndarray
+    if not isinstance(actions, np.ndarray):
         actions = np.array(actions, dtype=np.int32)
-    
+
     if len(actions) != self.num_robots:
         raise ValueError(
             f"Expected {self.num_robots} actions, got {len(actions)}"
@@ -201,7 +220,13 @@ class SecurityEnvironment(gym.Env):
     self._update_battery()
 
     # バッテリー切れチェック
-    # Episode ends only if ALL robots are dead (or max steps reached)
+    # Design Decision: Episode ends only when ALL robots run out of battery
+    # Rationale:
+    #   - Allows for long-term mission scenarios where partial team survival is acceptable
+    #   - Remaining robots can continue patrolling even if some fail
+    #   - Encourages battery management strategies where not all robots need to charge simultaneously
+    # Alternative approach (not implemented): End when majority of robots are depleted
+    # to avoid prolonged single-robot operation that may reduce learning efficiency
     if all(b <= 0.0 for b in self.battery_levels):
       reward = -100.0
       # Always normalize by number of robots for consistency
@@ -314,6 +339,7 @@ class SecurityEnvironment(gym.Env):
       penalty = 0.0
       
       # 位置の占有マップを作成
+      # Note: pos is in (x, y) format, but grid access uses grid[y][x] (row-major)
       target_map: dict[tuple[int, int], list[int]] = {}
       for i, pos in enumerate(proposed_positions):
           target_map.setdefault(pos, []).append(i)
@@ -322,10 +348,12 @@ class SecurityEnvironment(gym.Env):
       for target_pos, robot_indices in target_map.items():
           if len(robot_indices) > 1:
               # Multiple robots targeting same position -> Collision
-              # Penalty scales with number of robots involved:
-              # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5)
-              # - 3 robots: -0.5 * 3 * 1.5 = -2.25 (avg -0.75)
-              scale_factor = 1.0 + (len(robot_indices) - 2) * 0.5
+              # Penalty scales more gradually with number of robots involved:
+              # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5 per robot)
+              # - 3 robots: -0.5 * 3 * 1.3 = -1.95 (avg -0.65 per robot)
+              # - 5 robots: -0.5 * 5 * 1.9 = -4.75 (avg -0.95 per robot, normalized to -0.95)
+              # Using 0.3 scale factor for more gradual penalty increase
+              scale_factor = 1.0 + (len(robot_indices) - 2) * 0.3
               penalty -= self.COLLISION_BASE_PENALTY * len(robot_indices) * scale_factor
               
               # final_positions is already self.robot_positions, so no update needed for these indices
