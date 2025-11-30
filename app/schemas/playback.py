@@ -20,6 +20,7 @@ class PlaybackSessionSummary(BaseModel):
   algorithm: TrainingAlgorithm = Field(..., description="Training algorithm used")
   environment_type: str = Field(..., description="Environment variant (standard/enhanced)")
   status: TrainingJobStatus = Field(..., description="Current job status")
+  num_robots: int = Field(default=1, description="Number of robots in the session")
   total_timesteps: int = Field(..., description="Configured total timesteps")
   current_timestep: int = Field(..., description="Latest recorded timestep")
   episodes_completed: int = Field(..., description="Number of completed episodes")

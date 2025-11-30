@@ -35,6 +35,7 @@ async def list_playback_sessions(
       algorithm=aggregate.job.algorithm,
       environment_type=aggregate.job.environment_type,
       status=aggregate.job.status,
+      num_robots=aggregate.job.num_robots,
       total_timesteps=aggregate.job.total_timesteps,
       current_timestep=aggregate.job.current_timestep,
       episodes_completed=aggregate.job.episodes_completed,

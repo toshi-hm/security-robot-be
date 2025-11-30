@@ -137,3 +137,26 @@ def test_get_playback_frames_returns_multi_agent_data(
   assert len(frame["robots"]) == 2
   assert frame["robots"][0]["x"] == 1
   assert frame["robots"][1]["x"] == 5
+
+
+def test_playback_session_list_includes_num_robots(
+  playback_api_app: tuple[FastAPI, async_sessionmaker[AsyncSession]],
+) -> None:
+  app, session_maker = playback_api_app
+
+  job = _create_job(session_maker, name="Multi-Agent Session", num_robots=3)
+  _create_multi_agent_states(session_maker, session_id=job.id)
+
+  with TestClient(app) as client:
+    response = client.get(
+      "/api/v1/playback/sessions",
+      params={"page": 1, "page_size": 10},
+    )
+
+  assert response.status_code == 200
+  payload = response.json()
+  assert payload["total"] == 1
+  session = payload["sessions"][0]
+
+  assert "num_robots" in session
+  assert session["num_robots"] == 3
