@@ -83,10 +83,10 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # Per-Robot Rewards: Calculated per robot, then averaged
     per_robot_reward_sum = 0.0
     for i in range(self.num_robots):
-        action = actions[i]
-        per_robot_reward_sum += self._calculate_exploration_reward(i) * self.exploration_weight
-        per_robot_reward_sum += self._calculate_movement_reward(i, action)
-        per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
+      action = actions[i]
+      per_robot_reward_sum += self._calculate_exploration_reward(i) * self.exploration_weight
+      per_robot_reward_sum += self._calculate_movement_reward(i, action)
+      per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
 
     # Normalize per-robot reward sum by number of robots to get average per-robot reward
     average_per_robot_reward = per_robot_reward_sum / self.num_robots
@@ -123,24 +123,24 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
   def _mark_current_position(self) -> None:
     for i in range(self.num_robots):
-        x, y = self.robot_positions[i]
-        # visited_cells is already updated in base.reset -> but base.reset calls
-        # _place_charging_station
-        # and sets robot positions.
-        # base.reset adds start pos to visited_cells.
-        self.visit_count[y][x] = 1
-        self.last_visited[y][x] = self.time_step
-        self.recent_positions[i] = [(x, y)]
+      x, y = self.robot_positions[i]
+      # visited_cells is already updated in base.reset -> but base.reset calls
+      # _place_charging_station
+      # and sets robot positions.
+      # base.reset adds start pos to visited_cells.
+      self.visit_count[y][x] = 1
+      self.last_visited[y][x] = self.time_step
+      self.recent_positions[i] = [(x, y)]
 
   def _update_exploration_state(self) -> None:
     for i in range(self.num_robots):
-        x, y = self.robot_positions[i]
-        # visited_cells updated in base.step
-        self.visit_count[y][x] += 1
-        self.last_visited[y][x] = self.time_step
-        self.recent_positions[i].append((x, y))
-        if len(self.recent_positions[i]) > self.position_history_length:
-            self.recent_positions[i].pop(0)
+      x, y = self.robot_positions[i]
+      # visited_cells updated in base.step
+      self.visit_count[y][x] += 1
+      self.last_visited[y][x] = self.time_step
+      self.recent_positions[i].append((x, y))
+      if len(self.recent_positions[i]) > self.position_history_length:
+        self.recent_positions[i].pop(0)
 
   # ------------------------------------------------------------------
   # Reward shaping
@@ -181,23 +181,23 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     active_robots = 0
 
     for i in range(self.num_robots):
-        history = self.recent_positions[i]
-        if not history:
-            continue
+      history = self.recent_positions[i]
+      if not history:
+        continue
 
-        active_robots += 1
-        unique_positions = len(set(history))
-        diversity_ratio = unique_positions / len(history)
+      active_robots += 1
+      unique_positions = len(set(history))
+      diversity_ratio = unique_positions / len(history)
 
-        reward = 0.0
-        if diversity_ratio > 0.8:
-            reward = 2.0
-        elif diversity_ratio > 0.6:
-            reward = 1.0
-        elif diversity_ratio < 0.3:
-            reward = -1.0
+      reward = 0.0
+      if diversity_ratio > 0.8:
+        reward = 2.0
+      elif diversity_ratio > 0.6:
+        reward = 1.0
+      elif diversity_ratio < 0.3:
+        reward = -1.0
 
-        total_diversity_reward += reward
+      total_diversity_reward += reward
 
     # Return sum (will be normalized by num_robots in step())
     return total_diversity_reward

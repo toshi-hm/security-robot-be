@@ -147,9 +147,7 @@ class TestReproduction(unittest.TestCase):
 
     # Check center
     rx, ry = env.robot_positions[0]
-    self.assertEqual(
-      env.threat_levels[ry][rx], 0.0, "Center threat level should be 0.0"
-    )
+    self.assertEqual(env.threat_levels[ry][rx], 0.0, "Center threat level should be 0.0")
 
     # Check outside vision (vision=2)
     # 5+3 = 8. (8,8) should be 0.51
