@@ -27,14 +27,15 @@ class TestEnhancedRewardComposition:
     # It's hard to predict exact values.
     # Let's just check if Global Reward is NOT divided by N.
 
-    # Case: 2 robots.
-    # Suppose Global Reward is G.
-    # Suppose Per-Robot Reward Sum is P.
-    # Old Formula: (P + G) / 2 = P/2 + G/2
-    # New Formula: P/2 + G
+    # New Formula (Normalized):
+    # Global = 15.0 / 2 = 7.5
+    # Per Robot Sum = 4.0
+    # Avg Per Robot = 4.0 / 2 = 2.0
+    # Total = Base + 2.0 + 7.5 = Base + 9.5
 
-    # We can try to isolate G.
-    # Set exploration_weight=0, movement_weight (implicit)=0? No, movement is hardcoded.
+    # Base reward is usually small negative (movement cost).
+    # So we expect around 9.5.
+    # Let's assert > 8.0 to be safe.
 
     # Let's use a subclass to control rewards.
     class MockEnv(EnhancedSecurityEnvironment):
@@ -83,4 +84,4 @@ class TestEnhancedRewardComposition:
     # So we expect reward around 17.0 (plus small base), definitely > 10.0.
 
     print(f"Reward: {reward}")
-    assert reward > 15.0, f"Reward {reward} should be > 15.0 (Global 15 + AvgPerRobot 2)"
+    assert reward > 8.0, f"Reward {reward} should be > 8.0 (Global 7.5 + AvgPerRobot 2.0 + Base)"

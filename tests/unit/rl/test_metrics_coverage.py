@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from rl.environments.enhanced_env import EnhancedSecurityEnvironment
@@ -17,8 +18,9 @@ def test_security_env_metrics():
 
   # 1ステップ実行して指標が更新されることを確認
   # (実際の移動成功は環境のテストで保証されるべき)
-  obs, reward, term, trunc, info = env.step([0])
+  obs, reward, term, trunc, info = env.step(np.array([0]))
 
+  # 指標が存在することを確認
   assert "coverage_ratio" in info
   assert "exploration_score" in info
   assert 0.0 <= info["coverage_ratio"] <= 1.0
@@ -26,20 +28,23 @@ def test_security_env_metrics():
 
 
 def test_security_env_metrics_update_after_movement():
-  """移動後に訪問セル数が増加することを検証"""
-  env = SecurityEnvironment(width=5, height=5, map_type="random", count=0)  # 障害物なし
+  """移動後にカバレッジと探索スコアが更新されることを検証"""
+  env = SecurityEnvironment(width=5, height=5)  # 小さいマップでテスト
   env.reset()
+
+  # 障害物をクリアして移動を確実に成功させる
+  env.obstacles = [[False for _ in range(5)] for _ in range(5)]
 
   initial_score = env._get_info()["exploration_score"]
 
   # 4方向に移動試行(いずれかは成功するはず)
   for _ in range(4):
-    obs, _, _, _, info = env.step([0])  # 前進
+    obs, _, _, _, info = env.step(np.array([0]))  # 前進
     if info["exploration_score"] > initial_score:
       # 移動成功を確認
       assert info["coverage_ratio"] > 1.0 / 25.0
       return
-    env.step([1])  # 左回転
+    env.step(np.array([1]))  # 左回転
 
   pytest.fail("4方向すべてで移動できませんでした(環境生成の問題)")
 

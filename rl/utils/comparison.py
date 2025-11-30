@@ -9,6 +9,8 @@ import logging
 from statistics import mean, stdev
 from typing import Any
 
+import numpy as np
+
 from rl.agents.template_agents import BaseTemplateAgent
 from rl.environments.security_env import SecurityEnvironment, calculate_dynamic_max_steps
 
@@ -318,7 +320,7 @@ def evaluate_template_agent(
         elif action == 3:
           metrics.patrol_count += 1
 
-      _obs, reward, terminated, truncated, info = env.step(actions)
+      _obs, reward, terminated, truncated, info = env.step(np.array(actions))
       reward_value = float(reward)
       metrics.total_reward += reward_value
       cumulative_reward += reward_value

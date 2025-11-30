@@ -2,6 +2,7 @@
 
 import random
 
+import numpy as np
 import pytest
 
 from rl.environments.security_env import SecurityEnvironment
@@ -240,7 +241,7 @@ def test_battery_initialization_with_different_values(initial_battery, expected_
 
   # 充電ステーションから離れて1ステップ実行
   env.robot_positions[0] = (0, 0)
-  _obs, _reward, _done, _truncated, info = env.step([0])
+  _obs, _reward, _done, _truncated, info = env.step(np.array([0]))
 
   # バッテリーが微減している
   assert expected_range[0] <= info["battery_percentage"] <= expected_range[1]
@@ -254,7 +255,7 @@ def test_render_includes_battery_info(battery_env, capsys):
   battery_env.battery_levels[0] = 50.0
 
   # 充電ステーション上で1ステップ実行（充電が開始される）
-  battery_env.step([3])  # patrol action on charging station
+  battery_env.step(np.array([3]))  # patrol action on charging station
 
   # 充電中状態でレンダリング
   battery_env.render()
@@ -352,7 +353,7 @@ def test_episode_terminates_at_dynamic_max_steps():
   terminated = False
   steps = 0
   for _ in range(200):  # 100を超えるステップを試行
-    _obs, _reward, terminated, _truncated, _info = env.step([3])  # patrol
+    _obs, _reward, terminated, _truncated, _info = env.step(np.array([3]))  # patrol
     steps += 1
     if terminated:
       break

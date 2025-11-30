@@ -3,6 +3,8 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
+import numpy as np
+
 # Add project root to python path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
@@ -143,7 +145,7 @@ class TestReproduction(unittest.TestCase):
     # _update_threat_levels adds 0.01 -> 0.51
     # _execute_action(3) sets area to 0.0
 
-    env.step([3])
+    env.step(np.array([3]))
 
     # Check center
     rx, ry = env.robot_positions[0]

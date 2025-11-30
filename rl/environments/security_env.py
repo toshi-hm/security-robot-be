@@ -221,12 +221,15 @@ class SecurityEnvironment(gym.Env):
     # Rationale:
     #   - Allows for long-term mission scenarios where partial team survival is acceptable
     #   - Remaining robots can continue patrolling even if some fail
-    #   - Encourages battery management strategies where not all robots need to charge simultaneously
+    #   - Encourages battery management strategies where not all robots need to charge
+    #     simultaneously
     # Alternative approach (not implemented): End when majority of robots are depleted
     # to avoid prolonged single-robot operation that may reduce learning efficiency
     if all(b <= 0.0 for b in self.battery_levels):
       reward = -100.0
-      # Always normalize by number of robots for consistency
+      # Always normalize by number of robots to keep scale consistent
+      # Even for single robot, ensures consistent scale if num_robots changes
+      # dynamically or for comparison
       reward /= self.num_robots
       terminated = True
       return self._get_observation(), reward, terminated, False, self._get_info()
@@ -296,7 +299,8 @@ class SecurityEnvironment(gym.Env):
     total_reward += self._calculate_battery_penalty()
 
     # Normalize reward by number of robots to keep scale consistent
-    # Always normalize, even for single robot, to ensure consistent scale if num_robots changes dynamically or for comparison
+    # Always normalize, even for single robot, to ensure consistent scale if num_robots
+    # changes dynamically or for comparison
     total_reward /= self.num_robots
 
     terminated = self.time_step >= self.max_episode_steps

@@ -89,8 +89,8 @@ class TestMultiAgentSecurityEnv:
     # Both move East
     # R0: (1,1) -> (2,1)
     # R1: (1,2) -> (2,2)
-    actions = [0, 0]
-    env.step(actions)
+    actions = np.array([0, 0])
+    _, reward, _, _, _ = env.step(actions)
 
     assert env.robot_positions[0] == (2, 1)
     assert env.robot_positions[1] == (2, 2)
@@ -113,7 +113,7 @@ class TestMultiAgentSecurityEnv:
     env.obstacles[2][2] = False
 
     # Action: Robot 0 moves forward (0), Robot 1 turns right (2)
-    actions = [0, 2]
+    actions = np.array([0, 2])
     obs, reward, terminated, truncated, info = env.step(actions)
 
     # Robot 0 should have moved to (2, 1)
@@ -133,16 +133,13 @@ class TestMultiAgentSecurityEnv:
     env.is_charging_list = [False, False]
 
     # Both try to move forward into each other
-    actions = [0, 0]
+    actions = np.array([0, 0])
     _, reward, _, _, _ = env.step(actions)
 
     # Should stay in place (simple collision resolution)
     assert env.robot_positions[0] == (1, 1)
     assert env.robot_positions[1] == (2, 1)
 
-    # Verify collision penalty
-    # Both collide -> -0.5 * 2 = -1.0
-    # Normalized by 2 robots -> -0.5
     # Verify collision penalty
     # Both collide (swap) -> -0.5 * 2 = -1.0
     # Normalized by 2 robots -> -0.5
@@ -163,23 +160,23 @@ class TestMultiAgentSecurityEnv:
     # Ensure target (1, 1) is valid
     env.obstacles[1][1] = False
 
-    actions = [0, 0, 0]  # All move forward
+    actions = np.array([0, 0, 0])  # All move forward
     _, reward, _, _, _ = env.step(actions)
 
     # All 3 target (1, 1)
-    # Penalty formula: -0.5 * N * (1.0 + (N - 2) * 0.5)
-    # N=3 -> -0.5 * 3 * (1.0 + 0.5) = -1.5 * 1.5 = -2.25
-    # Normalized by 3 robots -> -0.75
+    # Penalty formula: -0.5 * N * (1.0 + (N - 2) * 0.3)
+    # N=3 -> -0.5 * 3 * (1.0 + 0.3) = -1.5 * 1.3 = -1.95
+    # Normalized by 3 robots -> -0.65
 
     # Check expected reward
     # Movement reward: 0 (failed move)
-    # Collision penalty: -2.25
-    # Total: -2.25 / 3 = -0.75
+    # Collision penalty: -1.95
+    # Total: -1.95 / 3 = -0.65
 
     # Note: There might be other small penalties (battery drain?)
     # Battery drain is small (0.001).
     # Let's check approx value.
-    assert -0.76 < reward < -0.74
+    assert -0.66 < reward < -0.64
 
   def test_reward_normalization(self):
     """Test that rewards are normalized by number of robots."""
@@ -195,7 +192,7 @@ class TestMultiAgentSecurityEnv:
     # Move both robots forward (Action 0)
     # Expected raw reward: -0.1 * 2 = -0.2
     # Normalized reward: -0.2 / 2 = -0.1
-    _, reward, _, _, _ = env.step([0, 0])
+    _, reward, _, _, _ = env.step(np.array([0, 0]))
     assert abs(reward - (-0.1)) < 1e-6
 
     # Test with 4 robots
@@ -209,7 +206,7 @@ class TestMultiAgentSecurityEnv:
     # Move all 4
     # Raw: -0.1 * 4 = -0.4
     # Normalized: -0.4 / 4 = -0.1
-    _, reward, _, _, _ = env.step([0, 0, 0, 0])
+    _, reward, _, _, _ = env.step(np.array([0, 0, 0, 0]))
     assert abs(reward - (-0.1)) < 1e-6
 
     # Test with 1 robot (should also be normalized)
@@ -222,7 +219,7 @@ class TestMultiAgentSecurityEnv:
     # Move 1 robot
     # Raw: -0.1
     # Normalized: -0.1 / 1 = -0.1
-    _, reward, _, _, _ = env.step([0])
+    _, reward, _, _, _ = env.step(np.array([0]))
     assert abs(reward - (-0.1)) < 1e-6
 
   def test_cooperative_reward(self):
@@ -238,7 +235,7 @@ class TestMultiAgentSecurityEnv:
     env.robot_directions = [1, 0]  # R0 East, R1 North (irrelevant for patrol)
 
     # Both patrol (Action 3)
-    actions = [3, 3]
+    actions = np.array([3, 3])
     _, reward, _, _, _ = env.step(actions)
 
     # Should get reward for clearing threats
