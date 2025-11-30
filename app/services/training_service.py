@@ -47,6 +47,7 @@ class TrainingService:
       learning_rate=payload.learning_rate,
       batch_size=payload.batch_size,
       num_workers=payload.num_workers,
+      num_robots=payload.num_robots,
       config=payload.config,
     )
 
@@ -148,6 +149,7 @@ class TrainingService:
       "learning_rate": job.learning_rate,
       "batch_size": job.batch_size,
       "num_workers": job.num_workers,
+      "num_robots": job.num_robots,
       "model_path": job.model_path,
       "log_path": job.log_path,
     }

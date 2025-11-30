@@ -37,6 +37,7 @@ class EnvironmentState(Base):
   robot_x: Mapped[int] = mapped_column()
   robot_y: Mapped[int] = mapped_column()
   robot_orientation: Mapped[int] = mapped_column()  # 0-3: North, East, South, West
+  robots: Mapped[list | None] = mapped_column(JSON, default=None)  # Multi-agent state
 
   # Environment state (JSON)
   threat_grid: Mapped[dict] = mapped_column(JSON)  # 2D array of threat levels

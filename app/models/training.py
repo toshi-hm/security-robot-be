@@ -51,6 +51,7 @@ class TrainingJob(Base):
   # Environment settings
   env_width: Mapped[int] = mapped_column(default=8)
   env_height: Mapped[int] = mapped_column(default=8)
+  num_robots: Mapped[int] = mapped_column(default=1)
 
   # Reward parameters (for enhanced environment)
   coverage_weight: Mapped[float] = mapped_column(default=1.5)

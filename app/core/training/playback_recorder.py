@@ -298,6 +298,25 @@ class PlaybackRecordingWrapper(gym.Wrapper):
         else:
           payload[payload_key] = value
 
+    # Extract multi-agent state
+    robots = []
+    robot_positions = getattr(self.env, "robot_positions", [])
+    robot_directions = getattr(self.env, "robot_directions", [])
+
+    # Ensure we have iterable sequences
+    if not isinstance(robot_positions, list | tuple):
+      robot_positions = []
+    if not isinstance(robot_directions, list | tuple):
+      robot_directions = []
+
+    for i, pos in enumerate(robot_positions):
+      direction = robot_directions[i] if i < len(robot_directions) else 0
+      if isinstance(pos, list | tuple) and len(pos) >= 2:
+        robots.append({"id": i, "x": int(pos[0]), "y": int(pos[1]), "orientation": int(direction)})
+
+    if robots:
+      payload["robots"] = robots
+
     coverage_source = None
     if hasattr(self.env, "visit_count"):
       coverage_source = self.env.visit_count
