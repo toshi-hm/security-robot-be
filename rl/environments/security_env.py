@@ -102,6 +102,8 @@ class SecurityEnvironment(gym.Env):
     self.is_charging_list: list[bool] = [False] * self.num_robots
 
     # Robot states
+    # Note: robot_positions stores (x, y) coordinates.
+    # When accessing grids (e.g. self.obstacles), use grid[y][x].
     self.robot_positions: list[tuple[int, int]] = [(0, 0)] * self.num_robots
     self.robot_directions: list[int] = [0] * self.num_robots
 
@@ -529,18 +531,19 @@ class SecurityEnvironment(gym.Env):
     """充電ステーションをランダムな位置に配置"""
     # 境界から1セル離れた範囲で配置可能な位置を探す
     max_attempts = 100
-    for _ in range(max_attempts):
-      # 境界から1セル離れた位置をランダムに選択
-      x = random.randint(1, self.width - 2)
-      y = random.randint(1, self.height - 2)
+    if self.width >= 3 and self.height >= 3:
+      for _ in range(max_attempts):
+        # 境界から1セル離れた位置をランダムに選択
+        x = random.randint(1, self.width - 2)
+        y = random.randint(1, self.height - 2)
 
-      # 障害物がない位置に配置
-      # また、前方(y-1)も空いていることを確認（ロボットは北向きで開始するため）
-      # Boundary check added: y > 0
-      if not self.obstacles[y][x] and y > 0 and not self.obstacles[y - 1][x]:
-        self.charging_station_x = x
-        self.charging_station_y = y
-        return
+        # 障害物がない位置に配置
+        # また、前方(y-1)も空いていることを確認（ロボットは北向きで開始するため）
+        # Boundary check added: y > 0
+        if not self.obstacles[y][x] and y > 0 and not self.obstacles[y - 1][x]:
+          self.charging_station_x = x
+          self.charging_station_y = y
+          return
 
     # 配置できない場合は中央に配置（フォールバック）
     logger.warning("Could not find a suitable charging station location. Placing at center.")

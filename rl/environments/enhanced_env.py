@@ -76,7 +76,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # to maintain consistent reward scale across different team sizes
     global_reward = 0.0
     global_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
-    global_reward += self._calculate_diversity_reward() * self.diversity_weight
+    global_reward += self._calculate_total_diversity_reward() * self.diversity_weight
     # Normalize global rewards to maintain scale consistency
     global_reward /= self.num_robots
 
@@ -167,13 +167,13 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       return improvement * 20.0
     return 0.0
 
-  def _calculate_diversity_reward(self) -> float:
+  def _calculate_total_diversity_reward(self) -> float:
     """
     Calculate diversity reward based on the diversity of visited locations.
 
-    This calculates the average diversity score across all robots. Each robot's
+    This calculates the total diversity score across all robots. Each robot's
     position history is evaluated for diversity (how many unique positions vs total),
-    and the average diversity reward is returned. The caller will normalize this
+    and the total diversity reward is returned. The caller will normalize this
     by num_robots along with other global rewards.
     """
     # Calculate average diversity across all robots
