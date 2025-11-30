@@ -28,7 +28,7 @@ class MapGenerator(abc.ABC):
     """Generate a boolean grid where True represents an obstacle/wall.
 
     Returns:
-        A 2D list of booleans [width][height].
+        A 2D list of booleans [y][x] (row-major order: height rows, width columns).
     """
     pass
 
