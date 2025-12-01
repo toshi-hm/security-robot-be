@@ -386,6 +386,7 @@ class EnvironmentService:
     elif isinstance(value, list):
       result = value
     else:
+      # Initialize grid[y][x] (row-major): height rows, width columns
       result = [[fill_value for _ in range(width)] for _ in range(height)]
 
     if transform is None:

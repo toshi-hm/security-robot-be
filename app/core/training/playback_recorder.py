@@ -304,9 +304,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     robot_directions = getattr(self.env, "robot_directions", [])
 
     # Ensure we have iterable sequences
-    if hasattr(robot_positions, "tolist"):
-      robot_positions = robot_positions.tolist()
-    elif not isinstance(robot_positions, list | tuple):
+    if robot_positions is None:
       robot_positions = []
 
     if hasattr(robot_directions, "tolist"):
