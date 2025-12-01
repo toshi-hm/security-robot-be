@@ -304,15 +304,42 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     robot_directions = getattr(self.env, "robot_directions", [])
 
     # Ensure we have iterable sequences
-    if not isinstance(robot_positions, list | tuple):
+    if hasattr(robot_positions, "tolist"):
+      robot_positions = robot_positions.tolist()
+    elif not isinstance(robot_positions, list | tuple):
       robot_positions = []
-    if not isinstance(robot_directions, list | tuple):
+
+    if hasattr(robot_directions, "tolist"):
+      robot_directions = robot_directions.tolist()
+    elif not isinstance(robot_directions, list | tuple):
       robot_directions = []
 
     for i, pos in enumerate(robot_positions):
+      # Safe access to direction
       direction = robot_directions[i] if i < len(robot_directions) else 0
+      
+      # Handle numpy scalars or other types for direction
+      if hasattr(direction, "item"):
+        try:
+          direction = int(direction.item())
+        except (ValueError, TypeError):
+          direction = 0
+      elif not isinstance(direction, int | float):
+        direction = 0
+      else:
+        direction = int(direction)
+
+      # Handle position
+      if hasattr(pos, "tolist"):
+        pos = pos.tolist()
+      
       if isinstance(pos, list | tuple) and len(pos) >= 2:
-        robots.append({"id": i, "x": int(pos[0]), "y": int(pos[1]), "orientation": int(direction)})
+        try:
+          x = int(pos[0])
+          y = int(pos[1])
+          robots.append({"id": i, "x": x, "y": y, "orientation": direction})
+        except (ValueError, TypeError):
+          continue
 
     if robots:
       payload["robots"] = robots
