@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import logging
 from numbers import Integral
 from typing import Any
@@ -92,7 +92,7 @@ class EnvironmentService:
       id=uuid4().hex,
       spec=spec,
       environment=environment,
-      last_accessed=datetime.now(tz=UTC),
+      last_accessed=datetime.now(tz=timezone.utc),
       timeout_seconds=self._session_timeout_seconds,
       lock=asyncio.Lock(),
     )
@@ -124,7 +124,7 @@ class EnvironmentService:
       if session.closed:
         raise KeyError(session_id)
       observation, _ = session.environment.reset(seed=seed)
-      session.last_accessed = datetime.now(tz=UTC)
+      session.last_accessed = datetime.now(tz=timezone.utc)
       spec = session.spec
       environment = session.environment
 
@@ -158,7 +158,7 @@ class EnvironmentService:
         raise ValueError("action must be non-negative")
 
       observation, reward, terminated, truncated, info = session.environment.step(int(action))
-      session.last_accessed = datetime.now(tz=UTC)
+      session.last_accessed = datetime.now(tz=timezone.utc)
       spec = session.spec
       environment = session.environment
 
@@ -211,7 +211,7 @@ class EnvironmentService:
     `execute_action` / `reset_session` との間でのデッドロックを防いでいる。
     """
 
-    now = datetime.now(tz=UTC)
+    now = datetime.now(tz=timezone.utc)
     expired_sessions: list[tuple[str, _EnvironmentSession]] = []
 
     async with self._lock:
@@ -386,7 +386,7 @@ class EnvironmentService:
     elif isinstance(value, list):
       result = value
     else:
-      result = [[fill_value for _ in range(height)] for _ in range(width)]
+      result = [[fill_value for _ in range(width)] for _ in range(height)]
 
     if transform is None:
       return result  # type: ignore[no-any-return]
