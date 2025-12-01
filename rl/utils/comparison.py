@@ -97,6 +97,7 @@ class EnvironmentInfo:
   high_threat_tiles: list[dict[str, Any]]
   obstacles: list[list[bool]]
   charging_station: dict[str, int]
+  charging_stations: list[dict[str, int]]
   suspicious_objects: list[dict[str, Any]]
 
   def to_dict(self) -> dict[str, Any]:
@@ -491,6 +492,9 @@ def _capture_environment_info(env: SecurityEnvironment) -> EnvironmentInfo:
       "x": int(getattr(env, "charging_station_x", 0)),
       "y": int(getattr(env, "charging_station_y", 0)),
     },
+    charging_stations=[
+        {"x": int(x), "y": int(y)} for x, y in getattr(env, "charging_stations", [])
+    ],
     suspicious_objects=_serialise_suspicious_objects(getattr(env, "suspicious_objects", {})),
   )
 

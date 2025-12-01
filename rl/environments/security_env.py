@@ -97,8 +97,7 @@ class SecurityEnvironment(gym.Env):
     self.battery_levels: list[float] = [100.0] * self.num_robots
     self.battery_drain_rate = 0.001
     self.battery_charge_rate = 1.0
-    self.charging_station_x = 0
-    self.charging_station_y = 0
+    self.charging_stations: list[tuple[int, int]] = []
     self.is_charging_list: list[bool] = [False] * self.num_robots
 
     # Robot states
@@ -169,7 +168,8 @@ class SecurityEnvironment(gym.Env):
     self._place_charging_station()
 
     # ロボットを充電ステーション周辺に分散配置
-    self.robot_positions = self._get_scattered_start_positions()
+    # ロボットを各充電ステーションに配置
+    self.robot_positions = list(self.charging_stations)
     self.robot_directions = [0] * self.num_robots
 
     # Initialize visited cells with starting positions
@@ -323,7 +323,7 @@ class SecurityEnvironment(gym.Env):
         f"  Battery: {self.battery_levels[i]:.1f}% "
         f"{'[CHARGING]' if self.is_charging_list[i] else ''}"
       )
-    print(f"Charging station: ({self.charging_station_x}, {self.charging_station_y})")
+    print(f"Charging stations: {self.charging_stations}")
     print(f"Threat levels: {self.threat_levels}")
     print(f"Suspicious objects: {len(self.suspicious_objects)}")
     print("-" * 50)
@@ -420,8 +420,8 @@ class SecurityEnvironment(gym.Env):
         observation[y, x, 0] = float(self.threat_levels[y][x])
         # Channel 1: Obstacles
         observation[y, x, 1] = 1.0 if self.obstacles[y][x] else 0.0
-        # Channel 2: Charging Station
-        if x == self.charging_station_x and y == self.charging_station_y:
+        # Channel 2: Charging Stations
+        if (x, y) in self.charging_stations:
           observation[y, x, 2] = 1.0
 
     # Fill Robot-Specific Channels
@@ -529,67 +529,53 @@ class SecurityEnvironment(gym.Env):
     return total_reward
 
   def _place_charging_station(self) -> None:
-    """充電ステーションをランダムな位置に配置"""
+    """充電ステーションを配置 (ロボットの数だけ配置)"""
+    self.charging_stations = []
+
     # 境界から1セル離れた範囲で配置可能な位置を探す
-    max_attempts = 100
-    if self.width >= 3 and self.height >= 3:
-      for _ in range(max_attempts):
-        # 境界から1セル離れた位置をランダムに選択
+    # 候補地をランダムに選定
+    attempts = 0
+    max_attempts = 100 * self.num_robots
+
+    while len(self.charging_stations) < self.num_robots and attempts < max_attempts:
+      attempts += 1
+      if self.width >= 3 and self.height >= 3:
         x = random.randint(1, self.width - 2)
         y = random.randint(1, self.height - 2)
 
+        # 既にステーションがある場所は除外
+        if (x, y) in self.charging_stations:
+          continue
+
         # 障害物がない位置に配置
         # また、前方(y-1)も空いていることを確認（ロボットは北向きで開始するため）
-        # Boundary check added: y > 0
         if not self.obstacles[y][x] and y > 0 and not self.obstacles[y - 1][x]:
-          self.charging_station_x = x
-          self.charging_station_y = y
-          return
+          self.charging_stations.append((x, y))
 
-    # 配置できない場合は中央に配置（フォールバック）
-    logger.warning("Could not find a suitable charging station location. Placing at center.")
-    self.charging_station_x = self.width // 2
-    self.charging_station_y = self.height // 2
-    # 中央とその前方の障害物を強制的に削除
-    self.obstacles[self.charging_station_y][self.charging_station_x] = False
-    if self.charging_station_y > 0:
-      self.obstacles[self.charging_station_y - 1][self.charging_station_x] = False
-
-  def _get_scattered_start_positions(self) -> list[tuple[int, int]]:
-    """Get scattered start positions around charging station using BFS."""
-    start_pos = (self.charging_station_x, self.charging_station_y)
-    positions = [start_pos]
-    queue = [start_pos]
-    visited = {start_pos}
-
-    while len(positions) < self.num_robots and queue:
-      cx, cy = queue.pop(0)
-
-      # Check neighbors
-      for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
-        nx, ny = cx + dx, cy + dy
-
-        if (
-          0 <= nx < self.width
-          and 0 <= ny < self.height
-          and not self.obstacles[ny][nx]
-          and (nx, ny) not in visited
-        ):
-          visited.add((nx, ny))
-          queue.append((nx, ny))
-          positions.append((nx, ny))
-
-          if len(positions) >= self.num_robots:
+    # 足りない場合は空いている場所を適当に探す (Fallback)
+    if len(self.charging_stations) < self.num_robots:
+      logger.warning("Could not find enough optimal charging station locations. Using fallback.")
+      for y in range(1, self.height - 1):
+        for x in range(1, self.width - 1):
+          if len(self.charging_stations) >= self.num_robots:
             break
+          if (x, y) not in self.charging_stations and not self.obstacles[y][x]:
+             self.charging_stations.append((x, y))
 
-    # If we still don't have enough positions (e.g. trapped), raise error
-    if len(positions) < self.num_robots:
-      raise ValueError(
-        f"Could not find enough unique start positions for {self.num_robots} robots. "
-        f"Found {len(positions)}. Robots might be trapped by obstacles."
-      )
+    # それでも足りない場合は障害物を削除して無理やり配置
+    if len(self.charging_stations) < self.num_robots:
+       logger.warning("Forcing charging station placement by removing obstacles.")
+       while len(self.charging_stations) < self.num_robots:
+         x = random.randint(0, self.width - 1)
+         y = random.randint(0, self.height - 1)
+         if (x, y) not in self.charging_stations:
+           self.charging_stations.append((x, y))
+           self.obstacles[y][x] = False
 
-    return positions
+  # _get_scattered_start_positions is no longer needed as we place robots on stations
+
+
+
 
   # ------------------------------------------------------------------
   # Battery management
@@ -599,7 +585,7 @@ class SecurityEnvironment(gym.Env):
     """バッテリー残量を更新 (Vectorized)"""
     # Update is_charging_list based on position FIRST
     for i in range(self.num_robots):
-      on_station = self.robot_positions[i] == (self.charging_station_x, self.charging_station_y)
+      on_station = self.robot_positions[i] in self.charging_stations
       if on_station:
         if self.battery_levels[i] < 100.0:
           self.is_charging_list[i] = True
@@ -639,9 +625,15 @@ class SecurityEnvironment(gym.Env):
       # 充電ステーションからの距離ペナルティ(バッテリー低下時)
       if battery < 30.0:
         rx, ry = self.robot_positions[i]
-        distance = abs(rx - self.charging_station_x) + abs(ry - self.charging_station_y)
+        # Find distance to nearest charging station
+        min_distance = float('inf')
+        for sx, sy in self.charging_stations:
+            dist = abs(rx - sx) + abs(ry - sy)
+            if dist < min_distance:
+                min_distance = dist
+
         max_distance = self.width + self.height
-        penalty -= 0.2 * (distance / max_distance) * (1.0 - battery / 30.0)
+        penalty -= 0.2 * (min_distance / max_distance) * (1.0 - battery / 30.0)
 
       total_penalty += penalty
 

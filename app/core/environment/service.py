@@ -304,18 +304,24 @@ class EnvironmentService:
     # Extract battery system information
     battery_percentage = getattr(env, "battery_percentage", None)
     is_charging = getattr(env, "is_charging", False)
+    charging_stations = getattr(env, "charging_stations", [])
     charging_station_x = getattr(env, "charging_station_x", None)
     charging_station_y = getattr(env, "charging_station_y", None)
+
+    # Backward compatibility for single station envs or if charging_stations not set
+    if not charging_stations and charging_station_x is not None and charging_station_y is not None:
+        charging_stations = [(int(charging_station_x), int(charging_station_y))]
 
     # Calculate distance to charging station if position is available
     distance_to_charging_station = None
     charging_station_position = None
-    if charging_station_x is not None and charging_station_y is not None:
-      charging_station_position = (int(charging_station_x), int(charging_station_y))
+    if charging_stations:
+      charging_station_position = charging_stations[0]
       robot_x = int(env.robot_x)
       robot_y = int(env.robot_y)
-      distance_to_charging_station = abs(robot_x - charging_station_x) + abs(
-        robot_y - charging_station_y
+      # Distance to nearest station
+      distance_to_charging_station = min(
+          abs(robot_x - sx) + abs(robot_y - sy) for sx, sy in charging_stations
       )
 
     return EnvironmentState(
@@ -332,6 +338,7 @@ class EnvironmentService:
       is_charging=is_charging,
       distance_to_charging_station=distance_to_charging_station,
       charging_station_position=charging_station_position,
+      charging_stations=charging_stations,
     )
 
   @staticmethod

@@ -48,8 +48,7 @@ def test_battery_charging_on_station(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_positions[0][0] == battery_env.charging_station_x
-  assert battery_env.robot_positions[0][1] == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを50%に設定
   battery_env.battery_levels[0] = 50.0
@@ -94,8 +93,7 @@ def test_charging_station_in_observation(battery_env):
   """観測空間に充電ステーション位置が含まれることを確認"""
   obs, _info = battery_env.reset()
 
-  station_x = battery_env.charging_station_x
-  station_y = battery_env.charging_station_y
+  station_x, station_y = battery_env.charging_stations[0]
 
   # チャンネル2に充電ステーションが記録されている
   assert obs[station_y][station_x][2] == 1.0
@@ -127,8 +125,7 @@ def test_charging_stops_when_moving_away(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_positions[0][0] == battery_env.charging_station_x
-  assert battery_env.robot_positions[0][1] == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを50%に設定
   battery_env.battery_levels[0] = 50.0
@@ -138,8 +135,7 @@ def test_charging_stops_when_moving_away(battery_env):
   assert battery_env.is_charging_list[0] is True
 
   # 充電ステーション周囲の障害物をクリア
-  station_x = battery_env.charging_station_x
-  station_y = battery_env.charging_station_y
+  station_x, station_y = battery_env.charging_stations[0]
   for dx in [-1, 0, 1]:
     for dy in [-1, 0, 1]:
       x = station_x + dx
@@ -165,8 +161,7 @@ def test_partial_charging_strategy(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_positions[0][0] == battery_env.charging_station_x
-  assert battery_env.robot_positions[0][1] == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを30%に設定
   battery_env.battery_levels[0] = 30.0
@@ -266,8 +261,8 @@ def test_render_includes_battery_info(battery_env, capsys):
   assert "[CHARGING]" in captured.out
 
   # 充電ステーション位置が表示されている
-  assert "Charging station:" in captured.out
-  assert f"({battery_env.charging_station_x}, {battery_env.charging_station_y})" in captured.out
+  assert "Charging stations:" in captured.out
+  assert str(battery_env.charging_stations) in captured.out
 
   # 充電ステーションから離れる
   battery_env.robot_positions[0] = (0, 0)
