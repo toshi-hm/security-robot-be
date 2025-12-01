@@ -349,17 +349,7 @@ class SecurityEnvironment(gym.Env):
     # 衝突検出
     for target_pos, robot_indices in target_map.items():
       if len(robot_indices) > 1:
-        # Multiple robots targeting same position -> Collision
-        # Penalty scales more gradually with number of robots involved:
-        # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5 per robot)
-        # - 3 robots: -0.5 * 3 * 1.3 = -1.95 (avg -0.65 per robot)
-        # - 5 robots: -0.5 * 5 * 1.9 = -4.75 (avg -0.95 per robot, normalized to -0.95)
-        # Using 0.3 scale factor for more gradual penalty increase
-        scale_factor = 1.0 + (len(robot_indices) - 2) * 0.3
-        penalty -= self.COLLISION_BASE_PENALTY * len(robot_indices) * scale_factor
-
-        # final_positions is already self.robot_positions, so no update needed for these indices
-        pass
+        penalty += self._handle_vertex_collision(robot_indices)
       elif len(robot_indices) == 1:
         robot_idx = robot_indices[0]
         # Dead robots don't move
@@ -374,6 +364,17 @@ class SecurityEnvironment(gym.Env):
           final_positions[robot_idx] = target_pos
 
     return final_positions, penalty
+
+  def _handle_vertex_collision(self, robot_indices: list[int]) -> float:
+    """Handle multiple robots targeting the same position (Vertex Collision)."""
+    # Multiple robots targeting same position -> Collision
+    # Penalty scales more gradually with number of robots involved:
+    # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5 per robot)
+    # - 3 robots: -0.5 * 3 * 1.3 = -1.95 (avg -0.65 per robot)
+    # - 5 robots: -0.5 * 5 * 1.9 = -4.75 (avg -0.95 per robot, normalized to -0.95)
+    # Using 0.3 scale factor for more gradual penalty increase
+    scale_factor = 1.0 + (len(robot_indices) - 2) * 0.3
+    return -self.COLLISION_BASE_PENALTY * len(robot_indices) * scale_factor
 
   def _is_swap(
     self, robot_idx: int, target: tuple[int, int], proposed: list[tuple[int, int]]
