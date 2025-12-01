@@ -23,7 +23,7 @@ class TrainingSessionCreate(BaseModel):
   # Environment settings
   env_width: int = Field(default=8, ge=3, le=50, description="Environment width")
   env_height: int = Field(default=8, ge=3, le=50, description="Environment height")
-  num_robots: int = Field(default=1, ge=1, le=10, description="Number of robots")
+  num_robots: int = Field(default=1, ge=1, le=10, description="Number of robots (1-10)")
 
   # Reward parameters (for enhanced environment)
   coverage_weight: float = Field(default=1.5, ge=0, description="Coverage reward weight")
