@@ -307,11 +307,13 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     if hasattr(robot_positions, "tolist"):
       robot_positions = robot_positions.tolist()
     elif not isinstance(robot_positions, list | tuple):
+      logger.warning(f"Unexpected type for robot_positions: {type(robot_positions)}. Defaulting to empty list.")
       robot_positions = []
 
     if hasattr(robot_directions, "tolist"):
       robot_directions = robot_directions.tolist()
     elif not isinstance(robot_directions, list | tuple):
+      logger.warning(f"Unexpected type for robot_directions: {type(robot_directions)}. Defaulting to empty list.")
       robot_directions = []
 
     for i, pos in enumerate(robot_positions):

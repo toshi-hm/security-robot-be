@@ -459,7 +459,7 @@ class SecurityEnvironment(gym.Env):
       self.suspicious_objects[(x, y)] = self.time_step
 
   def _get_front_position(self, robot_idx: int) -> tuple[int, int]:
-    dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_directions[robot_idx]]
+    dx, dy = [(0, -1), (1, 0), (0, 1), (-1, 0)][self.robot_directions[robot_idx] % 4]
     rx, ry = self.robot_positions[robot_idx]
     return rx + dx, ry + dy
 
