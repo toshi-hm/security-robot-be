@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 from numbers import Integral
 from typing import Any
@@ -92,7 +92,7 @@ class EnvironmentService:
       id=uuid4().hex,
       spec=spec,
       environment=environment,
-      last_accessed=datetime.now(tz=timezone.utc),
+      last_accessed=datetime.now(tz=UTC),
       timeout_seconds=self._session_timeout_seconds,
       lock=asyncio.Lock(),
     )
@@ -124,7 +124,7 @@ class EnvironmentService:
       if session.closed:
         raise KeyError(session_id)
       observation, _ = session.environment.reset(seed=seed)
-      session.last_accessed = datetime.now(tz=timezone.utc)
+      session.last_accessed = datetime.now(tz=UTC)
       spec = session.spec
       environment = session.environment
 
@@ -158,7 +158,7 @@ class EnvironmentService:
         raise ValueError("action must be non-negative")
 
       observation, reward, terminated, truncated, info = session.environment.step(int(action))
-      session.last_accessed = datetime.now(tz=timezone.utc)
+      session.last_accessed = datetime.now(tz=UTC)
       spec = session.spec
       environment = session.environment
 
@@ -211,7 +211,7 @@ class EnvironmentService:
     `execute_action` / `reset_session` との間でのデッドロックを防いでいる。
     """
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     expired_sessions: list[tuple[str, _EnvironmentSession]] = []
 
     async with self._lock:

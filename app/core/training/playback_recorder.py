@@ -317,7 +317,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     for i, pos in enumerate(robot_positions):
       # Safe access to direction
       direction = robot_directions[i] if i < len(robot_directions) else 0
-      
+
       # Handle numpy scalars or other types for direction
       if hasattr(direction, "item"):
         try:
@@ -332,7 +332,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       # Handle position
       if hasattr(pos, "tolist"):
         pos = pos.tolist()
-      
+
       if isinstance(pos, list | tuple) and len(pos) >= 2:
         try:
           x = int(pos[0])
