@@ -521,6 +521,10 @@ R_diversity = ((unique_positions_last_N_steps / N) × diversity_weight) / num_ro
 
 **今後の検証課題:**
 - ロボット数による学習性能の違いを実験的に検証し、必要に応じて正規化係数の調整（例: `1 / sqrt(num_robots)` など）を検討します。
+- **実装済みパラメータ**:
+  - `reward_normalization_mode`: "mean" (デフォルト), "sum", "sqrt_mean" から選択可能。
+  - `collision_penalty_scale`: ロボット数増加に伴う衝突ペナルティの増加率を調整可能（デフォルト0.3）。
+  - `min_active_robots`: エピソード終了判定となる稼働ロボット数の閾値を設定可能（デフォルト0 = 全滅まで継続）。
 
 # 移動コスト
 C_movement = 0.1 × is_forward + 0.05 × is_rotation

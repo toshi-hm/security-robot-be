@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -72,6 +73,9 @@ class SecurityEnvironment(gym.Env):
     max_episode_steps: int | None = None,
     map_type: MapType = "random",
     num_robots: int = 1,
+    collision_penalty_scale: float = 0.3,
+    min_active_robots: int = 0,
+    reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
   ) -> None:
     # Initialize parent Gymnasium Env class
@@ -83,6 +87,9 @@ class SecurityEnvironment(gym.Env):
     self.enable_logging = enable_logging
     self.map_type = map_type
     self.num_robots = num_robots
+    self.collision_penalty_scale = collision_penalty_scale
+    self.min_active_robots = min_active_robots
+    self.reward_normalization_mode = reward_normalization_mode
     self.map_config = map_config
     self.logger: object | None = None
 
@@ -227,12 +234,18 @@ class SecurityEnvironment(gym.Env):
     #     simultaneously
     # Alternative approach (not implemented): End when majority of robots are depleted
     # to avoid prolonged single-robot operation that may reduce learning efficiency
-    if all(b <= 0.0 for b in self.battery_levels):
+    active_robots = sum(1 for b in self.battery_levels if b > 0.0)
+    if active_robots <= self.min_active_robots:
       reward = -100.0
       # Always normalize by number of robots to keep scale consistent
       # Even for single robot, ensures consistent scale if num_robots changes
       # dynamically or for comparison
-      reward /= self.num_robots
+      if self.reward_normalization_mode == "sum":
+        pass
+      elif self.reward_normalization_mode == "sqrt_mean":
+        reward /= math.sqrt(self.num_robots)
+      else:  # "mean"
+        reward /= self.num_robots
       terminated = True
       return self._get_observation(), reward, terminated, False, self._get_info()
 
@@ -303,7 +316,12 @@ class SecurityEnvironment(gym.Env):
     # Normalize reward by number of robots to keep scale consistent
     # Always normalize, even for single robot, to ensure consistent scale if num_robots
     # changes dynamically or for comparison
-    total_reward /= self.num_robots
+    if self.reward_normalization_mode == "sum":
+      pass
+    elif self.reward_normalization_mode == "sqrt_mean":
+      total_reward /= math.sqrt(self.num_robots)
+    else:  # "mean"
+      total_reward /= self.num_robots
 
     terminated = self.time_step >= self.max_episode_steps
 
@@ -372,8 +390,8 @@ class SecurityEnvironment(gym.Env):
     # - 2 robots: -0.5 * 2 * 1.0 = -1.0 (avg -0.5 per robot)
     # - 3 robots: -0.5 * 3 * 1.3 = -1.95 (avg -0.65 per robot)
     # - 5 robots: -0.5 * 5 * 1.9 = -4.75 (avg -0.95 per robot, normalized to -0.95)
-    # Using 0.3 scale factor for more gradual penalty increase
-    scale_factor = 1.0 + (len(robot_indices) - 2) * 0.3
+    # Using configurable scale factor (default 0.3) for more gradual penalty increase
+    scale_factor = 1.0 + (len(robot_indices) - 2) * self.collision_penalty_scale
     return -self.COLLISION_BASE_PENALTY * len(robot_indices) * scale_factor
 
   def _is_swap(
@@ -560,22 +578,19 @@ class SecurityEnvironment(gym.Env):
           if len(self.charging_stations) >= self.num_robots:
             break
           if (x, y) not in self.charging_stations and not self.obstacles[y][x]:
-             self.charging_stations.append((x, y))
+            self.charging_stations.append((x, y))
 
     # それでも足りない場合は障害物を削除して無理やり配置
     if len(self.charging_stations) < self.num_robots:
-       logger.warning("Forcing charging station placement by removing obstacles.")
-       while len(self.charging_stations) < self.num_robots:
-         x = random.randint(0, self.width - 1)
-         y = random.randint(0, self.height - 1)
-         if (x, y) not in self.charging_stations:
-           self.charging_stations.append((x, y))
-           self.obstacles[y][x] = False
+      logger.warning("Forcing charging station placement by removing obstacles.")
+      while len(self.charging_stations) < self.num_robots:
+        x = random.randint(0, self.width - 1)
+        y = random.randint(0, self.height - 1)
+        if (x, y) not in self.charging_stations:
+          self.charging_stations.append((x, y))
+          self.obstacles[y][x] = False
 
   # _get_scattered_start_positions is no longer needed as we place robots on stations
-
-
-
 
   # ------------------------------------------------------------------
   # Battery management
@@ -626,11 +641,11 @@ class SecurityEnvironment(gym.Env):
       if battery < 30.0:
         rx, ry = self.robot_positions[i]
         # Find distance to nearest charging station
-        min_distance = float('inf')
+        min_distance = float("inf")
         for sx, sy in self.charging_stations:
-            dist = abs(rx - sx) + abs(ry - sy)
-            if dist < min_distance:
-                min_distance = dist
+          dist = abs(rx - sx) + abs(ry - sy)
+          if dist < min_distance:
+            min_distance = dist
 
         max_distance = self.width + self.height
         penalty -= 0.2 * (min_distance / max_distance) * (1.0 - battery / 30.0)

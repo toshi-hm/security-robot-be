@@ -493,7 +493,7 @@ def _capture_environment_info(env: SecurityEnvironment) -> EnvironmentInfo:
       "y": int(getattr(env, "charging_station_y", 0)),
     },
     charging_stations=[
-        {"x": int(x), "y": int(y)} for x, y in getattr(env, "charging_stations", [])
+      {"x": int(x), "y": int(y)} for x, y in getattr(env, "charging_stations", [])
     ],
     suspicious_objects=_serialise_suspicious_objects(getattr(env, "suspicious_objects", {})),
   )

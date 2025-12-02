@@ -241,8 +241,6 @@ class TestMultiAgentSecurityEnv:
     # Note: Exact value depends on implementation details, but should be positive
     assert reward > 0
 
-
-
   def test_charging_station_fallback_clearing(self):
     """Test that charging station placement clears obstacles in fallback mode."""
     env = SecurityEnvironment(width=10, height=10, num_robots=1)

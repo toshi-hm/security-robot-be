@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+import math
+from typing import Any, Literal
 
 import numpy as np
 
@@ -25,11 +26,13 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     exploration_weight: float = 2.0,
     diversity_weight: float = 1.5,
     map_type: MapType = "random",
+    reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
   ) -> None:
     self.coverage_weight = coverage_weight
     self.exploration_weight = exploration_weight
     self.diversity_weight = diversity_weight
+    self.reward_normalization_mode = reward_normalization_mode
 
     super().__init__(
       width=width,
@@ -38,6 +41,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       num_robots=num_robots,
       enable_logging=enable_logging,
       map_type=map_type,
+      reward_normalization_mode=reward_normalization_mode,
       **map_config,
     )
     self._init_tracking_structures()
@@ -78,7 +82,12 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     global_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
     global_reward += self._calculate_total_diversity_reward() * self.diversity_weight
     # Normalize global rewards to maintain scale consistency
-    global_reward /= self.num_robots
+    if self.reward_normalization_mode == "sum":
+      pass
+    elif self.reward_normalization_mode == "sqrt_mean":
+      global_reward /= math.sqrt(self.num_robots)
+    else:  # "mean"
+      global_reward /= self.num_robots
 
     # Per-Robot Rewards: Calculated per robot, then averaged
     per_robot_reward_sum = 0.0
@@ -89,7 +98,12 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       per_robot_reward_sum += self._calculate_patrol_optimization_reward(i, action)
 
     # Normalize per-robot reward sum by number of robots to get average per-robot reward
-    average_per_robot_reward = per_robot_reward_sum / self.num_robots
+    if self.reward_normalization_mode == "sum":
+      average_per_robot_reward = per_robot_reward_sum
+    elif self.reward_normalization_mode == "sqrt_mean":
+      average_per_robot_reward = per_robot_reward_sum / math.sqrt(self.num_robots)
+    else:  # "mean"
+      average_per_robot_reward = per_robot_reward_sum / self.num_robots
 
     # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Normalized Global
     # All components are now normalized by num_robots for consistent scale

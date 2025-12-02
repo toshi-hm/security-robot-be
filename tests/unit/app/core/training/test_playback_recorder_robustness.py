@@ -1,4 +1,3 @@
-
 from typing import Any
 import unittest
 from unittest.mock import MagicMock
@@ -79,6 +78,19 @@ class TestPlaybackRecorderRobustness(unittest.TestCase):
 
     payload = self.wrapper._recorder._buffer[-1]
     self.assertNotIn("robots", payload)
+
+  def test_unexpected_type_logging(self):
+    """Test that unexpected types log warnings with context."""
+    with unittest.mock.patch("app.core.training.playback_recorder.logger") as mock_logger:
+      self.env.robot_positions = 123  # Invalid type
+      self.wrapper._record_snapshot(observation=None, action=None, reward=0, step=0)
+
+      mock_logger.warning.assert_called()
+      args, _ = mock_logger.warning.call_args
+      message = args[0]
+      self.assertIn("Unexpected type", message)
+      self.assertIn("MockEnv", message)
+      self.assertIn("Session: 1", message)
 
 
 if __name__ == "__main__":

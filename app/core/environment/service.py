@@ -310,7 +310,7 @@ class EnvironmentService:
 
     # Backward compatibility for single station envs or if charging_stations not set
     if not charging_stations and charging_station_x is not None and charging_station_y is not None:
-        charging_stations = [(int(charging_station_x), int(charging_station_y))]
+      charging_stations = [(int(charging_station_x), int(charging_station_y))]
 
     # Calculate distance to charging station if position is available
     distance_to_charging_station = None
@@ -321,7 +321,7 @@ class EnvironmentService:
       robot_y = int(env.robot_y)
       # Distance to nearest station
       distance_to_charging_station = min(
-          abs(robot_x - sx) + abs(robot_y - sy) for sx, sy in charging_stations
+        abs(robot_x - sx) + abs(robot_y - sy) for sx, sy in charging_stations
       )
 
     return EnvironmentState(
