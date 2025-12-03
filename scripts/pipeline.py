@@ -31,6 +31,7 @@ class StageConfig(TypedDict):
   total_timesteps: int
   num_workers: int
   model_path: str
+  num_robots: NotRequired[int]
   map_config: NotRequired[dict[str, int]]
 
 
@@ -53,6 +54,7 @@ async def run_pipeline() -> None:
         "total_timesteps": 5000,
         "num_workers": 4,
         "model_path": "models/stage1_random.pth",
+        "num_robots": 1,
       },
       "critical": True,  # Critical stage - must succeed
     },
@@ -66,6 +68,7 @@ async def run_pipeline() -> None:
         "total_timesteps": 10000,
         "num_workers": 4,
         "model_path": "models/stage2_maze.pth",
+        "num_robots": 1,
       },
     },
     {
@@ -78,6 +81,7 @@ async def run_pipeline() -> None:
         "total_timesteps": 15000,
         "num_workers": 4,
         "model_path": "models/stage3_room.pth",
+        "num_robots": 2,
       },
     },
   ]
@@ -119,6 +123,7 @@ async def run_pipeline() -> None:
           env_width=stage["config"].get("env_width", 8),
           env_height=stage["config"].get("env_height", 8),
           total_timesteps=stage["config"].get("total_timesteps", 0),
+          num_robots=stage["config"].get("num_robots", 1),
           config=stage["config"],
         )
         session.add(job)

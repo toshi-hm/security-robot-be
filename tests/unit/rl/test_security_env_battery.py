@@ -2,6 +2,7 @@
 
 import random
 
+import numpy as np
 import pytest
 
 from rl.environments.security_env import SecurityEnvironment
@@ -17,8 +18,8 @@ def test_battery_initialization(battery_env):
   """バッテリーが100%で初期化されることを確認"""
   obs, info = battery_env.reset()
 
-  assert battery_env.battery_percentage == 100.0
-  assert battery_env.is_charging is False
+  assert battery_env.battery_levels[0] == 100.0
+  assert battery_env.is_charging_list[0] is False
   assert "battery_percentage" in info
   assert info["battery_percentage"] == 100.0
 
@@ -28,19 +29,18 @@ def test_battery_drain_rate(battery_env):
   battery_env.reset()
 
   # 充電ステーションから離れる
-  battery_env.robot_x = 0
-  battery_env.robot_y = 0
+  battery_env.robot_positions[0] = (0, 0)
 
-  initial_battery = battery_env.battery_percentage
+  initial_battery = battery_env.battery_levels[0]
 
   # 1000ステップ実行
   for _ in range(1000):
-    _obs, _reward, done, _truncated, _info = battery_env.step(0)
+    _obs, _reward, done, _truncated, _info = battery_env.step([0])
     if done:
       break
 
   # 1%消費されているはず(誤差0.1以内)
-  assert abs(battery_env.battery_percentage - (initial_battery - 1.0)) < 0.1
+  assert abs(battery_env.battery_levels[0] - (initial_battery - 1.0)) < 0.1
 
 
 def test_battery_charging_on_station(battery_env):
@@ -48,19 +48,18 @@ def test_battery_charging_on_station(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_x == battery_env.charging_station_x
-  assert battery_env.robot_y == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを50%に設定
-  battery_env.battery_percentage = 50.0
+  battery_env.battery_levels[0] = 50.0
 
   # 10ステップ実行（巡回アクションで充電ステーション上に留まる）
   for _ in range(10):
-    _obs, _reward, _done, _truncated, _info = battery_env.step(3)
+    _obs, _reward, _done, _truncated, _info = battery_env.step([3])
 
   # 10%充電されているはず
-  assert abs(battery_env.battery_percentage - 60.0) < 0.1
-  assert battery_env.is_charging is True
+  assert abs(battery_env.battery_levels[0] - 60.0) < 0.1
+  assert battery_env.is_charging_list[0] is True
 
 
 def test_battery_depletion_penalty(battery_env):
@@ -68,12 +67,11 @@ def test_battery_depletion_penalty(battery_env):
   battery_env.reset()
 
   # バッテリーを強制的に0%に設定
-  battery_env.battery_percentage = 0.001  # ほぼ0
+  battery_env.battery_levels[0] = 0.001  # ほぼ0
 
   # 1ステップ実行してバッテリー切れを発生させる
-  battery_env.robot_x = 0
-  battery_env.robot_y = 0
-  _obs, reward, done, _truncated, _info = battery_env.step(0)
+  battery_env.robot_positions[0] = (0, 0)
+  _obs, reward, done, _truncated, _info = battery_env.step([0])
 
   # バッテリー切れによる特大ペナルティ
   assert reward <= -100.0
@@ -95,14 +93,13 @@ def test_charging_station_in_observation(battery_env):
   """観測空間に充電ステーション位置が含まれることを確認"""
   obs, _info = battery_env.reset()
 
-  station_x = battery_env.charging_station_x
-  station_y = battery_env.charging_station_y
+  station_x, station_y = battery_env.charging_stations[0]
 
-  # チャンネル3に充電ステーションが記録されている
-  assert obs[station_y][station_x][3] == 1.0
+  # チャンネル2に充電ステーションが記録されている
+  assert obs[station_y][station_x][2] == 1.0
 
   # チャンネル4にバッテリー残量（正規化済み）が記録されている
-  assert obs[0][0][4] == 1.0  # 100% = 1.0
+  assert obs[station_y][station_x][4] == 1.0  # 100% = 1.0
 
 
 def test_battery_in_info_dict(battery_env):
@@ -111,13 +108,16 @@ def test_battery_in_info_dict(battery_env):
 
   assert "battery_percentage" in info
   assert "is_charging" in info
-  assert "distance_to_charging_station" in info
-  assert "charging_station_position" in info
+  # assert "distance_to_charging_station" in info # Removed in multi-agent
+  # assert "charging_station_position" in info # Removed in multi-agent
+
+  assert "battery_levels" in info
+  assert "robot_positions" in info
 
   assert 0.0 <= info["battery_percentage"] <= 100.0
   assert isinstance(info["is_charging"], bool)
-  assert isinstance(info["distance_to_charging_station"], int | float)
-  assert isinstance(info["charging_station_position"], tuple)
+  # assert isinstance(info["distance_to_charging_station"], int | float) # Removed in multi-agent
+  # assert isinstance(info["charging_station_position"], tuple) # Removed in multi-agent
 
 
 def test_charging_stops_when_moving_away(battery_env):
@@ -125,19 +125,17 @@ def test_charging_stops_when_moving_away(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_x == battery_env.charging_station_x
-  assert battery_env.robot_y == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを50%に設定
-  battery_env.battery_percentage = 50.0
+  battery_env.battery_levels[0] = 50.0
 
   # 充電ステーション上で充電開始
-  _obs, _reward, _done, _truncated, _info = battery_env.step(3)
-  assert battery_env.is_charging is True
+  _obs, _reward, _done, _truncated, _info = battery_env.step([3])
+  assert battery_env.is_charging_list[0] is True
 
   # 充電ステーション周囲の障害物をクリア
-  station_x = battery_env.charging_station_x
-  station_y = battery_env.charging_station_y
+  station_x, station_y = battery_env.charging_stations[0]
   for dx in [-1, 0, 1]:
     for dy in [-1, 0, 1]:
       x = station_x + dx
@@ -146,16 +144,16 @@ def test_charging_stops_when_moving_away(battery_env):
         battery_env.obstacles[x][y] = False
 
   # 前進して充電ステーションから離れる
-  _obs, _reward, _done, _truncated, _info = battery_env.step(0)
+  _obs, _reward, _done, _truncated, _info = battery_env.step([0])
 
   # 充電ステーションから離れたか、障害物で移動できなかった場合は回転して移動
-  if battery_env.robot_x == station_x and battery_env.robot_y == station_y:
-    _obs, _reward, _done, _truncated, _info = battery_env.step(1)  # 回転
-    _obs, _reward, _done, _truncated, _info = battery_env.step(0)  # 前進
+  if battery_env.robot_positions[0] == (station_x, station_y):
+    _obs, _reward, _done, _truncated, _info = battery_env.step([1])  # 回転
+    _obs, _reward, _done, _truncated, _info = battery_env.step([0])  # 前進
 
   # 充電ステーションから離れていれば充電が停止
-  if battery_env.robot_x != station_x or battery_env.robot_y != station_y:
-    assert battery_env.is_charging is False
+  if battery_env.robot_positions[0] != (station_x, station_y):
+    assert battery_env.is_charging_list[0] is False
 
 
 def test_partial_charging_strategy(battery_env):
@@ -163,29 +161,28 @@ def test_partial_charging_strategy(battery_env):
   obs, info = battery_env.reset()
 
   # リセット直後はロボットが充電ステーション上にいることを確認
-  assert battery_env.robot_x == battery_env.charging_station_x
-  assert battery_env.robot_y == battery_env.charging_station_y
+  assert battery_env.robot_positions[0] in battery_env.charging_stations
 
   # バッテリーを30%に設定
-  battery_env.battery_percentage = 30.0
+  battery_env.battery_levels[0] = 30.0
 
   # 50ステップ充電（100%まで充電しない）
   for _ in range(50):
-    _obs, _reward, _done, _truncated, _info = battery_env.step(3)
+    _obs, _reward, _done, _truncated, _info = battery_env.step([3])
 
   # 80%まで充電されている（100%ではない）
-  assert abs(battery_env.battery_percentage - 80.0) < 0.1
-  assert battery_env.is_charging is True
-  assert battery_env.battery_percentage < 100.0
+  assert abs(battery_env.battery_levels[0] - 80.0) < 0.1
+  assert battery_env.is_charging_list[0] is True
+  assert battery_env.battery_levels[0] < 100.0
 
   # さらに10ステップ充電
   for _ in range(10):
-    _obs, _reward, _done, _truncated, _info = battery_env.step(3)
+    _obs, _reward, _done, _truncated, _info = battery_env.step([3])
 
   # 90%まで充電されている（依然として100%ではない）
-  assert abs(battery_env.battery_percentage - 90.0) < 0.1
-  assert battery_env.is_charging is True
-  assert battery_env.battery_percentage < 100.0
+  assert abs(battery_env.battery_levels[0] - 90.0) < 0.1
+  assert battery_env.is_charging_list[0] is True
+  assert battery_env.battery_levels[0] < 100.0
 
   # 部分充電で充電を中断できることを確認済み
   # (100%まで充電する必要がない)
@@ -205,7 +202,7 @@ def test_battery_full_episode(battery_env):
     # ランダムアクション
     action = random.randint(0, 3)
 
-    _obs, reward, done, _truncated, info = battery_env.step(action)
+    _obs, reward, done, _truncated, info = battery_env.step([action])
     total_reward += reward
     steps += 1
 
@@ -235,12 +232,11 @@ def test_battery_initialization_with_different_values(initial_battery, expected_
   env.reset()
 
   # 初期バッテリーを設定
-  env.battery_percentage = initial_battery
+  env.battery_levels[0] = initial_battery
 
   # 充電ステーションから離れて1ステップ実行
-  env.robot_x = 0
-  env.robot_y = 0
-  _obs, _reward, _done, _truncated, info = env.step(0)
+  env.robot_positions[0] = (0, 0)
+  _obs, _reward, _done, _truncated, info = env.step(np.array([0]))
 
   # バッテリーが微減している
   assert expected_range[0] <= info["battery_percentage"] <= expected_range[1]
@@ -251,10 +247,10 @@ def test_render_includes_battery_info(battery_env, capsys):
   battery_env.reset()
 
   # バッテリーを減らしてから充電中状態をテスト
-  battery_env.battery_percentage = 50.0
+  battery_env.battery_levels[0] = 50.0
 
   # 充電ステーション上で1ステップ実行（充電が開始される）
-  battery_env.step(3)  # patrol action on charging station
+  battery_env.step(np.array([3]))  # patrol action on charging station
 
   # 充電中状態でレンダリング
   battery_env.render()
@@ -265,13 +261,12 @@ def test_render_includes_battery_info(battery_env, capsys):
   assert "[CHARGING]" in captured.out
 
   # 充電ステーション位置が表示されている
-  assert "Charging station:" in captured.out
-  assert f"({battery_env.charging_station_x}, {battery_env.charging_station_y})" in captured.out
+  assert "Charging stations:" in captured.out
+  assert str(battery_env.charging_stations) in captured.out
 
   # 充電ステーションから離れる
-  battery_env.robot_x = 0
-  battery_env.robot_y = 0
-  battery_env.is_charging = False
+  battery_env.robot_positions[0] = (0, 0)
+  battery_env.is_charging_list[0] = False
 
   # 再度レンダリング（充電中でない）
   battery_env.render()
@@ -348,13 +343,12 @@ def test_episode_terminates_at_dynamic_max_steps():
   env.reset()
 
   # 充電ステーションから離れる（バッテリー切れを避けるため短いエピソード）
-  env.robot_x = 0
-  env.robot_y = 0
+  env.robot_positions[0] = (0, 0)
 
   terminated = False
   steps = 0
   for _ in range(200):  # 100を超えるステップを試行
-    _obs, _reward, terminated, _truncated, _info = env.step(3)  # patrol
+    _obs, _reward, terminated, _truncated, _info = env.step(np.array([3]))  # patrol
     steps += 1
     if terminated:
       break

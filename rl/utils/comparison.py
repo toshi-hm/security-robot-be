@@ -9,6 +9,8 @@ import logging
 from statistics import mean, stdev
 from typing import Any
 
+import numpy as np
+
 from rl.agents.template_agents import BaseTemplateAgent
 from rl.environments.security_env import SecurityEnvironment, calculate_dynamic_max_steps
 
@@ -95,6 +97,7 @@ class EnvironmentInfo:
   high_threat_tiles: list[dict[str, Any]]
   obstacles: list[list[bool]]
   charging_station: dict[str, int]
+  charging_stations: list[dict[str, int]]
   suspicious_objects: list[dict[str, Any]]
 
   def to_dict(self) -> dict[str, Any]:
@@ -252,10 +255,19 @@ def evaluate_template_agent(
 
   env_info_captured = False
 
+  import copy
+
+  # Create agents for each robot
+  # We use deepcopy to ensure each robot has its own agent instance with independent state
+  agents: list[Any] = [agent] + [copy.deepcopy(agent) for _ in range(env.num_robots - 1)]
+
   for episode in range(episodes):
     episode_seed = (seed + episode) if seed is not None else None
     env.reset(seed=episode_seed)
-    agent.reset()
+
+    # Reset all agents
+    for a in agents:
+      a.reset()
 
     if not env_info_captured:
       result.environment_info = _capture_environment_info(env)
@@ -270,42 +282,73 @@ def evaluate_template_agent(
     emit("episode_started", episode=episode + 1)
     cumulative_reward = 0.0
 
+    # Convert obstacles grid to set of coordinates for template agents
+    obstacle_set = set()
+    if hasattr(env, "obstacles"):
+      for y in range(len(env.obstacles)):
+        for x in range(len(env.obstacles[0])):
+          if env.obstacles[y][x]:
+            obstacle_set.add((x, y))
+
     for step in range(effective_max_steps):  # noqa: B007
-      action = agent.get_action(
-        env.robot_x,
-        env.robot_y,
-        env.robot_direction,
-        obstacle_coords,
-      )
+      # Get robot state (Multi-agent compatible)
+      if hasattr(env, "robot_positions"):
+        robot_positions = env.robot_positions
+        robot_directions = env.robot_directions
+      else:
+        # Legacy single-agent fallback
+        robot_positions = [(env.robot_x, env.robot_y)]
+        robot_directions = [env.robot_direction]
 
-      if action == 0:
-        metrics.move_count += 1
-      elif action in [1, 2]:
-        metrics.turn_count += 1
-      elif action == 3:
-        metrics.patrol_count += 1
+      # Collect actions for all robots
+      actions = []
+      for i in range(len(robot_positions)):
+        # Use separate agent instance for each robot to maintain independent state
+        agent_instance = agents[i]
 
-      _obs, reward, terminated, truncated, info = env.step(action)
+        # Get action for this robot
+        # Note: Template agents do not use battery or charging station info
+        action = agent_instance.get_action(
+          robot_positions[i][0], robot_positions[i][1], robot_directions[i], obstacle_set
+        )
+        actions.append(action)
+
+        # Update metrics for each robot
+        if action == 0:
+          metrics.move_count += 1
+        elif action in [1, 2]:
+          metrics.turn_count += 1
+        elif action == 3:
+          metrics.patrol_count += 1
+
+      _obs, reward, terminated, truncated, info = env.step(np.array(actions))
       reward_value = float(reward)
       metrics.total_reward += reward_value
       cumulative_reward += reward_value
 
-      battery = float(info.get("battery_percentage", env.battery_percentage))
-      metrics.min_battery = min(metrics.min_battery, battery)
-      if info.get("is_charging", False):
-        metrics.charging_events += 1
+      # Metrics aggregation (using min/sum as appropriate)
+      # Min battery across all robots
+      current_min_battery = min(env.battery_levels)
+      metrics.min_battery = min(metrics.min_battery, current_min_battery)
+
+      # Count charging events
+      charging_count = sum(1 for is_charging in env.is_charging_list if is_charging)
+      metrics.charging_events += charging_count
 
       if save_frames:
+        # Note: FrameData currently supports single robot visualization.
+        # We log Robot 0's data for backward compatibility.
+        # Future TODO: Update FrameData to support multi-agent visualization.
         frames.append(
           FrameData(
             timestep=step,
-            robot_x=int(env.robot_x),
-            robot_y=int(env.robot_y),
-            robot_orientation=int(env.robot_direction),
-            action=int(action),
+            robot_x=int(env.robot_positions[0][0]),
+            robot_y=int(env.robot_positions[0][1]),
+            robot_orientation=int(env.robot_directions[0]),
+            action=int(actions[0]),
             reward=reward_value,
-            battery_percentage=battery,
-            is_charging=bool(info.get("is_charging", False)),
+            battery_percentage=float(env.battery_levels[0]),
+            is_charging=bool(env.is_charging_list[0]),
             coverage_map=_copy_grid(getattr(env, "last_patrolled", []), cast_func=int),
             timestamp=_iso_timestamp(),
           )
@@ -318,6 +361,8 @@ def evaluate_template_agent(
         or truncated
         or current_step == effective_max_steps
       ):
+        # Use Robot 0 battery for progress update consistency
+        battery = float(env.battery_levels[0])
         emit(
           "step_update",
           episode=episode + 1,
@@ -328,7 +373,8 @@ def evaluate_template_agent(
         )
 
       if terminated or truncated:
-        if battery <= 0:
+        # Check if ANY robot died
+        if any(b <= 0 for b in env.battery_levels):
           metrics.battery_deaths += 1
         break
 
@@ -446,6 +492,9 @@ def _capture_environment_info(env: SecurityEnvironment) -> EnvironmentInfo:
       "x": int(getattr(env, "charging_station_x", 0)),
       "y": int(getattr(env, "charging_station_y", 0)),
     },
+    charging_stations=[
+      {"x": int(x), "y": int(y)} for x, y in getattr(env, "charging_stations", [])
+    ],
     suspicious_objects=_serialise_suspicious_objects(getattr(env, "suspicious_objects", {})),
   )
 

@@ -19,6 +19,9 @@ class EnvironmentStateCreate(BaseModel):
   robot_x: int = Field(..., ge=0)
   robot_y: int = Field(..., ge=0)
   robot_orientation: int = Field(..., ge=0, le=3, description="0=North, 1=East, 2=South, 3=West")
+  robots: list[dict] | None = Field(
+    default=None, description="List of robot states for multi-agent"
+  )
 
   # Environment state
   threat_grid: dict = Field(..., description="2D array of threat levels")
@@ -60,6 +63,7 @@ class EnvironmentStateResponse(BaseModel):
   robot_x: int
   robot_y: int
   robot_orientation: int
+  robots: list[dict] | None = None
 
   # Environment state
   threat_grid: dict

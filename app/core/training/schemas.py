@@ -7,6 +7,7 @@ class TrainingConfig(BaseModel):
   algorithm: TrainingAlgorithm
   environment_id: str
   total_timesteps: int
+  num_robots: int = 1
 
 
 class TrainingSession(BaseModel):

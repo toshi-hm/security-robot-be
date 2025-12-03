@@ -298,6 +298,62 @@ class PlaybackRecordingWrapper(gym.Wrapper):
         else:
           payload[payload_key] = value
 
+    # Extract multi-agent state
+    robots = []
+    robot_positions = getattr(self.env, "robot_positions", [])
+    robot_directions = getattr(self.env, "robot_directions", [])
+
+    # Ensure we have iterable sequences
+    if hasattr(robot_positions, "tolist"):
+      robot_positions = robot_positions.tolist()
+    elif not isinstance(robot_positions, list | tuple):
+      logger.warning(
+        f"Unexpected type for robot_positions: {type(robot_positions)}. "
+        f"Env: {self.env.__class__.__name__}, Session: {self._session_id}. "
+        "Defaulting to empty list."
+      )
+      robot_positions = []
+
+    if hasattr(robot_directions, "tolist"):
+      robot_directions = robot_directions.tolist()
+    elif not isinstance(robot_directions, list | tuple):
+      logger.warning(
+        f"Unexpected type for robot_directions: {type(robot_directions)}. "
+        f"Env: {self.env.__class__.__name__}, Session: {self._session_id}. "
+        "Defaulting to empty list."
+      )
+      robot_directions = []
+
+    for i, pos in enumerate(robot_positions):
+      # Safe access to direction
+      direction = robot_directions[i] if i < len(robot_directions) else 0
+
+      # Handle numpy scalars or other types for direction
+      if hasattr(direction, "item"):
+        try:
+          direction = int(direction.item())
+        except (ValueError, TypeError):
+          direction = 0
+      elif not isinstance(direction, int | float):
+        direction = 0
+      else:
+        direction = int(direction)
+
+      # Handle position
+      if hasattr(pos, "tolist"):
+        pos = pos.tolist()
+
+      if isinstance(pos, list | tuple) and len(pos) >= 2:
+        try:
+          x = int(pos[0])
+          y = int(pos[1])
+          robots.append({"id": i, "x": x, "y": y, "orientation": direction})
+        except (ValueError, TypeError):
+          continue
+
+    if robots:
+      payload["robots"] = robots
+
     coverage_source = None
     if hasattr(self.env, "visit_count"):
       coverage_source = self.env.visit_count

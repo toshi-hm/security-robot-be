@@ -46,3 +46,4 @@ class EnvironmentState(BaseModel):
   is_charging: bool = False
   distance_to_charging_station: int | None = None
   charging_station_position: tuple[int, int] | None = None
+  charging_stations: list[tuple[int, int]] = []
