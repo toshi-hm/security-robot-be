@@ -152,6 +152,7 @@ class TrainingService:
       "num_robots": job.num_robots,
       "model_path": job.model_path,
       "log_path": job.log_path,
+      "device": "cuda",
     }
 
     if extra_config is not None:

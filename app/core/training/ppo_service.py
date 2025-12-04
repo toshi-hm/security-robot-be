@@ -195,6 +195,17 @@ class PPOTrainingService:
       total_timesteps = config.get("total_timesteps", 50000)
       logger.info(f"Starting PPO training for {total_timesteps} timesteps")
 
+      # Log the actual device of the model parameters
+      if self.model:
+        device = self.model.device
+        logger.info(f"Model is on device: {device}")
+        # Also check a parameter to be sure
+        try:
+          param_device = next(self.model.policy.parameters()).device
+          logger.info(f"Model policy parameters are on device: {param_device}")
+        except StopIteration:
+          logger.warning("Model has no parameters to check device.")
+
       self.model.learn(total_timesteps=total_timesteps, callback=callback_list, progress_bar=True)
 
       # Save model
