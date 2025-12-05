@@ -20,6 +20,7 @@ services:
       - 'DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://security_robot:change_me@postgres:5432/security_robot}'
       - 'REDIS_URL=${REDIS_URL:-redis://redis:6379/0}'
       - 'CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}'
+      - 'PYTHONPATH=/app'
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,7 +41,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    privileged: true
+    shm_size: '8gb'
+    security_opt:
+      - seccomp:unconfined
 
   celery-worker:
     build:
@@ -68,6 +71,7 @@ services:
     environment:
       - 'DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://security_robot:change_me@postgres:5432/security_robot}'
       - 'REDIS_URL=${REDIS_URL:-redis://redis:6379/0}'
+      - 'PYTHONPATH=/app'
     depends_on:
       api:
         condition: service_healthy
@@ -88,7 +92,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    privileged: true
+    shm_size: '8gb'
+    security_opt:
+      - seccomp:unconfined
 
   postgres:
     image: postgres:15-alpine

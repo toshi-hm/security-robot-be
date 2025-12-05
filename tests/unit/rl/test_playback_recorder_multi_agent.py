@@ -15,6 +15,7 @@ class MockMultiAgentEnv(gym.Env):
     self.obstacles = [[0]]
     self.visit_count = [[0]]
     self.time_step = 1
+    self.charging_stations = [(0, 0), (5, 5)]
 
   def step(self, action):
     return {}, 0, False, False, {}
@@ -43,5 +44,22 @@ def test_playback_recorder_captures_multi_agent_state(mock_recorder_cls):
 
   assert "robots" in payload
   assert len(payload["robots"]) == 2
-  assert payload["robots"][0] == {"id": 0, "x": 1, "y": 1, "orientation": 0}
-  assert payload["robots"][1] == {"id": 1, "x": 2, "y": 2, "orientation": 1}
+  assert payload["robots"][0] == {
+    "id": 0,
+    "x": 1,
+    "y": 1,
+    "orientation": 0,
+    "battery_percentage": 100.0,
+    "is_charging": False,
+  }
+  assert payload["robots"][1] == {
+    "id": 1,
+    "x": 2,
+    "y": 2,
+    "orientation": 1,
+    "battery_percentage": 100.0,
+    "is_charging": False,
+  }
+
+  assert "charging_stations" in payload
+  assert payload["charging_stations"] == [{"x": 0, "y": 0}, {"x": 5, "y": 5}]
