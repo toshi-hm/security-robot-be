@@ -33,6 +33,11 @@ class TrainingService:
     if algorithm == TrainingAlgorithm.a3c and payload.num_workers < 1:
       raise ValueError("num_workers must be at least 1 when using the A3C algorithm")
 
+    # Merge GPU optimization parameters into config
+    job_config = payload.config or {}
+    job_config["num_envs"] = payload.num_envs
+    job_config["policy_type"] = payload.policy_type
+
     job = TrainingJob(
       name=payload.name,
       algorithm=algorithm,
@@ -48,7 +53,7 @@ class TrainingService:
       batch_size=payload.batch_size,
       num_workers=payload.num_workers,
       num_robots=payload.num_robots,
-      config=payload.config,
+      config=job_config,
     )
 
     self._db.add(job)
@@ -156,9 +161,20 @@ class TrainingService:
 
     if extra_config is not None:
       config["config"] = extra_config
+      # Flatten GPU optimization parameters for PPO service
+      if "num_envs" in extra_config:
+        config["num_envs"] = extra_config["num_envs"]
+      if "policy_type" in extra_config:
+        config["policy_type"] = extra_config["policy_type"]
 
     if payload is not None and payload.config is None and job.config is not None:
       # Preserve persisted configuration when the resume payload omits overrides.
-      config["config"] = job.config
+      preserved_config = job.config
+      config["config"] = preserved_config
+      # Flatten preserved params
+      if "num_envs" in preserved_config:
+        config["num_envs"] = preserved_config["num_envs"]
+      if "policy_type" in preserved_config:
+        config["policy_type"] = preserved_config["policy_type"]
 
     return config

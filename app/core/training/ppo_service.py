@@ -7,7 +7,7 @@ import gymnasium as gym
 from sqlalchemy.orm import Session
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 from app.core.config import settings
 from app.core.training.playback_recorder import wrap_environment_for_playback
@@ -70,7 +70,7 @@ class PPOTrainingService:
 
   def create_model(
     self,
-    env: gym.Env,
+    env: gym.Env | VecEnv,
     learning_rate: float = 0.0003,
     batch_size: int = 64,
     n_steps: int = 2048,
@@ -81,11 +81,12 @@ class PPOTrainingService:
     verbose: int = 1,
     tensorboard_log: str | None = None,
     device: str | None = None,
+    policy_type: str = "MlpPolicy",
   ) -> PPO:
     """Create PPO model with specified hyperparameters.
 
     Args:
-      env: Training environment
+      env: Training environment (gym.Env or VecEnv)
       learning_rate: Learning rate
       batch_size: Batch size for training
       n_steps: Number of steps to run for each environment per update
@@ -96,19 +97,23 @@ class PPOTrainingService:
       verbose: Verbosity level
       tensorboard_log: Path for TensorBoard logs
       device: Training device (overrides instance device if provided)
+      policy_type: Policy network type ("MlpPolicy" or "CnnPolicy")
 
     Returns:
       Configured PPO model
     """
-    # Wrap environment in DummyVecEnv for Stable-Baselines3
-    vec_env = DummyVecEnv([lambda: env])
+    # Wrap environment in DummyVecEnv if it's a standard gym.Env
+    if isinstance(env, VecEnv):
+      vec_env = env
+    else:
+      vec_env = DummyVecEnv([lambda: env])  # type: ignore
 
     # Use provided device or fall back to instance device
     effective_device = device if device is not None else self._device
-    logger.info(f"Creating PPO model on device: {effective_device}")
+    logger.info(f"Creating PPO model with {policy_type} on device: {effective_device}")
 
     model = PPO(
-      policy="MlpPolicy",
+      policy=policy_type,
       env=vec_env,
       learning_rate=learning_rate,
       n_steps=n_steps,
@@ -152,24 +157,43 @@ class PPOTrainingService:
       Training result dictionary
     """
     try:
-      # Create environment
-      environment = self.create_environment(config)
-
-      effective_session_id = session_id or config.get("session_id")
+      # Create environment(s)
+      num_envs = config.get("num_envs", 1)
+      environment_config = config
+      # Only enable playback for the first environment if parallel
       playback_config = dict(config.get("playback") or {})
       if playback_options:
         playback_config.update(playback_options)
       playback_enabled = playback_config.pop("enabled", True)
+      effective_session_id = session_id or config.get("session_id")
+      should_wrap_playback = (
+        effective_session_id is not None and db_session_factory is not None and playback_enabled
+      )
 
-      if effective_session_id is not None and db_session_factory is not None and playback_enabled:
-        environment = wrap_environment_for_playback(
-          environment,
-          session_id=int(effective_session_id),
-          session_factory=db_session_factory,
-          options=playback_config,
-        )
+      def make_env(rank: int) -> Callable[[], gym.Env]:
+        def _init() -> gym.Env:
+          env = self.create_environment(environment_config)
+          # Only wrap rank 0 for playback to avoid database contention and confused logs
+          if rank == 0 and should_wrap_playback:
+            return wrap_environment_for_playback(
+              env,
+              session_id=int(effective_session_id),  # type: ignore
+              session_factory=db_session_factory,  # type: ignore
+              options=playback_config,
+            )
+          return env
 
-      self.env = environment
+        return _init
+
+      if num_envs > 1:
+        logger.info(f"Creating {num_envs} parallel environments (SubprocVecEnv)")
+        # Use SubprocVecEnv for parallel execution
+        # We manually create list of constructors to handle conditional wrapping
+        env_fns = [make_env(i) for i in range(num_envs)]
+        self.env = SubprocVecEnv(env_fns)
+      else:
+        logger.info("Creating single environment (DummyVecEnv)")
+        self.env = DummyVecEnv([make_env(0)])
 
       # Prepare log directory
       log_path = config.get("log_path")
@@ -179,13 +203,21 @@ class PPOTrainingService:
       # Create model
       # Allow config to override device
       device = config.get("device", self._device)
+      policy_type = config.get("policy_type", "MlpPolicy")
+
+      # Adjust default hyperparameters for better GPU utilization if not specified
+      default_batch_size = 2048 if policy_type == "CnnPolicy" or num_envs > 1 else 64
+      default_n_steps = 4096 if policy_type == "CnnPolicy" or num_envs > 1 else 2048
+
       self.model = self.create_model(
         env=self.env,
         learning_rate=config.get("learning_rate", 0.0003),
-        batch_size=config.get("batch_size", 64),
+        batch_size=config.get("batch_size", default_batch_size),
+        n_steps=config.get("n_steps", default_n_steps),
         verbose=1,
         tensorboard_log=log_path,
         device=device,
+        policy_type=policy_type,
       )
 
       # Setup callbacks

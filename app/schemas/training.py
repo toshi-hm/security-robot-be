@@ -35,6 +35,12 @@ class TrainingSessionCreate(BaseModel):
   batch_size: int = Field(default=64, gt=0, description="Batch size")
   num_workers: int = Field(default=1, ge=1, description="Number of workers (for A3C)")
 
+  # Parallel Training & Advanced Policy
+  num_envs: int = Field(default=1, ge=1, le=32, description="Number of parallel environments")
+  policy_type: str = Field(
+    default="MlpPolicy", pattern="^(MlpPolicy|CnnPolicy)$", description="Policy network type"
+  )
+
   # Optional configuration
   config: dict | None = Field(default=None, description="Additional configuration")
 
