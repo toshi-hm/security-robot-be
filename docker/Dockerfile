@@ -1,22 +1,29 @@
 ARG APP_UID=1000
 ARG APP_GID=1000
 
-FROM python:3.12-slim AS base
+FROM nvidia/cuda:12.6.0-base-ubuntu24.04 AS base
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV PATH="/app/.venv/bin:/root/.local/bin:${PATH}"
+ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     build-essential \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    git \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+# Symlink python3 to python
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Install dependencies as root before creating user
 # This ensures dependency layer is cached even when APP_UID/APP_GID changes
 COPY pyproject.toml requirements.txt ./
-RUN uv venv .venv && \
+RUN uv venv .venv --python /usr/bin/python3 && \
     uv pip install --no-cache -r requirements.txt
 
 # Create user after dependency installation to maximize cache efficiency
@@ -39,7 +46,7 @@ EXPOSE 8000
 
 USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 FROM base AS production
 
@@ -55,4 +62,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

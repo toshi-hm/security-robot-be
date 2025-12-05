@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -34,7 +34,7 @@ class JobManager:
   """
 
   _STOP_REASON_KEYS = ("stopped_at", "paused_at", "revoked_at")
-  _DEFAULT_TIMESTAMP = datetime.min.replace(tzinfo=UTC)
+  _DEFAULT_TIMESTAMP = datetime.min.replace(tzinfo=timezone.utc)
 
   def __init__(
     self,
