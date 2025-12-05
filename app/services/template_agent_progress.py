@@ -8,7 +8,6 @@ import logging
 from typing import Any
 
 import anyio
-
 from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)

@@ -5,6 +5,8 @@
 ## 📑 目次
 - [2025-11-23 セッション01](#2025-11-23-セッション01)
 - [2025-11-26 セッション02](#2025-11-26-セッション02)
+- [2025-12-05 セッション03](#2025-12-05-セッション03)
+- [2025-12-06 セッション04](#2025-12-06-セッション04)
 
 ---
 
@@ -126,3 +128,70 @@
 
 ### 🔗 関連コミット
 - (コミット予定)
+
+### 2025-12-05 セッション03
+
+### 🎯 セッション目標
+- DockerコンテナからのGPUアクセスを確立し、`security-robot-be` での学習ジョブを実行可能にする
+
+### ✅ 実施内容
+1.  **Docker環境の修正**
+    - `Dockerfile` のベースイメージを `nvidia/cuda:12.6.0-base-ubuntu24.04` に変更し、ホストのドライバーバージョン (570.xx) との互換性を確保。
+    - `docker-compose.yml` (および `.prod.yml`) の `api` と `celery-worker` サービスに `privileged: true` を追加。これにより、コンテナ内での NVML 初期化エラー (`Unknown Error`) が解消された。
+
+2.  **Celeryワーカーの設定変更**
+    - デフォルトの `prefork` プールでは CUDA 初期化時に `RuntimeError: Cannot re-initialize CUDA in forked subprocess` が発生するため、実行モードを `pool=solo` (単一プロセス) に変更。
+    - これにより、Celeryタスク内から正常にGPUを利用した学習 (`PPO`) が開始できることを確認。
+
+3.  **Frontend接続修正**
+    - リモート環境での開発において、Browserが `ws://localhost:8000` に接続しようとしてエラーになっていたため、`security-robot-fe/.env` に `NUXT_PUBLIC_WS_URL` を追加し、APIサーバーのIPアドレスを指定するように修正。
+
+### 📊 成果物
+- `Dockerfile`: CUDA 12.6 / Ubuntu 24.04 対応版
+- `docker-compose.yml`: `privileged: true`, `command: ... -P solo` 追加版
+- `security-robot-fe/.env`: WebSocket URL 設定追加
+
+### 🧠 学んだこと・課題
+1.  **新しいNVIDIAドライバーとDocker**: ホストのドライバーバージョンが新しい場合、古いCUDAベースイメージや非特権コンテナでは `NVML: Unknown Error` が発生することがある。`privileged` モードが有効だが、本番環境ではセキュリティ要件との兼ね合いを考慮する必要がある。
+2.  **PyTorchとMultiprocessing**: CUDAコンテキストは `fork` されたプロセスに引き継げない。Celeryのデフォルトは `prefork` なので、GPUを使う場合は `spawn` 方式にするか、シンプルに `solo` (プロセスプールを使わない) にする必要がある。
+
+### ⏭️ 次回セッションの予定
+1.  GPUの並列計算能力を活かすため、環境の並列化 (Vectorized Environments) と CNN ポリシーの導入を計画・実装する。
+
+### 🔗 関連コミット
+- (未コミット)
+
+---
+
+### 2025-12-06 セッション04
+
+### 🎯 セッション目標
+- GPU最適化と高度な強化学習（Parallel Training / CNN）の設計を行う
+
+### ✅ 実施内容
+1.  **現状分析**
+    - セッション03でGPU学習に成功したが、FPSがCPU版より低い（~250 vs ~500）ことを確認。
+    - 原因は、小規模なグリッド環境と軽量なMLPモデルでは、GPUへのデータ転送オーバーヘッドが計算時間を上回るためと特定。
+
+2.  **最適化計画の策定**
+    - **並列環境 (Parallel envs)**: `SubprocVecEnv` を導入し、16〜32環境を同時実行することでバッチサイズを稼ぎ、GPU効率を高める。
+    - **CNNポリシー**: グリッドを画像として扱うモデルを導入し、計算密度を高めるとともに表現力を向上させる。
+
+3.  **ドキュメント作成**
+    - `instructions/07_gpu_optimization_design.md` を新規作成し、Backend/Frontendの改修仕様を定義。
+
+### 📊 成果物
+- `instructions/07_gpu_optimization_design.md`: GPU最適化設計書
+- `report/PROGRESS.md`: Phase 9完了、Phase 10追加
+
+### 🧠 学んだこと・課題
+1.  **GPU活用の条件**: 単にGPUを使えば速くなるわけではなく、十分な計算負荷（バッチサイズやモデルの複雑さ）が必要。強化学習では並列環境実行が常套手段。
+
+### ⏭️ 次回セッションの予定
+1.  設計書に基づき、Backend (`TrainingSessionCreate`, `PPOService`) の改修
+2.  Frontend (`TrainingForm`) への詳細設定追加
+3.  並列学習の実行とFPS向上確認
+
+### 🔗 関連コミット
+- (未コミット)
+

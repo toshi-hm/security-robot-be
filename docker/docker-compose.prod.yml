@@ -31,7 +31,8 @@ services:
       - app.tasks.celery_app
       - worker
       - --loglevel=info
-      - --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+      - -P
+      - solo
     environment:
       - 'DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://security_robot:change_me@postgres:5432/security_robot}'
       - 'REDIS_URL=${REDIS_URL:-redis://redis:6379/0}'

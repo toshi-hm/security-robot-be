@@ -1,5 +1,7 @@
 """テンプレートエージェント実行・比較APIエンドポイント"""
 
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from app.schemas.template_agents import (
   TemplateAgentCompareRequest,
   TemplateAgentCompareResponse,
@@ -14,7 +16,6 @@ from app.services.template_agent_service import (
   execute_template_agent,
   initialize_execution,
 )
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(prefix="/template-agents", tags=["template-agents"])
 
