@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.training import TrainingAlgorithm
 from app.utils.datetime import utcnow
@@ -75,6 +75,8 @@ class TrainingSessionResponse(BaseModel):
   learning_rate: float
   batch_size: int
   num_workers: int
+  num_envs: int = 1
+  policy_type: str = "MlpPolicy"
 
   # File paths
   model_path: str | None = None
@@ -109,6 +111,16 @@ class TrainingSessionResponse(BaseModel):
       return None
     end_time = self.completed_at or utcnow()
     return (end_time - self.started_at).total_seconds()
+
+  @model_validator(mode="after")
+  def populate_from_config(self) -> "TrainingSessionResponse":
+    """Populate fields from config if available."""
+    if self.config:
+      if "num_envs" in self.config:
+        self.num_envs = self.config["num_envs"]
+      if "policy_type" in self.config:
+        self.policy_type = self.config["policy_type"]
+    return self
 
 
 class TrainingSessionUpdate(BaseModel):
