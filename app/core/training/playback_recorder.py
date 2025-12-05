@@ -261,9 +261,11 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "threat_grid": {"levels": _copy_grid(getattr(self.env, "threat_levels", []))},
       "coverage_map": None,
       "obstacles": {"levels": _copy_grid(getattr(self.env, "obstacles", []))},
-      "charging_stations": _copy_mapping(
-        dict.fromkeys(getattr(self.env, "charging_stations", []), 0)
-      ),
+      "charging_stations": [
+        {"x": int(pos[0]), "y": int(pos[1])}
+        for pos in getattr(self.env, "charging_stations", [])
+        if isinstance(pos, tuple | list) and len(pos) >= 2
+      ],
       "suspicious_objects": _copy_mapping(getattr(self.env, "suspicious_objects", None)),
       "action_taken": self._normalise_action(action),
       "reward_received": float(reward) if reward is not None else None,
