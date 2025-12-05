@@ -29,7 +29,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    privileged: true
+    shm_size: '8gb'
+    security_opt:
+      - seccomp:unconfined
 
   celery-worker:
     image: security-robot-rl/api:latest
@@ -64,7 +66,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    privileged: true
+    shm_size: '8gb'
+    security_opt:
+      - seccomp:unconfined
 
   postgres:
     image: postgres:15-alpine
