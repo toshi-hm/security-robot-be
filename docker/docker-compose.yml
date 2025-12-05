@@ -40,6 +40,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    privileged: true
 
   celery-worker:
     build:
@@ -54,8 +55,8 @@ services:
       - app.tasks.celery_app
       - worker
       - --loglevel=info
-      - --concurrency
-      - "${CELERY_WORKER_CONCURRENCY:-2}"
+      - -P
+      - solo
     user: appuser
     volumes:
       - ../:/app
@@ -87,6 +88,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    privileged: true
 
   postgres:
     image: postgres:15-alpine

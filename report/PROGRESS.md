@@ -41,6 +41,7 @@
 - [未着手の項目](#-未着手の項目)
 - [Phase 8: テスト実装](#phase-8-テスト実装-80)
 - [Phase 9: Docker環境構築](#phase-9-docker環境構築-100)
+- [Phase 10: GPU最適化・高度RL](#-未着手の項目)
 - [既知の問題・課題](#️-既知の問題課題)
 - [次のアクションアイテム](#-次のアクションアイテム-優先度順)
 - [参考資料](#-参考資料)
@@ -467,6 +468,11 @@
 - [x] PostgreSQL接続確認
 - [x] Redis接続確認
 - [x] Celeryワーカー起動確認
+- [x] GPUアクセス確認 (2025-12-05完了)
+  - [x] ベースイメージを `nvidia/cuda:12.6.0-base-ubuntu24.04` へ更新し、ホストドライバー(570.xx)との互換性を確保
+  - [x] `privileged: true` を付与し、コンテナ内からの GPU デバイスアクセス (NVML初期化) を許可
+  - [x] Celeryワーカーを `pool=solo` (単一プロセス) に設定し、CUDA 初期化エラー (`Cannot re-initialize CUDA in forked subprocess`) を解消
+  - [x] `security-robot-fe/.env` に `NUXT_PUBLIC_WS_URL` を追加し、リモート接続時の WebSocket エラーを解消
 
 - [x] `.env` ファイル経由で Compose 環境変数を注入し、認証情報のハードコードを解消 (2025-10-24更新)
 - [x] 本番イメージからビルドツールを削除し、ヘルスチェックを Python 実行へ置き換えて追加パッケージを不要化 (2025-10-24更新)
