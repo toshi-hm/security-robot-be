@@ -216,11 +216,20 @@ class PPOTrainingService:
       default_batch_size = 2048 if policy_type == "CnnPolicy" or num_envs > 1 else 64
       default_n_steps = 4096 if policy_type == "CnnPolicy" or num_envs > 1 else 2048
 
+      actual_batch_size = config.get("batch_size", default_batch_size)
+      actual_n_steps = config.get("n_steps", default_n_steps)
+
+      if num_envs > 1 or policy_type == "CnnPolicy":
+        logger.info(
+          f"Auto-tuning hyperparameters for efficient parallel/GPU training: "
+          f"batch_size={actual_batch_size}, n_steps={actual_n_steps}"
+        )
+
       self.model = self.create_model(
         env=self.env,
         learning_rate=config.get("learning_rate", 0.0003),
-        batch_size=config.get("batch_size", default_batch_size),
-        n_steps=config.get("n_steps", default_n_steps),
+        batch_size=actual_batch_size,
+        n_steps=actual_n_steps,
         verbose=1,
         tensorboard_log=log_path,
         device=device,
