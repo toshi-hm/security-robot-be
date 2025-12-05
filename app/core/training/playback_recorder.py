@@ -261,6 +261,9 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "threat_grid": {"levels": _copy_grid(getattr(self.env, "threat_levels", []))},
       "coverage_map": None,
       "obstacles": {"levels": _copy_grid(getattr(self.env, "obstacles", []))},
+      "charging_stations": _copy_mapping(
+        dict.fromkeys(getattr(self.env, "charging_stations", []), 0)
+      ),
       "suspicious_objects": _copy_mapping(getattr(self.env, "suspicious_objects", None)),
       "action_taken": self._normalise_action(action),
       "reward_received": float(reward) if reward is not None else None,
@@ -347,7 +350,24 @@ class PlaybackRecordingWrapper(gym.Wrapper):
         try:
           x = int(pos[0])
           y = int(pos[1])
-          robots.append({"id": i, "x": x, "y": y, "orientation": direction})
+
+          # Battery info
+          battery = 100.0
+          if hasattr(self.env, "battery_levels") and i < len(self.env.battery_levels):
+             battery = float(self.env.battery_levels[i])
+
+          is_charging = False
+          if hasattr(self.env, "is_charging_list") and i < len(self.env.is_charging_list):
+             is_charging = bool(self.env.is_charging_list[i])
+
+          robots.append({
+            "id": i,
+            "x": x,
+            "y": y,
+            "orientation": direction,
+            "battery_percentage": battery,
+            "is_charging": is_charging
+          })
         except (ValueError, TypeError):
           continue
 
