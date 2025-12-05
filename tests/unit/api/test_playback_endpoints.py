@@ -4,11 +4,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import sys
 
+from fastapi import HTTPException, status
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from fastapi import HTTPException, status
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from fastapi import HTTPException, status
 import pytest
 
 from app.api.v1.endpoints import environment as environment_module
@@ -17,7 +18,6 @@ from app.schemas.environment import (
   EnvironmentSessionCreate,
   EnvironmentSessionResetRequest,
 )
-from fastapi import HTTPException, status
 
 
 class StubEnvironmentService:

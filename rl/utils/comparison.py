@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 from statistics import mean, stdev
 from typing import Any
@@ -516,7 +516,7 @@ def _calculate_coverage_ratio(
 
 
 def _iso_timestamp() -> str:
-  return datetime.now(tz=timezone.utc).isoformat()
+  return datetime.now(tz=UTC).isoformat()
 
 
 def _calculate_threat_stats(threat_grid: list[list[float]]) -> tuple[float, float, float]:
