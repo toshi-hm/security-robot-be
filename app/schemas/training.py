@@ -75,6 +75,8 @@ class TrainingSessionResponse(BaseModel):
   learning_rate: float
   batch_size: int
   num_workers: int
+  num_envs: int = 1
+  policy_type: str = "MlpPolicy"
 
   # File paths
   model_path: str | None = None

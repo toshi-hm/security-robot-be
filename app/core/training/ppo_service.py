@@ -166,6 +166,13 @@ class PPOTrainingService:
         playback_config.update(playback_options)
       playback_enabled = playback_config.pop("enabled", True)
       effective_session_id = session_id or config.get("session_id")
+
+      # Disable playback for parallel execution to avoid pickling issues with DB session
+      if num_envs > 1 and playback_enabled:
+        logger.warning("Disabling playback recording for parallel training (num_envs > 1)")
+        playback_enabled = False
+        db_session_factory = None  # Ensure closure captures None, which is picklable
+
       should_wrap_playback = (
         effective_session_id is not None and db_session_factory is not None and playback_enabled
       )

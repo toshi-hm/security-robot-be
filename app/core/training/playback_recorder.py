@@ -354,20 +354,22 @@ class PlaybackRecordingWrapper(gym.Wrapper):
           # Battery info
           battery = 100.0
           if hasattr(self.env, "battery_levels") and i < len(self.env.battery_levels):
-             battery = float(self.env.battery_levels[i])
+            battery = float(self.env.battery_levels[i])
 
           is_charging = False
           if hasattr(self.env, "is_charging_list") and i < len(self.env.is_charging_list):
-             is_charging = bool(self.env.is_charging_list[i])
+            is_charging = bool(self.env.is_charging_list[i])
 
-          robots.append({
-            "id": i,
-            "x": x,
-            "y": y,
-            "orientation": direction,
-            "battery_percentage": battery,
-            "is_charging": is_charging
-          })
+          robots.append(
+            {
+              "id": i,
+              "x": x,
+              "y": y,
+              "orientation": direction,
+              "battery_percentage": battery,
+              "is_charging": is_charging,
+            }
+          )
         except (ValueError, TypeError):
           continue
 

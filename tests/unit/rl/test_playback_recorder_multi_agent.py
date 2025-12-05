@@ -43,5 +43,19 @@ def test_playback_recorder_captures_multi_agent_state(mock_recorder_cls):
 
   assert "robots" in payload
   assert len(payload["robots"]) == 2
-  assert payload["robots"][0] == {"id": 0, "x": 1, "y": 1, "orientation": 0}
-  assert payload["robots"][1] == {"id": 1, "x": 2, "y": 2, "orientation": 1}
+  assert payload["robots"][0] == {
+    "id": 0,
+    "x": 1,
+    "y": 1,
+    "orientation": 0,
+    "battery_percentage": 100.0,
+    "is_charging": False,
+  }
+  assert payload["robots"][1] == {
+    "id": 1,
+    "x": 2,
+    "y": 2,
+    "orientation": 1,
+    "battery_percentage": 100.0,
+    "is_charging": False,
+  }

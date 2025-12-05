@@ -83,11 +83,11 @@ class RedisTrainingCallback(BaseCallback):
     rewards = self.locals.get("rewards", [0.0])
     dones = self.locals.get("dones", [False])
 
-    reward = float(rewards[0]) if rewards else 0.0
+    reward = float(rewards[0]) if len(rewards) > 0 else 0.0
     self._current_episode_reward += reward
     self._current_episode_length += 1
 
-    if dones and dones[0]:
+    if len(dones) > 0 and dones[0]:
       self._episode_rewards.append(self._current_episode_reward)
       self._episode_lengths.append(self._current_episode_length)
       self._current_episode_reward = 0.0
