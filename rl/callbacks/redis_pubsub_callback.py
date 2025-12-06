@@ -71,6 +71,7 @@ class RedisTrainingCallback(BaseCallback):
     self._current_episode_length = 0
     self._last_coverage_ratio: float | None = None
     self._last_exploration_score: float | None = None
+    self._last_threat_level: float | None = None
 
   # ------------------------------------------------------------------
   # Stable-Baselines3 callback interface
@@ -102,6 +103,8 @@ class RedisTrainingCallback(BaseCallback):
         self._last_exploration_score = float(info["exploration_score"])
       elif "exploration_reward" in info:
         self._last_exploration_score = float(info["exploration_reward"])
+      if "average_threat_level" in info:
+        self._last_threat_level = float(info["average_threat_level"])
 
     if self.n_calls % self._update_interval == 0:
       self._publish_progress()
@@ -140,6 +143,7 @@ class RedisTrainingCallback(BaseCallback):
           int(np.mean(self._episode_lengths[-10:])) if self._episode_lengths else 0
         ),
         "total_episodes": len(self._episode_rewards),
+        "threat_level_avg": self._last_threat_level,
       },
       "coverage_ratio": self._last_coverage_ratio,
       "exploration_score": self._last_exploration_score,

@@ -162,6 +162,10 @@ class DatabaseMetricsCallback(BaseCallback):
     self.update_interval = update_interval
     self.episode_rewards: list[float] = []
     self.current_episode_reward = 0
+    # Metrics tracking
+    self._last_coverage_ratio: float | None = None
+    self._last_exploration_score: float | None = None
+    self._last_threat_level: float | None = None
 
   def _on_step(self) -> bool:
     """Save metrics to database at intervals."""
@@ -172,6 +176,19 @@ class DatabaseMetricsCallback(BaseCallback):
     if done:
       self.episode_rewards.append(self.current_episode_reward)
       self.current_episode_reward = 0
+
+    # Extract metrics from info
+    infos = self.locals.get("infos", [])
+    if infos:
+      info = infos[0]
+      if "coverage_ratio" in info:
+        self._last_coverage_ratio = float(info["coverage_ratio"])
+      if "exploration_score" in info:
+        self._last_exploration_score = float(info["exploration_score"])
+      elif "exploration_reward" in info:
+        self._last_exploration_score = float(info["exploration_reward"])
+      if "average_threat_level" in info:
+        self._last_threat_level = float(info["average_threat_level"])
 
     # Save to database at intervals
     if self.n_calls % self.update_interval == 0:
@@ -199,6 +216,9 @@ class DatabaseMetricsCallback(BaseCallback):
         episode=len(self.episode_rewards),
         reward=mean_reward,
         loss=loss,
+        coverage_ratio=self._last_coverage_ratio,
+        exploration_score=self._last_exploration_score,
+        threat_level_avg=self._last_threat_level,
         timestamp=utcnow(),
       )
 

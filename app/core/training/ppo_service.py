@@ -10,6 +10,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 from app.core.config import settings
+from app.core.redis_protocol import RedisPublisher
 from app.core.training.playback_recorder import wrap_environment_for_playback
 from rl.callbacks.redis_pubsub_callback import TrainingCancelled
 
@@ -138,6 +139,7 @@ class PPOTrainingService:
     session_id: int | None = None,
     db_session_factory: Callable[[], Session] | None = None,
     playback_options: dict[str, Any] | None = None,
+    redis_publisher: RedisPublisher | None = None,
   ) -> dict:
     """Start PPO training with the given configuration.
 
@@ -187,6 +189,7 @@ class PPOTrainingService:
               session_id=int(effective_session_id),  # type: ignore
               session_factory=db_session_factory,  # type: ignore
               options=playback_config,
+              redis_publisher=redis_publisher,
             )
           return env
 

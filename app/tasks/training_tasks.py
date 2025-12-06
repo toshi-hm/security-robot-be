@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable
 import json
 import logging
-from typing import Any, Protocol
+from typing import Any
 
 from redis import Redis
 from redis.exceptions import RedisError
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 import torch
 
 from app.core.config import settings
+from app.core.redis_protocol import RedisPublisher
 from app.core.training.a3c_service import A3CTrainingService
 from app.core.training.ppo_service import PPOTrainingService
 from app.db.session import SessionLocal
@@ -38,13 +39,6 @@ except ImportError:  # pragma: no cover - exercised when gymnasium is absent
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROGRESS_INTERVAL = 250
-
-
-class RedisPublisher(Protocol):
-  """Minimal Redis publisher protocol used for type checking."""
-
-  def publish(self, channel: str, message: str) -> Any:
-    """Publish a message to the given channel."""
 
 
 class _NoOpRedis(RedisPublisher):
@@ -293,6 +287,7 @@ def run_ppo_training_task(self: Any, session_id: int, config: dict[str, Any]) ->
         callbacks=callbacks,
         session_id=session_id,
         db_session_factory=SessionLocal,
+        redis_publisher=redis_client,
       )
     )
 

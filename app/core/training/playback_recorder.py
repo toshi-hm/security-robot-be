@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import json
 import logging
 from typing import Any
 
@@ -11,6 +12,7 @@ import gymnasium as gym
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.redis_protocol import RedisPublisher
 from app.models.environment import EnvironmentState
 
 # -----------------------------------------------------------------------------
@@ -170,6 +172,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
     buffer_size: int = DEFAULT_BUFFER_SIZE,
     statement_timeout_ms: int | None = None,
     record_on_reset: bool = True,
+    redis_publisher: RedisPublisher | None = None,
   ) -> None:
     if session_id <= 0:
       raise ValueError(f"Invalid session_id: {session_id}")
@@ -185,6 +188,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       buffer_size=buffer_size,
       statement_timeout_ms=statement_timeout_ms,
     )
+    self._redis_publisher = redis_publisher
     self._episode = -1
     self._step_in_episode = 0
     self._steps_since_record = 0
@@ -263,7 +267,11 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "obstacles": {"levels": _copy_grid(getattr(self.env, "obstacles", []))},
       "charging_stations": [
         {"x": int(pos[0]), "y": int(pos[1])}
-        for pos in getattr(self.env, "charging_stations", [])
+        for pos in getattr(
+            self.env.unwrapped,
+            "charging_stations",
+            getattr(self.env, "charging_stations", [])
+        )
         if isinstance(pos, tuple | list) and len(pos) >= 2
       ],
       "suspicious_objects": _copy_mapping(getattr(self.env, "suspicious_objects", None)),
@@ -279,6 +287,12 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "exploration_score",
       "exploration_reward_bonus",
       "exploration_reward",
+    )
+    payload["threat_level_avg"] = self._extract_metric(
+        info,
+        "average_threat_level",
+        "average_threat_level",
+        "threat_level_avg"
     )
 
     # Extract battery information from info dict if available
@@ -390,6 +404,52 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       payload["reward_received"] = float(reward)
 
     self._recorder.record(payload)
+    self._publish_update(payload)
+
+  def _publish_update(self, payload: dict[str, Any]) -> None:
+    """Publish environment update to Redis if a publisher is configured."""
+    if not self._redis_publisher:
+      return
+
+    try:
+      # Construct frontend-friendly message
+      update_message = {
+        "type": "environment_update",
+        "session_id": self._session_id,
+        "episode": payload.get("episode", 0),
+        "step": payload.get("step", 0),
+        "action_taken": payload.get("action_taken"),
+        "reward_received": payload.get("reward_received"),
+        "robots": payload.get("robots", []),
+        "charging_stations": payload.get("charging_stations", []),
+        "threat_level_avg": payload.get("threat_level_avg"),
+      }
+
+      # Add grids (convert complex objects to simple lists if needed)
+      if "threat_grid" in payload and "levels" in payload["threat_grid"]:
+        update_message["threat_grid"] = payload["threat_grid"]["levels"]
+
+      if (
+        "coverage_map" in payload
+        and payload["coverage_map"]
+        and "counts" in payload["coverage_map"]
+      ):
+        update_message["coverage_map"] = payload["coverage_map"]["counts"]
+
+      # Legacy fallback fields
+      if payload.get("robots") and len(payload["robots"]) > 0:
+        robot0 = payload["robots"][0]
+        update_message["robot_position"] = {"x": robot0["x"], "y": robot0["y"]}
+        update_message["robot_orientation"] = robot0["orientation"]
+        update_message["battery_percentage"] = robot0["battery_percentage"]
+        update_message["is_charging"] = robot0["is_charging"]
+
+      # Publish to the session-specific channel
+      channel = f"training_progress_{self._session_id}"
+      self._redis_publisher.publish(channel, json.dumps(update_message))
+
+    except Exception as exc:  # pragma: no cover - defensive logging
+      logger.warning("Failed to publish environment update to Redis", exc_info=exc)
 
   def _extract_metric(self, info: dict[str, Any] | None, env_attr: str, *keys: str) -> float | None:
     """Extract metric from info dict with fallback to env attribute."""
@@ -426,6 +486,7 @@ def wrap_environment_for_playback(
   session_id: int,
   session_factory: Callable[[], Session],
   options: dict[str, Any] | None = None,
+  redis_publisher: RedisPublisher | None = None,
 ) -> PlaybackRecordingWrapper:
   """Return a playback-enabled environment wrapper for the provided env."""
 
@@ -446,6 +507,7 @@ def wrap_environment_for_playback(
     buffer_size=max(1, min(buffer_size, MAX_BUFFER_SIZE)),
     statement_timeout_ms=statement_timeout_ms,
     record_on_reset=record_on_reset,
+    redis_publisher=redis_publisher,
   )
 
 
