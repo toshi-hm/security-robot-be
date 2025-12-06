@@ -26,7 +26,7 @@ class PPOTrainingService:
       device: Training device ('cpu', 'cuda', 'cuda:N', or None for auto-detection)
     """
     self.model: PPO | None = None
-    self.env: gym.Env | None = None
+    self.env: gym.Env | VecEnv | None = None
     self._device = device if device is not None else settings.get_training_device()
 
   def create_environment(self, env_config: dict) -> gym.Env:
@@ -106,7 +106,7 @@ class PPOTrainingService:
     if isinstance(env, VecEnv):
       vec_env = env
     else:
-      vec_env = DummyVecEnv([lambda: env])  # type: ignore
+      vec_env = DummyVecEnv([lambda: env])
 
     # Use provided device or fall back to instance device
     effective_device = device if device is not None else self._device

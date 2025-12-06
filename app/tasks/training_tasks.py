@@ -149,6 +149,8 @@ def _record_metric(
       episode=metrics.get("episode"),
       reward=float(metrics.get("reward", 0.0)),
       loss=metrics.get("loss"),
+      coverage_ratio=metrics.get("coverage_ratio"),
+      exploration_score=metrics.get("exploration_score"),
       additional_metrics=metrics.get("additional_metrics"),
     )
     session.add(metric)
