@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import math
-import logging
 import json
+import logging
+import math
 from typing import Any, Literal
-import gymnasium as gym
-import numpy as np
 
 import numpy as np
 
 from rl.environments.map_generator import MapType
 
 from .security_env import SecurityEnvironment
-
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +30,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     diversity_weight: float = 1.5,
     threat_penalty_weight: float = 0.0,
     battery_drain_rate: float = 0.001,
+    episode_log_file: str | None = None,
     map_type: MapType = "random",
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
@@ -57,7 +55,12 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     # Override battery drain rate
     self.battery_drain_rate = battery_drain_rate
+    self.episode_log_file = episode_log_file
     self.episode_start_positions = []
+    self.episode_cumulative_reward = 0.0
+    
+    # DEBUG PRINT
+    print(f"DEBUG: EnhancedEnv Initialized with BatteryDrain={self.battery_drain_rate}, ThreatPenalty={self.threat_penalty_weight}")
 
   def reset(
     self,
@@ -65,12 +68,30 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     seed: int | None = None,
     options: dict | None = None,
   ) -> tuple[np.ndarray, dict]:
+    # Check if there was a previous episode to log
+    if hasattr(self, "time_step") and self.time_step > 0:
+         # Calculate final metrics for the previous episode
+         total_cells = self.width * self.height
+         visited_count = len(self.visited_cells)
+         coverage_ratio = visited_count / total_cells if total_cells else 0.0
+         
+         # Note: obtaining final_reward is tricky here because reset() doesn't return it.
+         # But we can log the coverage and threat, which are most important for analysis.
+         # For reward, we might need to track cumulative reward in the env.
+         info = {
+             "coverage_ratio": coverage_ratio,
+             "average_threat_level": np.mean(self.threat_levels) if hasattr(self, "threat_levels") else 0.0
+         }
+         # DEBUG PRINT
+         print(f"DEBUG: Logging Episode Result: Reward={self.episode_cumulative_reward}, Info={info}")
+         self._log_episode_result(self.episode_cumulative_reward, info)
+
     observation, info = super().reset(seed=seed, options=options)
     # Capture starting positions for analysis
     self.episode_start_positions = list(self.robot_positions)
     
     self._init_tracking_structures()
-
+    self.episode_cumulative_reward = 0.0
     self._mark_current_position()
     return observation, info
 
@@ -131,6 +152,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # Total Enhanced Reward = Base (already normalized) + Avg Per-Robot + Normalized Global
     # All components are now normalized by num_robots for consistent scale
     enhanced_reward = base_reward + average_per_robot_reward + global_reward
+    self.episode_cumulative_reward += enhanced_reward
 
     info.update(
       {
@@ -143,8 +165,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     self.coverage_history.append(coverage_ratio)
 
-    if terminated or truncated:
-        self._log_episode_result(enhanced_reward, info)
+    # Logging moved to reset() to handle TimeLimit wrapper truncation correctly
 
     return observation, enhanced_reward, terminated, truncated, info
 
@@ -156,10 +177,25 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
               "final_reward": float(final_reward),
               "coverage": float(info.get("coverage_ratio", 0.0)),
               "avg_threat": float(info.get("average_threat_level", 0.0)),
-              "steps": self.time_step
+              "steps": self.time_step,
+              # Add config verification
+              "config_drain": self.battery_drain_rate,
+              "config_threat_penalty": self.threat_penalty_weight
           }
-          # Use a special prefix for easy grepping
+          
+          # 1. Log to logger (stdout/stderr)
           logger.info(f"EPISODE_RESULT: {json.dumps(result)}")
+
+          # 2. Log to direct file if configured
+          if self.episode_log_file:
+              try:
+                  with open(self.episode_log_file, "a") as f:
+                      f.write(json.dumps(result) + "\n")
+                  # Also print confirmation that we wrote to file
+                  print(f"DEBUG: Wrote episode result to {self.episode_log_file}")
+              except Exception as e:
+                  logger.error(f"Failed to write to episode log file: {e}")
+
       except Exception as e:
           logger.error(f"Failed to log episode result: {e}")
 

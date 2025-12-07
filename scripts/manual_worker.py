@@ -1,18 +1,19 @@
-import asyncio
-import logging
 import argparse
+import asyncio
 import json
+import logging
 from typing import Any
+
 from redis import Redis
 from sqlalchemy import text
+
 from app.core.config import settings
-from app.core.training.ppo_service import PPOTrainingService
 from app.core.redis_protocol import RedisPublisher
+from app.core.training.ppo_service import PPOTrainingService
 from app.db.session import SessionLocal
 from app.models.training import TrainingJobStatus
 from rl.callbacks.redis_pubsub_callback import RedisTrainingCallback
 from rl.callbacks.websocket_callback import DatabaseMetricsCallback
-from app.utils.datetime import utcnow
 
 # Configure logging
 logging.basicConfig(
@@ -40,7 +41,7 @@ async def process_job(job_id: int):
         # Fetch Job using Raw SQL to avoid Enum mapping issues
         result = db.execute(text("SELECT id, name, algorithm, config, total_timesteps, env_width, env_height, num_robots, coverage_weight, exploration_weight, diversity_weight FROM trainingjob WHERE id = :id"), {"id": job_id})
         row = result.mappings().one_or_none()
-        
+
         if not row:
             logger.error(f"Job {job_id} not found in DB")
             return
@@ -54,14 +55,14 @@ async def process_job(job_id: int):
         # Build Config
         # Row keys map to columns. check capitalization? typically lowercase in postgres.
         # SQLAlchemy mappings() should be consistent with query.
-        
+
         # Parse config (JSON)
         job_config = row['config']
         if isinstance(job_config, str):
             job_config = json.loads(job_config)
         elif job_config is None:
             job_config = {}
-            
+
         config = job_config
         config.update({
             "total_timesteps": row['total_timesteps'],
@@ -73,8 +74,9 @@ async def process_job(job_id: int):
             "num_robots": row['num_robots'],
             "env_width": row['env_width'],
             "env_height": row['env_height'],
+            "episode_log_file": f"/app/report/result/job_{job_id}_episodes.jsonl"
         })
-        
+
         # Redis
         try:
             redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
@@ -84,7 +86,7 @@ async def process_job(job_id: int):
         # Callbacks
         progress_interval = _resolve_interval(config.get("progress_update_interval"), 250)
         metrics_interval = _resolve_interval(config.get("metrics_update_interval"), 250)
-        
+
         def _status_probe():
             return TrainingJobStatus.running
 
@@ -114,20 +116,20 @@ async def process_job(job_id: int):
             db_session_factory=SessionLocal,
             redis_publisher=redis_client
         )
-        
+
         logger.info(f"Job {job_id} Finished: {result.get('status')}")
-        
+
         # Mark completed (Raw SQL)
         status = result.get('status', 'failed')
         if status == 'completed':
             completion_status = 'completed'
         else:
             completion_status = 'failed'
-            
+
         db.execute(text("UPDATE trainingjob SET status = :status, completed_at = NOW() WHERE id = :id"), {"status": completion_status, "id": job_id})
         db.commit()
-        
-    except Exception as e:
+
+    except Exception:
         logger.exception(f"Job {job_id} Failed")
         try:
              db.execute(text("UPDATE trainingjob SET status = 'failed', completed_at = NOW() WHERE id = :id"), {"id": job_id})

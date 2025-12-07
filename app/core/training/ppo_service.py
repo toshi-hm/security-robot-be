@@ -44,6 +44,9 @@ class PPOTrainingService:
       Configured Gymnasium environment
     """
     env_type = env_config.get("environment_type", "standard")
+    print(f"DEBUG: create_environment called with env_type={env_type}")
+    print(f"DEBUG: episode_log_file={env_config.get('episode_log_file')}")
+    print(f"DEBUG: threat_penalty_weight={env_config.get('threat_penalty_weight')}")
 
     if env_type == "standard":
       from rl.environments.security_env import SecurityEnvironment
@@ -63,6 +66,9 @@ class PPOTrainingService:
         coverage_weight=env_config.get("coverage_weight", 1.5),
         exploration_weight=env_config.get("exploration_weight", 3.0),
         diversity_weight=env_config.get("diversity_weight", 2.0),
+        threat_penalty_weight=env_config.get("threat_penalty_weight", 0.0),
+        battery_drain_rate=env_config.get("battery_drain_rate", 0.001),
+        episode_log_file=env_config.get("episode_log_file"),
       )
     else:
       raise ValueError(f"Unknown environment type: {env_type}")

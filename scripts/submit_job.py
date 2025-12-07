@@ -1,29 +1,34 @@
-import asyncio
-import httpx
-import json
 import argparse
+import asyncio
+import json
+
+import httpx
 
 API_URL = "http://localhost:8000/api/v1/training/start"
 
-async def submit_job(name, coverage, exploration, diversity, threat_penalty, battery_drain, steps, seed):
+async def submit_job(args):
     config = {
-        "name": name,
+        "name": args.name,
         "algorithm": "ppo",
         "environment_type": "enhanced",
-        "total_timesteps": steps,
+        "total_timesteps": args.steps,
         "env_width": 20,
         "env_height": 20,
-        "coverage_weight": coverage,
-        "exploration_weight": exploration,
-        "diversity_weight": diversity,
-        "threat_penalty_weight": threat_penalty,
-        "battery_drain_rate": battery_drain,
+        "coverage_weight": args.cov,
+        "exploration_weight": args.exp,
+        "diversity_weight": args.div,
+        "threat_penalty_weight": args.threat,
+        "battery_drain_rate": args.drain,
         "num_robots": 3,
         "config": {
             "map_config": {
                 "map_type": "random",
-                "seed": seed
-            }
+                "seed": args.seed
+            },
+            "environment_type": "enhanced",
+            "battery_drain_rate": args.drain,
+            "threat_penalty_weight": args.threat,
+            "episode_log_file": None # Placeholder, filled by worker
         }
     }
 
@@ -51,10 +56,9 @@ if __name__ == "__main__":
     parser.add_argument("--div", type=float, default=0.2)
     parser.add_argument("--threat", type=float, default=0.0)
     parser.add_argument("--drain", type=float, default=0.001)
-    parser.add_argument("--seed", type=int, default=42) # New seed for variety? or same for comparison? Let's use 42 to isolate weight impact.
-    
+    parser.add_argument("--seed", type=int, default=42)
+
     args = parser.parse_args()
-    
-    # Keeping seed 42 to strictly compare weight influence on same map
-    asyncio.run(submit_job(args.name, args.cov, args.exp, args.div, args.threat, args.drain, args.steps, args.seed))
+
+    asyncio.run(submit_job(args))
 
