@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 import numpy as np
 
@@ -14,6 +14,7 @@ from rl.environments.map_generator import MapType
 from .security_env import SecurityEnvironment
 
 logger = logging.getLogger(__name__)
+
 
 class EnhancedSecurityEnvironment(SecurityEnvironment):
   """Extended environment optimised for coverage, exploration, and diversity."""
@@ -56,11 +57,14 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     # Override battery drain rate
     self.battery_drain_rate = battery_drain_rate
     self.episode_log_file = episode_log_file
-    self.episode_start_positions = []
+    self.episode_start_positions: list[Any] = []
     self.episode_cumulative_reward = 0.0
-    
+
     # DEBUG PRINT
-    print(f"DEBUG: EnhancedEnv Initialized with BatteryDrain={self.battery_drain_rate}, ThreatPenalty={self.threat_penalty_weight}")
+    print(
+      f"DEBUG: EnhancedEnv Initialized with BatteryDrain={self.battery_drain_rate}, "
+      f"ThreatPenalty={self.threat_penalty_weight}"
+    )
 
   def reset(
     self,
@@ -70,26 +74,28 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
   ) -> tuple[np.ndarray, dict]:
     # Check if there was a previous episode to log
     if hasattr(self, "time_step") and self.time_step > 0:
-         # Calculate final metrics for the previous episode
-         total_cells = self.width * self.height
-         visited_count = len(self.visited_cells)
-         coverage_ratio = visited_count / total_cells if total_cells else 0.0
-         
-         # Note: obtaining final_reward is tricky here because reset() doesn't return it.
-         # But we can log the coverage and threat, which are most important for analysis.
-         # For reward, we might need to track cumulative reward in the env.
-         info = {
-             "coverage_ratio": coverage_ratio,
-             "average_threat_level": np.mean(self.threat_levels) if hasattr(self, "threat_levels") else 0.0
-         }
-         # DEBUG PRINT
-         print(f"DEBUG: Logging Episode Result: Reward={self.episode_cumulative_reward}, Info={info}")
-         self._log_episode_result(self.episode_cumulative_reward, info)
+      # Calculate final metrics for the previous episode
+      total_cells = self.width * self.height
+      visited_count = len(self.visited_cells)
+      coverage_ratio = visited_count / total_cells if total_cells else 0.0
+
+      # Note: obtaining final_reward is tricky here because reset() doesn't return it.
+      # But we can log the coverage and threat, which are most important for analysis.
+      # For reward, we might need to track cumulative reward in the env.
+      info = {
+        "coverage_ratio": coverage_ratio,
+        "average_threat_level": np.mean(self.threat_levels)
+        if hasattr(self, "threat_levels")
+        else 0.0,
+      }
+      # DEBUG PRINT
+      print(f"DEBUG: Logging Episode Result: Reward={self.episode_cumulative_reward}, Info={info}")
+      self._log_episode_result(self.episode_cumulative_reward, info)
 
     observation, info = super().reset(seed=seed, options=options)
     # Capture starting positions for analysis
     self.episode_start_positions = list(self.robot_positions)
-    
+
     self._init_tracking_structures()
     self.episode_cumulative_reward = 0.0
     self._mark_current_position()
@@ -170,35 +176,34 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     return observation, enhanced_reward, terminated, truncated, info
 
   def _log_episode_result(self, final_reward: float, info: dict) -> None:
-      """Log episode results for analysis of optimal start positions."""
-      try:
-          result = {
-              "start_positions": self.episode_start_positions,
-              "final_reward": float(final_reward),
-              "coverage": float(info.get("coverage_ratio", 0.0)),
-              "avg_threat": float(info.get("average_threat_level", 0.0)),
-              "steps": self.time_step,
-              # Add config verification
-              "config_drain": self.battery_drain_rate,
-              "config_threat_penalty": self.threat_penalty_weight
-          }
-          
-          # 1. Log to logger (stdout/stderr)
-          logger.info(f"EPISODE_RESULT: {json.dumps(result)}")
+    """Log episode results for analysis of optimal start positions."""
+    try:
+      result = {
+        "start_positions": self.episode_start_positions,
+        "final_reward": float(final_reward),
+        "coverage": float(info.get("coverage_ratio", 0.0)),
+        "avg_threat": float(info.get("average_threat_level", 0.0)),
+        "steps": self.time_step,
+        # Add config verification
+        "config_drain": self.battery_drain_rate,
+        "config_threat_penalty": self.threat_penalty_weight,
+      }
 
-          # 2. Log to direct file if configured
-          if self.episode_log_file:
-              try:
-                  with open(self.episode_log_file, "a") as f:
-                      f.write(json.dumps(result) + "\n")
-                  # Also print confirmation that we wrote to file
-                  print(f"DEBUG: Wrote episode result to {self.episode_log_file}")
-              except Exception as e:
-                  logger.error(f"Failed to write to episode log file: {e}")
+      # 1. Log to logger (stdout/stderr)
+      logger.info(f"EPISODE_RESULT: {json.dumps(result)}")
 
-      except Exception as e:
-          logger.error(f"Failed to log episode result: {e}")
+      # 2. Log to direct file if configured
+      if self.episode_log_file:
+        try:
+          with open(self.episode_log_file, "a") as f:
+            f.write(json.dumps(result) + "\n")
+          # Also print confirmation that we wrote to file
+          print(f"DEBUG: Wrote episode result to {self.episode_log_file}")
+        except Exception as e:
+          logger.error(f"Failed to write to episode log file: {e}")
 
+    except Exception as e:
+      logger.error(f"Failed to log episode result: {e}")
 
   # ------------------------------------------------------------------
   # Tracking helpers
