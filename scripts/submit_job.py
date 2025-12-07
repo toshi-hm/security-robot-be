@@ -5,7 +5,7 @@ import argparse
 
 API_URL = "http://localhost:8000/api/v1/training/start"
 
-async def submit_job(name, coverage, exploration, diversity, steps, seed):
+async def submit_job(name, coverage, exploration, diversity, threat_penalty, battery_drain, steps, seed):
     config = {
         "name": name,
         "algorithm": "ppo",
@@ -16,6 +16,8 @@ async def submit_job(name, coverage, exploration, diversity, steps, seed):
         "coverage_weight": coverage,
         "exploration_weight": exploration,
         "diversity_weight": diversity,
+        "threat_penalty_weight": threat_penalty,
+        "battery_drain_rate": battery_drain,
         "num_robots": 3,
         "config": {
             "map_config": {
@@ -47,9 +49,12 @@ if __name__ == "__main__":
     parser.add_argument("--cov", type=float, default=1.0)
     parser.add_argument("--exp", type=float, default=0.3)
     parser.add_argument("--div", type=float, default=0.2)
-    parser.add_argument("--seed", type=int, default=43) # New seed for variety? or same for comparison? Let's use 42 to isolate weight impact.
+    parser.add_argument("--threat", type=float, default=0.0)
+    parser.add_argument("--drain", type=float, default=0.001)
+    parser.add_argument("--seed", type=int, default=42) # New seed for variety? or same for comparison? Let's use 42 to isolate weight impact.
     
     args = parser.parse_args()
     
     # Keeping seed 42 to strictly compare weight influence on same map
-    asyncio.run(submit_job(args.name, args.cov, args.exp, args.div, args.steps, 42))
+    asyncio.run(submit_job(args.name, args.cov, args.exp, args.div, args.threat, args.drain, args.steps, args.seed))
+

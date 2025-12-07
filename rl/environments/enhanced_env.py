@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import math
+import logging
+import json
 from typing import Any, Literal
+import gymnasium as gym
+import numpy as np
 
 import numpy as np
 
@@ -11,6 +15,8 @@ from rl.environments.map_generator import MapType
 
 from .security_env import SecurityEnvironment
 
+
+logger = logging.getLogger(__name__)
 
 class EnhancedSecurityEnvironment(SecurityEnvironment):
   """Extended environment optimised for coverage, exploration, and diversity."""
@@ -25,6 +31,8 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     coverage_weight: float = 1.0,
     exploration_weight: float = 2.0,
     diversity_weight: float = 1.5,
+    threat_penalty_weight: float = 0.0,
+    battery_drain_rate: float = 0.001,
     map_type: MapType = "random",
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
@@ -32,6 +40,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     self.coverage_weight = coverage_weight
     self.exploration_weight = exploration_weight
     self.diversity_weight = diversity_weight
+    self.threat_penalty_weight = threat_penalty_weight
     self.reward_normalization_mode = reward_normalization_mode
 
     super().__init__(
@@ -46,6 +55,10 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     )
     self._init_tracking_structures()
 
+    # Override battery drain rate
+    self.battery_drain_rate = battery_drain_rate
+    self.episode_start_positions = []
+
   def reset(
     self,
     *,
@@ -53,6 +66,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     options: dict | None = None,
   ) -> tuple[np.ndarray, dict]:
     observation, info = super().reset(seed=seed, options=options)
+    # Capture starting positions for analysis
+    self.episode_start_positions = list(self.robot_positions)
+    
     self._init_tracking_structures()
 
     self._mark_current_position()
@@ -81,6 +97,13 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     global_reward = 0.0
     global_reward += self._calculate_coverage_reward(coverage_ratio) * self.coverage_weight
     global_reward += self._calculate_total_diversity_reward() * self.diversity_weight
+
+    # Threat Penalty Reward (Maintenance)
+    # Deduct reward proportional to average threat level
+    # This incentivizes keeping the map generally clean (low threat)
+    avg_threat = info.get("average_threat_level", 0.0)
+    global_reward -= avg_threat * self.threat_penalty_weight
+
     # Normalize global rewards to maintain scale consistency
     if self.reward_normalization_mode == "sum":
       pass
@@ -119,7 +142,27 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     )
 
     self.coverage_history.append(coverage_ratio)
+
+    if terminated or truncated:
+        self._log_episode_result(enhanced_reward, info)
+
     return observation, enhanced_reward, terminated, truncated, info
+
+  def _log_episode_result(self, final_reward: float, info: dict) -> None:
+      """Log episode results for analysis of optimal start positions."""
+      try:
+          result = {
+              "start_positions": self.episode_start_positions,
+              "final_reward": float(final_reward),
+              "coverage": float(info.get("coverage_ratio", 0.0)),
+              "avg_threat": float(info.get("average_threat_level", 0.0)),
+              "steps": self.time_step
+          }
+          # Use a special prefix for easy grepping
+          logger.info(f"EPISODE_RESULT: {json.dumps(result)}")
+      except Exception as e:
+          logger.error(f"Failed to log episode result: {e}")
+
 
   # ------------------------------------------------------------------
   # Tracking helpers

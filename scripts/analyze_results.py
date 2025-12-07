@@ -35,16 +35,18 @@ def analyze(job_id: int):
 
     print(f"Found {len(metrics)} data points.")
     print("Summary:")
-    print(metrics[['reward', 'coverage_ratio', 'exploration_score']].describe())
+    print(metrics[['reward', 'coverage_ratio', 'exploration_score', 'threat_level_avg']].describe())
     
     # Last 10 average
     last_10 = metrics.tail(10)
     avg_reward = last_10['reward'].mean()
     avg_cov = last_10['coverage_ratio'].mean()
+    avg_threat = last_10['threat_level_avg'].mean()
     
     print(f"\nFinal Performance (Last 10 avg):")
     print(f"Reward: {avg_reward:.4f}")
     print(f"Coverage: {avg_cov:.4f}")
+    print(f"Threat Level: {avg_threat:.4f}")
 
     return avg_reward, avg_cov
 
