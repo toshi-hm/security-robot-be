@@ -69,6 +69,7 @@ class PPOTrainingService:
         threat_penalty_weight=env_config.get("threat_penalty_weight", 0.0),
         battery_drain_rate=env_config.get("battery_drain_rate", 0.001),
         episode_log_file=env_config.get("episode_log_file"),
+        strategic_init_mode=env_config.get("strategic_init_mode", False),
       )
     else:
       raise ValueError(f"Unknown environment type: {env_type}")
