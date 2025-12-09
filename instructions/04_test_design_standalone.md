@@ -757,7 +757,21 @@ def test_battery_initialization_with_different_values(initial_battery, expected_
     assert expected_range[0] <= info['battery_percentage'] <= expected_range[1]
 ```
 
-### 2.5 ジョブマネージャーのセッションロック並行制御テスト
+    assert expected_range[0] <= info['battery_percentage'] <= expected_range[1]
+
+### 2.6 検証・ユーティリティスクリプト
+
+手動検証や特定機能のデバッグ用に以下のスクリプトを用意しています。
+
+| スクリプト名 | 目的 |
+|--------------|------|
+| `scripts/test_strategic.py` | 戦略的初期配置のロジック単体検証。ヒートマップ読み込みと配置候補の妥当性を確認。 |
+| `scripts/generate_heatmap.py` | 過去の学習データから最適開始位置ヒートマップを生成する。 |
+| `scripts/verify_api_training.py` | 学習APIのE2E動作確認(起動〜完了)。 |
+| `scripts/test_logging.py` | ログ出力設定の検証。 |
+| `scripts/manual_worker.py` | Celeryワーカーを手動プロセスとして起動(デバッグ用)。 |
+
+### 2.7 ジョブマネージャーのセッションロック並行制御テスト
 
 セッション粒度ロック導入後は、同一`session_id`に対する`stop`/`resume`呼び出しが厳密に直列化されることをユニットテストで担保する。ロック導入前は状態更新が辞書操作のみで原子的に近かったが、保持件数制御やTTLクリーンアップの追加で処理時間が伸びるため、テストで**順序保証**と**タイムスタンプ整合性**を明確にする。
 
