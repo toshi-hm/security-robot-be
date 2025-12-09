@@ -224,7 +224,12 @@ app/
   "env_height": 20,
   "coverage_weight": 1.5,
   "exploration_weight": 3.0,
-  "diversity_weight": 2.0
+  "diversity_weight": 2.0,
+  "config": {
+    "battery_drain_rate": 0.05,
+    "threat_penalty_weight": 50.0,
+    "strategic_init_mode": true
+  }
 }
 
 # レスポンス(202 Accepted):
@@ -525,6 +530,11 @@ R_diversity = ((unique_positions_last_N_steps / N) × diversity_weight) / num_ro
   - `reward_normalization_mode`: "mean" (デフォルト), "sum", "sqrt_mean" から選択可能。
   - `collision_penalty_scale`: ロボット数増加に伴う衝突ペナルティの増加率を調整可能（デフォルト0.3）。
   - `min_active_robots`: エピソード終了判定となる稼働ロボット数の閾値を設定可能（デフォルト0 = 全滅まで継続）。
+
+**戦略的初期配置 (Strategic Initialization):**
+過去の学習(Cycle 09/10)により特定された「高パフォーマンスな開始位置」周辺にロボットを優先的に配置するモードです。
+- `strategic_init_mode=True` の場合、ランダム配置ではなく、事前に定義された最適位置候補(OPTIMAL_START_POSITIONS)から開始位置を選択します。
+- これにより、充電ステーションへのアクセスや脅威分散が効率化され、学習初期のパフォーマンスが向上します。
 
 # 移動コスト
 C_movement = 0.1 × is_forward + 0.05 × is_rotation

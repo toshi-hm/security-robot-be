@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 import gymnasium as gym
+import redis
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -268,9 +269,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "charging_stations": [
         {"x": int(pos[0]), "y": int(pos[1])}
         for pos in getattr(
-            self.env.unwrapped,
-            "charging_stations",
-            getattr(self.env, "charging_stations", [])
+          self.env.unwrapped, "charging_stations", getattr(self.env, "charging_stations", [])
         )
         if isinstance(pos, tuple | list) and len(pos) >= 2
       ],
@@ -289,10 +288,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "exploration_reward",
     )
     payload["threat_level_avg"] = self._extract_metric(
-        info,
-        "average_threat_level",
-        "average_threat_level",
-        "threat_level_avg"
+      info, "average_threat_level", "average_threat_level", "threat_level_avg"
     )
 
     # Extract battery information from info dict if available
@@ -448,8 +444,12 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       channel = f"training_progress_{self._session_id}"
       self._redis_publisher.publish(channel, json.dumps(update_message))
 
-    except Exception as exc:  # pragma: no cover - defensive logging
-      logger.warning("Failed to publish environment update to Redis", exc_info=exc)
+    except (redis.RedisError, TypeError, ValueError) as exc:  # pragma: no cover - defensive logging
+      logger.warning(
+        "Failed to publish environment update to Redis for session %s",
+        self._session_id,
+        exc_info=exc,
+      )
 
   def _extract_metric(self, info: dict[str, Any] | None, env_attr: str, *keys: str) -> float | None:
     """Extract metric from info dict with fallback to env attribute."""

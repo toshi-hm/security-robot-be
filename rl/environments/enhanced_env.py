@@ -17,13 +17,7 @@ from .security_env import SecurityEnvironment
 logger = logging.getLogger(__name__)
 
 # Optimal start positions identified in Cycle 10-A (Heatmap Analysis)
-OPTIMAL_START_POSITIONS = [
-    (17, 14),
-    (5, 9),
-    (7, 7),
-    (6, 9),
-    (17, 7)
-]
+OPTIMAL_START_POSITIONS = [(17, 14), (5, 9), (7, 7), (6, 9), (17, 7)]
 
 
 class EnhancedSecurityEnvironment(SecurityEnvironment):
@@ -110,28 +104,28 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     # Strategic Initialization Logic
     if self.strategic_init_mode:
-        available_optimals = list(OPTIMAL_START_POSITIONS)
-        random.shuffle(available_optimals)
+      available_optimals = list(OPTIMAL_START_POSITIONS)
+      random.shuffle(available_optimals)
 
-        new_positions: list[tuple[int, int]] = []
-        for pos in available_optimals:
-            if len(new_positions) >= self.num_robots:
-                break
-            x, y = pos
-            if self._is_valid_position(x, y) and (x, y) not in new_positions:
-                new_positions.append((x, y))
+      new_positions: list[tuple[int, int]] = []
+      for pos in available_optimals:
+        if len(new_positions) >= self.num_robots:
+          break
+        x, y = pos
+        if self._is_valid_position(x, y) and (x, y) not in new_positions:
+          new_positions.append((x, y))
 
-        # Fill remaining with existing random positions if needed
-        if len(new_positions) < self.num_robots:
-            for pos in self.robot_positions:
-                if len(new_positions) >= self.num_robots:
-                    break
-                if pos not in new_positions:
-                    new_positions.append(pos)
+      # Fill remaining with existing random positions if needed
+      if len(new_positions) < self.num_robots:
+        for pos in self.robot_positions:
+          if len(new_positions) >= self.num_robots:
+            break
+          if pos not in new_positions:
+            new_positions.append(pos)
 
-        self.robot_positions = new_positions
-        # Reset visited cells to match new start positions
-        self.visited_cells = set(self.robot_positions)
+      self.robot_positions = new_positions
+      # Reset visited cells to match new start positions
+      self.visited_cells = set(self.robot_positions)
 
     # Capture starting positions for analysis
     self.episode_start_positions = list(self.robot_positions)

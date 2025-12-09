@@ -2,6 +2,7 @@ import logging
 import sys
 
 import numpy as np
+
 from rl.environments.enhanced_env import EnhancedSecurityEnvironment
 
 # Config logging to stderr
