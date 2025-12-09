@@ -55,12 +55,25 @@ async def test_multi_agent_training_pipeline():
     assert result["algorithm"] == "ppo"
     assert Path(result["model_path"]).exists()
 
+    from stable_baselines3.common.vec_env import VecEnv
+
     from rl.environments.security_env import SecurityEnvironment
 
     # Verify environment state
     assert ppo_service.env is not None
-    # Cast to SecurityEnvironment to satisfy mypy
     env = ppo_service.env
+
+    # Unwrap VecEnv if necessary
+    if isinstance(env, VecEnv):
+      # Get the first environment from the vectorized environment
+      # DummyVecEnv stores envs in a list
+      # SubprocVecEnv cannot be easily unwrapped to the instance directly without remote access
+      # But for this test with DummyVecEnv, we can access .envs[0] usually
+      # However, clean way is to rely on VecEnv methods or check unwrapped if supported
+      # For DummyVecEnv:
+      if hasattr(env, "envs"):
+        env = env.envs[0]
+
     assert isinstance(env, SecurityEnvironment)
     assert env.num_robots == 2
     assert len(env.robot_positions) == 2

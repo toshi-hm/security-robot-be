@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +17,6 @@ from app.schemas.files import (
   FileUploadResponse,
 )
 from app.services import FileService
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
 
 router = APIRouter()
 

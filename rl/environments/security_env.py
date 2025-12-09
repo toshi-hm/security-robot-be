@@ -674,6 +674,12 @@ class SecurityEnvironment(gym.Env):
     # Use average battery for simple logging, but provide details
     avg_battery = sum(self.battery_levels) / self.num_robots
 
+    # Calculate threat metrics
+    total_threat = sum(sum(row) for row in self.threat_levels)
+    total_cells = self.width * self.height
+    avg_threat = total_threat / total_cells if total_cells > 0 else 0.0
+    max_threat = max(max(row) for row in self.threat_levels) if self.threat_levels else 0.0
+
     return {
       "battery_percentage": avg_battery,  # Legacy compatibility
       "battery_levels": self.battery_levels,
@@ -683,4 +689,6 @@ class SecurityEnvironment(gym.Env):
       "coverage_ratio": len(self.visited_cells) / (self.width * self.height),
       "exploration_score": float(len(self.visited_cells)),
       "exploration_reward": 0.0,
+      "average_threat_level": avg_threat,
+      "max_threat_level": max_threat,
     }

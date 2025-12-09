@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "20251111_add_battery_system_to_environment_state"
-down_revision: str | None = "20251030_convert_timestamps_to_timestamptz"
+revision: str = "20251111_battery"
+down_revision: str | None = "20251030_timestamps"
 branch_labels: tuple[str, ...] | None = None
 depends_on: tuple[str, ...] | None = None
 

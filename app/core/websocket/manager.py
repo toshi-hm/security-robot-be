@@ -7,9 +7,10 @@ from collections import defaultdict
 import logging
 from typing import Any
 
+from fastapi import WebSocket, WebSocketDisconnect
+
 from app.core.config import settings
 from app.schemas.websocket import PingMessage
-from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 

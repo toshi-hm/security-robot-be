@@ -1,6 +1,7 @@
+from fastapi import APIRouter, HTTPException, status
+
 from app.core.training.job_manager import job_manager
 from app.schemas.jobs import JobQueueDetailResponse, JobQueueEntry, JobQueueListResponse
-from fastapi import APIRouter, HTTPException, status
 
 router = APIRouter()
 

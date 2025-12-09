@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.training import TrainingAlgorithm
 from app.utils.datetime import utcnow
@@ -34,6 +34,12 @@ class TrainingSessionCreate(BaseModel):
   learning_rate: float = Field(default=0.0003, gt=0, description="Learning rate")
   batch_size: int = Field(default=64, gt=0, description="Batch size")
   num_workers: int = Field(default=1, ge=1, description="Number of workers (for A3C)")
+
+  # Parallel Training & Advanced Policy
+  num_envs: int = Field(default=1, ge=1, le=32, description="Number of parallel environments")
+  policy_type: str = Field(
+    default="MlpPolicy", pattern="^(MlpPolicy|CnnPolicy)$", description="Policy network type"
+  )
 
   # Optional configuration
   config: dict | None = Field(default=None, description="Additional configuration")
@@ -69,6 +75,8 @@ class TrainingSessionResponse(BaseModel):
   learning_rate: float
   batch_size: int
   num_workers: int
+  num_envs: int = 1
+  policy_type: str = "MlpPolicy"
 
   # File paths
   model_path: str | None = None
@@ -103,6 +111,16 @@ class TrainingSessionResponse(BaseModel):
       return None
     end_time = self.completed_at or utcnow()
     return (end_time - self.started_at).total_seconds()
+
+  @model_validator(mode="after")
+  def populate_from_config(self) -> "TrainingSessionResponse":
+    """Populate fields from config if available."""
+    if self.config:
+      if "num_envs" in self.config:
+        self.num_envs = self.config["num_envs"]
+      if "policy_type" in self.config:
+        self.policy_type = self.config["policy_type"]
+    return self
 
 
 class TrainingSessionUpdate(BaseModel):

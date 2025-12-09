@@ -33,6 +33,7 @@ class StageConfig(TypedDict):
   model_path: str
   num_robots: NotRequired[int]
   map_config: NotRequired[dict[str, int]]
+  device: NotRequired[str]
 
 
 class Stage(TypedDict):
@@ -55,6 +56,7 @@ async def run_pipeline() -> None:
         "num_workers": 4,
         "model_path": "models/stage1_random.pth",
         "num_robots": 1,
+        "device": "cuda",
       },
       "critical": True,  # Critical stage - must succeed
     },
@@ -69,6 +71,7 @@ async def run_pipeline() -> None:
         "num_workers": 4,
         "model_path": "models/stage2_maze.pth",
         "num_robots": 1,
+        "device": "cuda",
       },
     },
     {
@@ -82,6 +85,7 @@ async def run_pipeline() -> None:
         "num_workers": 4,
         "model_path": "models/stage3_room.pth",
         "num_robots": 2,
+        "device": "cuda",
       },
     },
   ]

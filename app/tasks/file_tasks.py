@@ -51,7 +51,7 @@ def _build_archive_path(source: Path) -> Path:
   stem = source.stem if source.is_file() else source.name
   safe_stem = _sanitize_segment(stem or "logs", fallback="logs")
 
-  timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+  timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
   unique = uuid4().hex
   archive_dir = ARCHIVE_ROOT / safe_stem
   archive_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +61,7 @@ def _build_archive_path(source: Path) -> Path:
 
 def _build_playback_archive_path(session_id: int) -> Path:
   safe_segment = _sanitize_segment(f"session_{session_id}", fallback="session")
-  timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+  timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
   unique = uuid4().hex
   archive_dir = PLAYBACK_ARCHIVE_ROOT / safe_segment
   archive_dir.mkdir(parents=True, exist_ok=True)
