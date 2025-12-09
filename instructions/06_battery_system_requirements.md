@@ -201,17 +201,18 @@ required_battery = (distance_to_station * 0.001) * 1.5  # 1.5倍の安全マー�
 
 **要件ID: OBS-001**
 
-現在の観測空間 `(width, height, 3 + 2 * num_robots)` に拡張：
+現在の観測空間 `(width, height, 4 + 2 * num_robots)` に拡張：
 
 ```python
 # チャンネル0: 脅威レベルマップ (0.0-1.0)
 # チャンネル1: 障害物マップ (0.0 or 1.0)
-# チャンネル2: 充電ステーション位置マップ (0.0 or 1.0)
-# チャンネル3 + 2*i: ロボットiの位置・向き (0.0-1.0)
-# チャンネル4 + 2*i: ロボットiのバッテリー残量 (0.0-1.0)
+# チャンネル2: 訪問履歴マップ (0.0-1.0)  ← Cycle 11 追加: 1.0=直近訪問, 0.0=未訪問/古い
+# チャンネル3: 充電ステーション位置マップ (0.0 or 1.0)
+# チャンネル4 + 2*i: ロボットiの位置・向き (0.0-1.0)
+# チャンネル5 + 2*i: ロボットiのバッテリー残量 (0.0-1.0)
 
 # Implementation Detail:
-# observation_space = spaces.Box(low=0, high=1, shape=(width, height, 3 + 2 * num_robots))
+# observation_space = spaces.Box(low=0, high=1, shape=(width, height, 4 + 2 * num_robots))
 ```
 
 ### 4.2 行動空間

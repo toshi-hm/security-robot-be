@@ -265,6 +265,7 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       "step": int(step),
       "threat_grid": {"levels": _copy_grid(getattr(self.env, "threat_levels", []))},
       "coverage_map": None,
+      "visit_history_map": {"levels": _copy_grid(getattr(self.env, "visit_history_map", []))},
       "obstacles": {"levels": _copy_grid(getattr(self.env, "obstacles", []))},
       "charging_stations": [
         {"x": int(pos[0]), "y": int(pos[1])}
@@ -424,6 +425,9 @@ class PlaybackRecordingWrapper(gym.Wrapper):
       # Add grids (convert complex objects to simple lists if needed)
       if "threat_grid" in payload and "levels" in payload["threat_grid"]:
         update_message["threat_grid"] = payload["threat_grid"]["levels"]
+
+      if "visit_history_map" in payload and "levels" in payload["visit_history_map"]:
+        update_message["visit_history_map"] = payload["visit_history_map"]["levels"]
 
       if (
         "coverage_map" in payload
