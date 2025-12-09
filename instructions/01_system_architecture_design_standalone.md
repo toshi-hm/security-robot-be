@@ -482,16 +482,20 @@ R = R_threat + R_suspicious - C_movement + R_battery_penalty + R_charging_effici
 
 拡張環境の報酬:
 ```
-R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity - C_movement + R_battery_penalty + R_charging_efficiency
+R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity + R_threat_penalty - C_movement + R_battery_penalty + R_charging_efficiency
 ```
 
 詳細計算式:
 ```python
-# 脅威除去報酬
+# 脅威除去報酬 (Action 3: Patrol実行時)
 R_threat = Σ(threat_level_before - threat_level_after) × 10
-# 巡回アクション実行時、巡回範囲内(radius=2)の全セルの脅威レベルを0.2低減
+# 巡回アクション実行時、巡回範囲内(radius=2)の全セルの脅威レベルを0.2低減し、その低減量に応じて報酬を得る。
 # 例: 範囲内5セルの脅威が[0.5, 0.6, 0.4, 0.3, 0.2]なら、
 #     R_threat = (0.5+0.6+0.4+0.3+0.2 - 0.3-0.4-0.2-0.1-0.0) × 10 = 10.0
+
+# 脅威維持ペナルティ (Enhanced Environmentのみ)
+# マップ全体の平均脅威レベルに応じて毎ステップペナルティを与えることで、常に脅威を低く保つインセンティブを与える。
+R_threat_penalty = -1.0 × average_threat_level × threat_penalty_weight
 
 # 不審物除去報酬(時間ボーナス)
 R_suspicious = 2.0 + (20.0 - 2.0) × (1 - detection_time / max_time)
@@ -541,14 +545,18 @@ C_movement = 0.1 × is_forward + 0.05 × is_rotation
 # 前進: -0.1, 回転: -0.05, 巡回: 0
 
 # バッテリーペナルティ(新規)
+# バッテリーペナルティ (累積的)
+R_battery_penalty = 0.0
+
+# 1. 枯渇ペナルティ (全ロボット枯渇時)
 if battery_percentage <= 0.0:
-    R_battery_penalty = -100.0  # バッテリー切れ時の特大ペナルティ
-elif battery_percentage < 20.0:
-    R_battery_penalty = -0.5 × (20.0 - battery_percentage) / 20.0
-elif battery_percentage < 10.0:
+    R_battery_penalty = -100.0
+
+# 2. 低残量ペナルティ (20%未満で発生、10%未満でさらに加算)
+if battery_percentage < 20.0:
+    R_battery_penalty -= 0.5 × (20.0 - battery_percentage) / 20.0
+if battery_percentage < 10.0:
     R_battery_penalty -= 1.0 × (10.0 - battery_percentage) / 10.0
-else:
-    R_battery_penalty = 0.0
 
 # 充電ステーションからの距離ペナルティ(バッテリー低下時)
 if battery_percentage < 30.0:
