@@ -10,6 +10,7 @@ from app.core.training.job_manager import job_manager
 from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus, TrainingMetric
 from app.schemas.training import (
   TrainingActionResponse,
+  TrainingMetricCreate,
   TrainingMetricResponse,
   TrainingMetricsListResponse,
   TrainingSessionCreate,
@@ -345,3 +346,26 @@ async def get_metrics(
     page_size=page_size,
     metrics=metrics,
   )
+
+
+@router.post("/{session_id}/metrics", status_code=status.HTTP_201_CREATED)
+async def import_metrics(
+  session_id: int,
+  metrics: list[TrainingMetricCreate],
+  db: AsyncSession = Depends(get_db),
+) -> dict[str, int]:
+  """Import training metrics (e.g. from offline logs)."""
+  service = TrainingService(db)
+  # Verify session exists
+  job = await service.get_session(session_id)
+  if job is None:
+    raise HTTPException(
+      status.HTTP_404_NOT_FOUND, detail=f"Training session {session_id} not found"
+    )
+
+  # Override job_id to ensure consistency
+  for m in metrics:
+    m.job_id = session_id
+
+  count = await service.create_metrics(metrics)
+  return {"imported_count": count}

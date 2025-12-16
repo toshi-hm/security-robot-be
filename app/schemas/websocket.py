@@ -65,6 +65,13 @@ class EnvironmentUpdateEvent(WebSocketMessage):
   action_taken: int | None = None
   reward_received: float | None = None
 
+  # Grids
+  grid_width: int | None = None
+  grid_height: int | None = None
+  coverage_map: list[list[int | bool]] | None = None
+  threat_grid: list[list[float]] | None = None
+  visit_history_map: list[list[float]] | None = None  # New in Cycle 11
+
 
 class ConnectionAckMessage(WebSocketMessage):
   """Connection acknowledgment message."""

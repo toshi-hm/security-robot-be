@@ -60,3 +60,6 @@ gha-creds-*.json
 
 # Trained models
 models/
+
+# backup files
+backups/

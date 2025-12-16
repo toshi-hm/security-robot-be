@@ -16,8 +16,7 @@ from .security_env import SecurityEnvironment
 
 logger = logging.getLogger(__name__)
 
-# Optimal start positions identified in Cycle 10-A (Heatmap Analysis)
-OPTIMAL_START_POSITIONS = [(17, 14), (5, 9), (7, 7), (6, 9), (17, 7)]
+# Optimal start positions are now passed via config or generated dynamically
 
 
 class EnhancedSecurityEnvironment(SecurityEnvironment):
@@ -37,6 +36,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     battery_drain_rate: float = 0.001,
     episode_log_file: str | None = None,
     strategic_init_mode: bool = False,
+    optimal_start_positions: list[tuple[int, int]] | None = None,
     map_type: MapType = "random",
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
@@ -49,6 +49,7 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     # Must set this before super().__init__ because it calls reset()
     self.strategic_init_mode = strategic_init_mode
+    self.optimal_start_positions = optimal_start_positions or []
     self.episode_start_positions: list[Any] = []
 
     super().__init__(
@@ -104,7 +105,12 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     # Strategic Initialization Logic
     if self.strategic_init_mode:
-      available_optimals = list(OPTIMAL_START_POSITIONS)
+      if self.optimal_start_positions:
+        available_optimals = list(self.optimal_start_positions)
+      else:
+        # Fallback: Dynamic generation based on map dimensions
+        available_optimals = self._generate_fallback_start_positions()
+
       random.shuffle(available_optimals)
 
       new_positions: list[tuple[int, int]] = []
@@ -238,6 +244,23 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     except Exception as e:
       logger.error(f"Failed to log episode result: {e}")
+
+  def _generate_fallback_start_positions(self) -> list[tuple[int, int]]:
+    """Generate spread-out positions based on map dimensions (Corners, Center, Mid-Edges)."""
+    w, h = self.width, self.height
+    candidates = [
+      (1, 1),
+      (w - 2, 1),
+      (1, h - 2),
+      (w - 2, h - 2),  # Corners (padded)
+      (w // 2, h // 2),  # Center
+      (w // 2, 1),
+      (w // 2, h - 2),
+      (1, h // 2),
+      (w - 2, h // 2),  # Mid-edges
+    ]
+    # Filter valid positions
+    return [p for p in candidates if self._is_valid_position(p[0], p[1])]
 
   # ------------------------------------------------------------------
   # Tracking helpers

@@ -7,8 +7,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus
-from app.schemas.training import TrainingSessionCreate
+from app.models.training import TrainingAlgorithm, TrainingJob, TrainingJobStatus, TrainingMetric
+from app.schemas.training import TrainingMetricCreate, TrainingSessionCreate
 from app.utils.datetime import utcnow
 
 
@@ -179,3 +179,26 @@ class TrainingService:
         config["policy_type"] = preserved_config["policy_type"]
 
     return config
+
+  async def create_metrics(self, metrics: list[TrainingMetricCreate]) -> int:
+    """Bulk insert training metrics."""
+    # Convert Pydantic models to SQLAlchemy models
+    db_metrics = [
+      TrainingMetric(
+        job_id=m.job_id,
+        timestep=m.timestep,
+        episode=m.episode,
+        reward=m.reward,
+        loss=m.loss,
+        coverage_ratio=m.coverage_ratio,
+        exploration_score=m.exploration_score,
+        threat_level_avg=m.threat_level_avg,
+        additional_metrics=m.additional_metrics,
+        timestamp=utcnow(),
+      )
+      for m in metrics
+    ]
+
+    self._db.add_all(db_metrics)
+    await self._db.commit()
+    return len(db_metrics)

@@ -116,7 +116,7 @@ class SecurityEnvironment(gym.Env):
     self.observation_space = spaces.Box(
       low=0,
       high=1,
-      shape=(width, height, 3 + 2 * self.num_robots),  # Shared global + 2 per robot
+      shape=(width, height, 4 + 2 * self.num_robots),  # Shared global (4 channels) + 2 per robot
     )
     self.action_space = spaces.MultiDiscrete([4] * self.num_robots)
 
@@ -165,7 +165,8 @@ class SecurityEnvironment(gym.Env):
     # as we use Python's random module which doesn't support per-instance seeding
 
     self.threat_levels = self._build_grid(0.0)
-    self.last_patrolled = self._build_grid(0)
+    self.last_patrolled = self._build_grid(0)  # Used for Threat Logic
+    self.visit_history_map = self._build_grid(-1000.0)  # Used for Observation (Ch 2)
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
@@ -179,9 +180,10 @@ class SecurityEnvironment(gym.Env):
     self.robot_positions = list(self.charging_stations)
     self.robot_directions = [0] * self.num_robots
 
-    # Initialize visited cells with starting positions
+    # Initialize visited cells and history with starting positions
     for pos in self.robot_positions:
       self.visited_cells.add(pos)
+      self.visit_history_map[pos[1]][pos[0]] = 0.0  # Mark start as visited at t=0
 
     self.time_step = 0
 
@@ -284,6 +286,9 @@ class SecurityEnvironment(gym.Env):
       if final_positions[i] != self.robot_positions[i]:
         self.robot_positions[i] = final_positions[i]
         self.visited_cells.add(final_positions[i])
+        # Update Visit History Map (Presence)
+        nx, ny = final_positions[i]
+        self.visit_history_map[ny][nx] = self.time_step
         # Move reward logic
         total_reward -= self.MOVE_COST
         total_reward += self._check_suspicious_object_removal(i)
@@ -306,6 +311,9 @@ class SecurityEnvironment(gym.Env):
         total_reward -= self.TURN_COST
       elif action == 3:
         total_reward += self._patrol_area(i)
+        # Patrol also updates presence (redundant if moved, but safe)
+        rx, ry = self.robot_positions[i]
+        self.visit_history_map[ry][rx] = self.time_step
 
     # Add charging rewards (calculated globally/summed)
     total_reward += self._calculate_charging_reward()
@@ -420,16 +428,17 @@ class SecurityEnvironment(gym.Env):
     return generator.generate()
 
   def _get_observation(self) -> np.ndarray:
-    # Shape: (height, width, 3 + 2 * num_robots)
+    # Shape: (height, width, 4 + 2 * num_robots)
     # Shared Global Channels:
-    # 0: Threat Levels
-    # 1: Obstacles
-    # 2: Charging Station
+    # 0: Threat Levels (0.0 - 1.0)
+    # 1: Obstacles (0.0 or 1.0)
+    # 2: Visit History (0.0 - 1.0) [1.0=Recent, 0.0=Old/Never] - New in Cycle 11
+    # 3: Charging Station (0.0 or 1.0)
     # Robot-Specific Channels (for robot i):
-    # 3 + 2*i: Robot i Position & Direction
-    # 4 + 2*i: Robot i Battery
+    # 4 + 2*i: Robot i Position & Direction
+    # 5 + 2*i: Robot i Battery
 
-    observation = np.zeros((self.height, self.width, 3 + 2 * self.num_robots), dtype=np.float32)
+    observation = np.zeros((self.height, self.width, 4 + 2 * self.num_robots), dtype=np.float32)
 
     # Fill Shared Global Channels
     for y in range(self.height):
@@ -438,20 +447,26 @@ class SecurityEnvironment(gym.Env):
         observation[y, x, 0] = float(self.threat_levels[y][x])
         # Channel 1: Obstacles
         observation[y, x, 1] = 1.0 if self.obstacles[y][x] else 0.0
-        # Channel 2: Charging Stations
+        # Channel 2: Visit History (Pheromone)
+        # Calculate decay: 1.0 (Just visited) -> 0.0 (Old)
+        # Decay window: 500 steps
+        steps_since_visit = self.time_step - self.visit_history_map[y][x]
+        visit_value = max(0.0, 1.0 - steps_since_visit / 500.0)
+        observation[y, x, 2] = visit_value
+        # Channel 3: Charging Stations
         if (x, y) in self.charging_stations:
-          observation[y, x, 2] = 1.0
+          observation[y, x, 3] = 1.0
 
     # Fill Robot-Specific Channels
     for i in range(self.num_robots):
-      base_ch = 3 + i * 2
+      base_ch = 4 + i * 2  # Shifted by 1 (was 3)
       rx, ry = self.robot_positions[i]
 
-      # Channel 3 + 2*i: Position & Direction
+      # Channel 4 + 2*i: Position & Direction
       # Only mark the specific cell where the robot is
       observation[ry, rx, base_ch] = (self.robot_directions[i] + 1) / 4.0
 
-      # Channel 4 + 2*i: Battery
+      # Channel 5 + 2*i: Battery
       # Only mark the specific cell where the robot is
       observation[ry, rx, base_ch + 1] = self.battery_levels[i] / 100.0
 
@@ -525,10 +540,40 @@ class SecurityEnvironment(gym.Env):
     total_reward = 0.0
     # Do not reset last_patrol_info here
 
+    # Dynamic Patrol Radius (Cycle 12)
+    # Optimize tradeoff between "Coverage Speed" (Large Radius) and "Threat Resolution"
+    # (Small/Normal Radius).
+    # - Low Threat (< 0.2): Boost radius to 3 to cover/clear threats faster (Exploration Mode).
+    # - High Threat (> 0.5): Reduce radius to 1 (or keep normal 2)
+    #   -> Actually, keeping 2 is safer for now.
+    #   Let's define:
+    #   - Avg Threat < 0.2: Radius 3 (Wide)
+    #   - Avg Threat >= 0.2: Radius 2 (Normal)
+    #   Note: Reducing to 1 might be too weak unless we want to penalize "sloppy" patrol.
+    #   For now, let's just BOOST when safe.
+
+    # Calculate Average Threat
+    total_threat = sum(sum(row) for row in self.threat_levels)
+    total_cells = self.width * self.height
+    avg_threat = total_threat / total_cells if total_cells > 0 else 0.0
+
+    current_radius = self.robot_vision_range  # Default (2)
+    radius_mode = "Normal"
+
+    if avg_threat < 0.2:
+      current_radius = 3
+      radius_mode = "Wide"
+    elif avg_threat > 0.6:
+      # Optional: Could reduce to 1 if we wanted "Focus", but let's stick to Normal/Wide for now
+      # or maybe strict focus?
+      # current_radius = 1
+      # radius_mode = "Focused"
+      pass
+
     rx, ry = self.robot_positions[robot_idx]
 
-    for dx in range(-self.robot_vision_range, self.robot_vision_range + 1):
-      for dy in range(-self.robot_vision_range, self.robot_vision_range + 1):
+    for dx in range(-current_radius, current_radius + 1):
+      for dy in range(-current_radius, current_radius + 1):
         x = rx + dx
         y = ry + dy
         if not self._is_valid_position(x, y):
@@ -537,12 +582,18 @@ class SecurityEnvironment(gym.Env):
         threat_reward = self.threat_levels[y][x] * 10
         if threat_reward > 0:
           total_reward += threat_reward
-          self.last_patrol_info.append(
-            f"Robot {robot_idx}: 脅威度除去 ({x},{y}): +{threat_reward:.1f}"
-          )
+          # Log significant rewards or just summary?
+          # To avoid log spam, maybe only log if reward > 1.0 or similar?
+          pass
 
         self.threat_levels[y][x] = 0.0
         self.last_patrolled[y][x] = self.time_step
+
+    # Log summary for this patrol action
+    if total_reward > 0:
+      self.last_patrol_info.append(
+        f"Robot {robot_idx}: Patrol ({radius_mode} R{current_radius}) Cleared {total_reward:.1f}"
+      )
 
     return total_reward
 

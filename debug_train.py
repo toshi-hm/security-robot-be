@@ -56,14 +56,14 @@ def main(args=None) -> None:
 
     # We need rudimentary callbacks to avoid errors if logic depends on them
     callbacks: list[CheckpointCallback] = []
-    if args and args.save_freq > 0: # Added conditional check for args
+    if args and args.save_freq > 0:  # Added conditional check for args
       # Add a simple print callback?
-      pass # Placeholder for callback addition
+      pass  # Placeholder for callback addition
     # The service.start_training expects callbacks list.
 
     print("Starting PPO Training via Service...")
 
-    async def run() -> None: # Added return type annotation
+    async def run() -> None:  # Added return type annotation
       result = await service.start_training(
         config=config,
         callbacks=callbacks,
