@@ -203,7 +203,11 @@ class SecurityEnvironment(gym.Env):
                  - 0: Move forward
                  - 1: Turn left
                  - 2: Turn right
-                 - 3: Patrol area
+                 - 3: Stay (wait in place)
+
+    Note:
+        Patrol (security surveillance) is automatically performed after every action
+        for all active robots that are not charging and have battery > 0%.
 
     Returns:
         tuple containing:
@@ -300,7 +304,7 @@ class SecurityEnvironment(gym.Env):
         # Original code didn't. Let's stick to collision penalty only for robot-robot.
         pass
 
-      # Handle other actions (Turn, Patrol)
+      # Handle other actions (Turn, Stay)
       if self.is_charging_list[i]:
         pass
       elif action == 1:
@@ -310,6 +314,13 @@ class SecurityEnvironment(gym.Env):
         self.robot_directions[i] = (self.robot_directions[i] + 1) % 4
         total_reward -= self.TURN_COST
       elif action == 3:
+        # Stay action: robot waits in place (no movement, no turn cost)
+        pass
+
+    # 4. Automatic patrol for all active robots (not charging, battery > 0)
+    # This is the core security function - robots always patrol when operational
+    for i in range(self.num_robots):
+      if self.battery_levels[i] > 0.0 and not self.is_charging_list[i]:
         total_reward += self._patrol_area(i)
         # Patrol also updates presence (redundant if moved, but safe)
         rx, ry = self.robot_positions[i]

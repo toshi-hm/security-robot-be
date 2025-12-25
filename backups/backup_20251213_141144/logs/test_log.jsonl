@@ -1,0 +1,1 @@
+{"start_positions": [[6, 1]], "final_reward": -2677.435833333316, "coverage": 0.005, "avg_threat": 1.0, "steps": 1001, "config_drain": 0.1, "config_threat_penalty": 0.0}
