@@ -76,6 +76,9 @@ class SecurityEnvironment(gym.Env):
     collision_penalty_scale: float = 0.3,
     min_active_robots: int = 0,
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
+    exploration_bonus: float = 1.0,
+    revisit_penalty: float = 0.05,
+    revisit_window: int = 50,
     **map_config: Any,
   ) -> None:
     # Initialize parent Gymnasium Env class
@@ -90,6 +93,9 @@ class SecurityEnvironment(gym.Env):
     self.collision_penalty_scale = collision_penalty_scale
     self.min_active_robots = min_active_robots
     self.reward_normalization_mode = reward_normalization_mode
+    self.exploration_bonus = exploration_bonus
+    self.revisit_penalty = revisit_penalty
+    self.revisit_window = revisit_window
     self.map_config = map_config
     self.logger: object | None = None
 
@@ -166,7 +172,7 @@ class SecurityEnvironment(gym.Env):
 
     self.threat_levels = self._build_grid(0.0)
     self.last_patrolled = self._build_grid(0)  # Used for Threat Logic
-    self.visit_history_map = self._build_grid(-1000.0)  # Used for Observation (Ch 2)
+    self.visit_history_map = self._build_grid(-1000.0)  # Track last visit time (Observation Ch2 & revisit penalty)
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
@@ -288,10 +294,21 @@ class SecurityEnvironment(gym.Env):
 
       # Update position if changed
       if final_positions[i] != self.robot_positions[i]:
-        self.robot_positions[i] = final_positions[i]
-        self.visited_cells.add(final_positions[i])
-        # Update Visit History Map (Presence)
-        nx, ny = final_positions[i]
+        new_pos = final_positions[i]
+        nx, ny = new_pos
+        
+        # Check if this is a new cell (exploration bonus)
+        if new_pos not in self.visited_cells:
+          total_reward += self.exploration_bonus
+        else:
+          # Check for revisit penalty (recently visited cell)
+          steps_since_visit = self.time_step - self.visit_history_map[ny][nx]
+          if steps_since_visit < self.revisit_window:
+            total_reward -= self.revisit_penalty
+        
+        self.robot_positions[i] = new_pos
+        self.visited_cells.add(new_pos)
+        # Update Visit History Map
         self.visit_history_map[ny][nx] = self.time_step
         # Move reward logic
         total_reward -= self.MOVE_COST
