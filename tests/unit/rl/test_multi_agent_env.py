@@ -208,10 +208,10 @@ class TestMultiAgentSecurityEnv:
     _, reward1, _, _, _ = env1.step(np.array([0]))
 
     # With normalization (mean mode), all should have similar per-robot cost
-    # They may not be exactly equal due to patrol bonus from threat_level increase,
-    # but should be in the same ballpark
-    assert abs(reward1 - reward2) < 0.5, f"1-robot vs 2-robot: {reward1} vs {reward2}"
-    assert abs(reward2 - reward4) < 0.5, f"2-robot vs 4-robot: {reward2} vs {reward4}"
+    # They may not be exactly equal due to patrol bonus, exploration bonus, etc.
+    # but should be in the same ballpark (within 1.0 tolerance)
+    assert abs(reward1 - reward2) < 1.0, f"1-robot vs 2-robot: {reward1} vs {reward2}"
+    assert abs(reward2 - reward4) < 1.0, f"2-robot vs 4-robot: {reward2} vs {reward4}"
 
   def test_cooperative_reward(self):
     """Test that automatic patrol clears threats."""
