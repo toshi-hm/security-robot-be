@@ -178,6 +178,10 @@ class TrainingService:
       if "policy_type" in preserved_config:
         config["policy_type"] = preserved_config["policy_type"]
 
+    # Add enable_placement_learning if provided in payload
+    if payload is not None and payload.enable_placement_learning:
+      config["enable_placement_learning"] = True
+
     return config
 
   async def create_metrics(self, metrics: list[TrainingMetricCreate]) -> int:
