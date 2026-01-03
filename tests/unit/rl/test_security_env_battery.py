@@ -344,28 +344,28 @@ def test_dynamic_max_steps_default_small_env():
   """小さい環境では従来互換の1000ステップがデフォルトになることを確認"""
   from rl.environments.security_env import calculate_dynamic_max_steps
 
-  # 10x10 = 100 cells, 100 * 4 = 400 < 1000 → 1000
+  # 10x10 = 100 cells, 100 * 10 = 1000 → 1000
   assert calculate_dynamic_max_steps(10, 10) == 1000
 
-  # 5x5 = 25 cells, 25 * 4 = 100 < 1000 → 1000
+  # 5x5 = 25 cells, 25 * 10 = 250 < 1000 → 1000
   assert calculate_dynamic_max_steps(5, 5) == 1000
 
-  # 15x15 = 225 cells, 225 * 4 = 900 < 1000 → 1000
-  assert calculate_dynamic_max_steps(15, 15) == 1000
+  # 9x9 = 81 cells, 81 * 10 = 810 < 1000 → 1000
+  assert calculate_dynamic_max_steps(9, 9) == 1000
 
 
 def test_dynamic_max_steps_large_env():
   """大きい環境では動的に計算されたステップ上限が使われることを確認"""
   from rl.environments.security_env import calculate_dynamic_max_steps
 
-  # 20x20 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
-  assert calculate_dynamic_max_steps(20, 20) == 1600
+  # 20x20 = 400 cells, 400 * 10 = 4000 > 1000 → 4000
+  assert calculate_dynamic_max_steps(20, 20) == 4000
 
-  # 30x30 = 900 cells, 900 * 4 = 3600 > 1000 → 3600
-  assert calculate_dynamic_max_steps(30, 30) == 3600
+  # 30x30 = 900 cells, 900 * 10 = 9000 > 1000 → 9000
+  assert calculate_dynamic_max_steps(30, 30) == 9000
 
-  # 16x16 = 256 cells, 256 * 4 = 1024 > 1000 → 1024
-  assert calculate_dynamic_max_steps(16, 16) == 1024
+  # 15x15 = 225 cells, 225 * 10 = 2250 > 1000 → 2250
+  assert calculate_dynamic_max_steps(15, 15) == 2250
 
 
 def test_dynamic_max_steps_custom_coefficient():
@@ -385,9 +385,9 @@ def test_environment_uses_dynamic_max_steps():
   small_env = SecurityEnvironment(width=10, height=10)
   assert small_env.max_episode_steps == 1000
 
-  # 大きい環境: 動的計算 (20x20 * 4 = 1600)
+  # 大きい環境: 動的計算 (20x20 * 10 = 4000)
   large_env = SecurityEnvironment(width=20, height=20)
-  assert large_env.max_episode_steps == 1600
+  assert large_env.max_episode_steps == 4000
 
   # 明示的に指定: 500
   custom_env = SecurityEnvironment(width=20, height=20, max_episode_steps=500)
@@ -420,13 +420,13 @@ def test_dynamic_max_steps_rectangular_env():
   """長方形環境での動的ステップ上限を確認"""
   from rl.environments.security_env import calculate_dynamic_max_steps
 
-  # 10x40 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
-  assert calculate_dynamic_max_steps(10, 40) == 1600
+  # 10x40 = 400 cells, 400 * 10 = 4000 > 1000 → 4000
+  assert calculate_dynamic_max_steps(10, 40) == 4000
 
-  # 50x8 = 400 cells, 400 * 4 = 1600 > 1000 → 1600
-  assert calculate_dynamic_max_steps(50, 8) == 1600
+  # 50x8 = 400 cells, 400 * 10 = 4000 > 1000 → 4000
+  assert calculate_dynamic_max_steps(50, 8) == 4000
 
   # 非対称環境でも正しく計算される
   env = SecurityEnvironment(width=30, height=10)
-  # 30 * 10 * 4 = 1200 > 1000 → 1200
-  assert env.max_episode_steps == 1200
+  # 30 * 10 * 10 = 3000 > 1000 → 3000
+  assert env.max_episode_steps == 3000

@@ -186,9 +186,23 @@ class PPOTrainingService:
         effective_session_id is not None and db_session_factory is not None and playback_enabled
       )
 
+      # Check if placement learning is enabled
+      enable_placement_learning = config.get("enable_placement_learning", False)
+      if enable_placement_learning:
+        logger.info(
+          "Placement learning enabled: wrapping environment with PlacementLearningWrapper"
+        )
+
       def make_env(rank: int) -> Callable[[], gym.Env]:
         def _init() -> gym.Env:
           env = self.create_environment(environment_config)
+
+          # Wrap with PlacementLearningWrapper if enabled (before playback wrapper)
+          if enable_placement_learning:
+            from rl.environments.placement_wrapper import PlacementLearningWrapper
+
+            env = PlacementLearningWrapper(env)
+
           # Only wrap rank 0 for playback to avoid database contention and confused logs
           if rank == 0 and should_wrap_playback:
             return wrap_environment_for_playback(
