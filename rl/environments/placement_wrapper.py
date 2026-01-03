@@ -1,10 +1,12 @@
 """Wrapper to enable RL-based placement selection at episode start.
 
 This wrapper implements a two-phase episode structure:
-1. Placement Phase: Agent selects initial position (action = grid index)
-2. Patrol Phase: Standard patrol actions (0-3)
+1. Placement Phase: Agent selects initial position (action modulo grid_size = cell index)
+2. Patrol Phase: Standard patrol actions (action modulo 4)
 
-The wrapper handles the phase transition automatically.
+The wrapper uses a SINGLE action space (Discrete(width*height)) throughout
+to maintain compatibility with SB3. Actions are interpreted differently
+based on the current phase.
 """
 
 from __future__ import annotations
@@ -19,15 +21,12 @@ import numpy as np
 class PlacementLearningWrapper(gym.Wrapper):
   """Gym wrapper that adds a placement selection phase at episode start.
 
-  In placement phase:
-    - Action space: Discrete(width * height) - grid cell selection
-    - Agent selects starting position
+  Uses a unified action space throughout (Discrete(width*height)):
+  - During placement: action directly selects a grid cell
+  - During patrol: action modulo 4 selects patrol action (0-3)
 
-  After placement:
-    - Action space: Discrete(4) - standard patrol actions
-    - Normal patrol episode continues
-
-  The observation is augmented with a placement_phase indicator in the info dict.
+  This design ensures compatibility with Stable-Baselines3 which requires
+  a fixed action space throughout training.
   """
 
   def __init__(self, env: gym.Env) -> None:
@@ -35,21 +34,14 @@ class PlacementLearningWrapper(gym.Wrapper):
     self.width: int = env.unwrapped.width  # type: ignore[attr-defined]
     self.height: int = env.unwrapped.height  # type: ignore[attr-defined]
     self.num_robots: int = getattr(env.unwrapped, "num_robots", 1)
+    self.grid_size = self.width * self.height
 
-    # Placement phase action space: select grid cell
-    self.placement_action_space = spaces.Discrete(self.width * self.height)
-    # Patrol phase action space: standard 4 actions per robot
-    self.patrol_action_space = env.action_space
+    # Use a single unified action space for SB3 compatibility
+    # During placement: action = grid cell index (0 to grid_size-1)
+    # During patrol: action modulo 4 = patrol action (0-3)
+    self.action_space = spaces.Discrete(self.grid_size)
 
-    # Combined action space for SB3 compatibility
-    # During placement: action < width*height means placement
-    # During patrol: action >= width*height is shifted to patrol action
-    # Actually, simpler approach: use placement action space only at step 0
     self._placement_phase = True
-
-    # Override action space to be the larger one (placement)
-    # SB3 will see this as the action space
-    self.action_space = self.placement_action_space
 
   def reset(
     self,
@@ -76,8 +68,7 @@ class PlacementLearningWrapper(gym.Wrapper):
   def _handle_placement_action(self, action: int) -> tuple[Any, float, bool, bool, dict[str, Any]]:
     """Process placement action and transition to patrol phase."""
     # Convert action to grid coordinates
-    grid_size = self.width * self.height
-    action = action % grid_size  # Safety: ensure valid range
+    action = action % self.grid_size  # Safety: ensure valid range
 
     x = action % self.width
     y = action // self.width
@@ -89,8 +80,6 @@ class PlacementLearningWrapper(gym.Wrapper):
       x, y = self._find_nearest_valid_position(x, y)
 
     # Set robot position(s)
-    # For single agent, set position directly
-    # For multi-agent, this sets the first robot (can be extended later)
     env.robot_positions[0] = (x, y)  # type: ignore[attr-defined]
 
     # Update charging station to match (robot starts at charging station)
@@ -109,11 +98,7 @@ class PlacementLearningWrapper(gym.Wrapper):
     # Transition to patrol phase
     self._placement_phase = False
 
-    # Change action space for subsequent steps
-    self.action_space = self.patrol_action_space
-
     # Return observation without taking a patrol step
-    # Give small positive reward for successful placement
     obs = env._get_observation()  # type: ignore[attr-defined]
     info = env._get_info()  # type: ignore[attr-defined]
     info["placement_phase"] = False
@@ -125,20 +110,18 @@ class PlacementLearningWrapper(gym.Wrapper):
   def _handle_patrol_action(
     self, action: int
   ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
-    """Process standard patrol action."""
-    # Convert single action to array for multi-robot compatibility
+    """Process patrol action by mapping from unified action space."""
+    # Map from unified action space to patrol action (0-3)
+    patrol_action = action % 4
+
+    # Convert to array for multi-robot compatibility
     if self.num_robots == 1:
-      actions = np.array([action], dtype=np.int32)
+      actions = np.array([patrol_action], dtype=np.int32)
     else:
-      # For multi-robot, replicate action (simplified)
-      actions = np.array([action] * self.num_robots, dtype=np.int32)
+      actions = np.array([patrol_action] * self.num_robots, dtype=np.int32)
 
     obs, reward, terminated, truncated, info = self.env.step(actions)
     info["placement_phase"] = False
-
-    # Reset action space back to placement for next episode
-    if terminated or truncated:
-      self.action_space = self.placement_action_space
 
     return obs, reward, terminated, truncated, info
 

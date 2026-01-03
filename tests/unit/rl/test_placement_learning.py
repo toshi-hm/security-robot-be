@@ -82,10 +82,10 @@ class TestPhaseTransition:
     wrapped_env.reset()
     wrapped_env.step(0)  # Placement action
 
-    # Patrol action space is MultiDiscrete [4] for single robot
-    from gymnasium.spaces import MultiDiscrete
+    # After placement, action space remains Discrete (unified action space)
+    from gymnasium.spaces import Discrete
 
-    assert isinstance(wrapped_env.action_space, MultiDiscrete)
+    assert isinstance(wrapped_env.action_space, Discrete)
 
   def test_patrol_actions_work_after_placement(self, wrapped_env):
     """Standard patrol actions should work after placement."""
