@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 4) -> int:
+def calculate_dynamic_max_steps(width: int, height: int, coefficient: int = 10) -> int:
   """
   Calculate dynamic maximum episode steps based on grid dimensions.
 
@@ -172,7 +172,9 @@ class SecurityEnvironment(gym.Env):
 
     self.threat_levels = self._build_grid(0.0)
     self.last_patrolled = self._build_grid(0)  # Used for Threat Logic
-    self.visit_history_map = self._build_grid(-1000.0)  # Track last visit time (Observation Ch2 & revisit penalty)
+    self.visit_history_map = self._build_grid(
+      -1000.0
+    )  # Track last visit time (Observation Ch2 & revisit penalty)
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
@@ -296,7 +298,7 @@ class SecurityEnvironment(gym.Env):
       if final_positions[i] != self.robot_positions[i]:
         new_pos = final_positions[i]
         nx, ny = new_pos
-        
+
         # Check if this is a new cell (exploration bonus)
         if new_pos not in self.visited_cells:
           total_reward += self.exploration_bonus
@@ -305,7 +307,7 @@ class SecurityEnvironment(gym.Env):
           steps_since_visit = self.time_step - self.visit_history_map[ny][nx]
           if steps_since_visit < self.revisit_window:
             total_reward -= self.revisit_penalty
-        
+
         self.robot_positions[i] = new_pos
         self.visited_cells.add(new_pos)
         # Update Visit History Map
