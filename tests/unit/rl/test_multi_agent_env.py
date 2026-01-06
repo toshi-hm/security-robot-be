@@ -176,7 +176,7 @@ class TestMultiAgentSecurityEnv:
 
   def test_reward_normalization(self):
     """Test that rewards scale properly with robot count.
-    
+
     With automatic patrol, rewards include threat clearing bonuses.
     We test normalization by comparing similar scenarios with different robot counts.
     """
