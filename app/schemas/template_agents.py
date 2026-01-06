@@ -353,7 +353,7 @@ class TemplateAgentCompareRequest(BaseModel):
 
 
 class TemplateAgentComparisonSummary(BaseModel):
-  """比較における単一エージェントの性能サマリー"""
+  """比較におけるシングルエージェントの性能サマリー"""
 
   agent_type: TemplateAgentType = Field(..., description="エージェント種別")
   agent_name: str = Field(..., description="エージェントのクラス名")
