@@ -87,7 +87,7 @@ class BaseTemplateAgent(ABC):
     obstacles: set,
   ) -> int:
     """
-    Navigate towards the target position.
+    Navigate towards the target position using BFS for obstacle avoidance.
 
     Args:
         robot_x: Current robot X position
@@ -116,8 +116,78 @@ class BaseTemplateAgent(ABC):
     if self._is_valid_position(front_x, front_y) and (front_x, front_y) not in obstacles:
       return ACTION_MOVE_FORWARD
 
-    # If blocked, try alternative path (turn right to avoid obstacle)
+    # If blocked, use BFS to find alternative path
+    next_pos = self._bfs_next_step(robot_x, robot_y, target_x, target_y, obstacles)
+    if next_pos:
+      next_x, next_y = next_pos
+      # Calculate direction to next step
+      step_dx = next_x - robot_x
+      step_dy = next_y - robot_y
+      desired_dir = self._get_desired_direction(step_dx, step_dy)
+      if robot_direction != desired_dir:
+        return self._get_turn_action(robot_direction, desired_dir)
+      return ACTION_MOVE_FORWARD
+
+    # If no path found, turn right as fallback
     return ACTION_TURN_RIGHT
+
+  def _bfs_next_step(
+    self,
+    start_x: int,
+    start_y: int,
+    goal_x: int,
+    goal_y: int,
+    obstacles: set,
+  ) -> tuple[int, int] | None:
+    """
+    Use BFS to find the next step towards the goal avoiding obstacles.
+
+    Args:
+        start_x: Current X position
+        start_y: Current Y position
+        goal_x: Goal X position
+        goal_y: Goal Y position
+        obstacles: Set of obstacle positions
+
+    Returns:
+        Next position (x, y) to move to, or None if no path exists
+    """
+    from collections import deque
+
+    if start_x == goal_x and start_y == goal_y:
+      return None
+
+    # BFS queue: (x, y, path)
+    queue = deque([(start_x, start_y, [])])
+    visited = {(start_x, start_y)}
+
+    # Direction vectors: N, E, S, W
+    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+
+    while queue:
+      x, y, path = queue.popleft()
+
+      for dx_dir, dy_dir in directions:
+        nx, ny = x + dx_dir, y + dy_dir
+
+        if not self._is_valid_position(nx, ny):
+          continue
+        if (nx, ny) in obstacles:
+          continue
+        if (nx, ny) in visited:
+          continue
+
+        new_path = path + [(nx, ny)]
+
+        # Found the goal
+        if nx == goal_x and ny == goal_y:
+          return new_path[0] if new_path else None
+
+        visited.add((nx, ny))
+        queue.append((nx, ny, new_path))
+
+    # No path found
+    return None
 
   def _get_desired_direction(self, dx: int, dy: int) -> int:
     """

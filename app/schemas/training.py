@@ -44,6 +44,11 @@ class TrainingSessionCreate(BaseModel):
   # Optional configuration
   config: dict | None = Field(default=None, description="Additional configuration")
 
+  # Placement learning (Phase 2 optimization)
+  enable_placement_learning: bool = Field(
+    default=False, description="Enable RL-based placement selection at episode start"
+  )
+
 
 class TrainingSessionResponse(BaseModel):
   """Response schema for training session."""

@@ -12,14 +12,15 @@ Cycle 12実験の再現とロボット台数変更実験を実行するスクリ
 
 import argparse
 import asyncio
-import json
 
 import httpx
 
 API_URL = "http://localhost:8000/api/v1/training/start"
 
 
-def create_cycle_12_config(num_robots: int, name_suffix: str = "", normalization_mode: str = "mean") -> dict:
+def create_cycle_12_config(
+  num_robots: int, name_suffix: str = "", normalization_mode: str = "mean"
+) -> dict:
   """Cycle 12のパラメータでジョブ設定を生成。"""
   name = f"Cycle12-Robots{num_robots}{name_suffix}"
   if normalization_mode != "mean":
@@ -53,15 +54,17 @@ def create_cycle_12_config(num_robots: int, name_suffix: str = "", normalization
 
 async def submit_job(config: dict, dry_run: bool = False) -> str | None:
   """ジョブをAPIに投入。dry_runがTrueの場合は投入せずに表示のみ。"""
-  print(f"\n{'='*60}")
+  print(f"\n{'=' * 60}")
   print(f"Job: {config['name']}")
   print(f"  num_robots: {config['num_robots']}")
   print(f"  total_timesteps: {config['total_timesteps']}")
-  print(f"  reward weights: cov={config['coverage_weight']}, exp={config['exploration_weight']}, div={config['diversity_weight']}")
+  print(
+    f"  reward weights: cov={config['coverage_weight']}, exp={config['exploration_weight']}, div={config['diversity_weight']}"
+  )
   print(f"  reward_normalization_mode: {config.get('reward_normalization_mode', 'mean')}")
   print(f"  threat_penalty_weight: {config['threat_penalty_weight']}")
   print(f"  battery_drain_rate: {config['battery_drain_rate']}")
-  
+
   if dry_run:
     print("  [DRY RUN - Not submitted]")
     return None
@@ -86,31 +89,25 @@ async def submit_job(config: dict, dry_run: bool = False) -> str | None:
 
 
 async def main():
-  parser = argparse.ArgumentParser(
-    description="Cycle 12 再現 & ロボット台数変更実験"
-  )
-  parser.add_argument(
-    "--dry-run", 
-    action="store_true", 
-    help="投入せずに設定を確認のみ"
-  )
+  parser = argparse.ArgumentParser(description="Cycle 12 再現 & ロボット台数変更実験")
+  parser.add_argument("--dry-run", action="store_true", help="投入せずに設定を確認のみ")
   parser.add_argument(
     "--robots",
     type=str,
     default="3,2,3,4,5",
-    help="投入するロボット台数のカンマ区切りリスト (default: 3,2,3,4,5 = Cycle12再現 + 2~5台)"
+    help="投入するロボット台数のカンマ区切りリスト (default: 3,2,3,4,5 = Cycle12再現 + 2~5台)",
   )
   parser.add_argument(
     "--normalization-mode",
     type=str,
     default="mean",
     choices=["mean", "sum", "sqrt_mean"],
-    help="Reward normalization mode (mean, sum, sqrt_mean). Default: mean"
+    help="Reward normalization mode (mean, sum, sqrt_mean). Default: mean",
   )
   args = parser.parse_args()
 
   robot_counts = [int(x.strip()) for x in args.robots.split(",")]
-  
+
   print("=" * 60)
   print("Cycle 12 再現 & ロボット台数変更実験")
   print("=" * 60)
@@ -140,7 +137,10 @@ async def main():
 
   if not args.dry_run and submitted_jobs:
     print("\n解析コマンドの例:")
-    print("  python scripts/analyze_cycle_12_results.py --job-ids " + ",".join(j[1] for j in submitted_jobs))
+    print(
+      "  python scripts/analyze_cycle_12_results.py --job-ids "
+      + ",".join(j[1] for j in submitted_jobs)
+    )
 
 
 if __name__ == "__main__":

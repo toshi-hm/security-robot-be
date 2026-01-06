@@ -389,7 +389,7 @@
   - [x] テンプレートエージェント実行API (2025-11-18完了)
     - [x] `app/schemas/template_agents.py`: APIスキーマ定義
       - [x] `TemplateAgentType`: エージェント種別Enum
-      - [x] `TemplateAgentExecuteRequest/Response`: 単一エージェント実行
+      - [x] `TemplateAgentExecuteRequest/Response`: シングルエージェント実行
       - [x] `TemplateAgentCompareRequest/Response`: 複数エージェント比較
       - [x] `TemplateAgentEpisodeMetrics`: エピソード単位メトリクス
     - [x] `app/services/template_agent_service.py`: サービス層実装
@@ -397,7 +397,7 @@
       - [x] `compare_template_agents()`: 複数エージェント比較・ランキング
     - [x] `app/api/v1/endpoints/template_agents.py`: APIエンドポイント
       - [x] `GET /template-agents/types`: 利用可能エージェント種別一覧
-      - [x] `POST /template-agents/execute`: 単一エージェント実行（環境サイズ、エピソード数、シード指定可能）
+      - [x] `POST /template-agents/execute`: シングルエージェント実行（環境サイズ、エピソード数、シード指定可能）
       - [x] `POST /template-agents/compare`: 複数エージェント比較（パフォーマンスランキング付き）
     - [x] `tests/unit/api/test_template_agents_endpoints.py`: ユニットテスト（20テストケース）
     - [x] `app/api/v1/api.py`: メインルーターへの登録完了
