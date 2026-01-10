@@ -67,13 +67,13 @@ class EnvironmentStateResponse(BaseModel):
   robot_y: int
   robot_orientation: int
   robots: list[dict] | None = None
-  charging_stations: list[dict] | None = None
-
+  charging_stations: list | dict | None = None
+  
   # Environment state
-  threat_grid: dict
-  coverage_map: dict | None
-  obstacles: dict | None
-  suspicious_objects: list[dict] | None
+  threat_grid: list | dict
+  coverage_map: list | dict | None
+  obstacles: list | dict | None
+  suspicious_objects: list | dict | None
 
   # Action information
   action_taken: int | None

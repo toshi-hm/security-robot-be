@@ -51,10 +51,22 @@ class PPOTrainingService:
     if env_type == "standard":
       from rl.environments.security_env import SecurityEnvironment
 
+      # Extract additional config from nested dictionary if present
+      extra_config = env_config.get("config") or {}
+      revisit_window = extra_config.get("revisit_window") or env_config.get("revisit_window", 50)
+      revisit_penalty = extra_config.get("revisit_penalty") or env_config.get("revisit_penalty", 0.05)
+      exploration_bonus = extra_config.get("exploration_bonus") or env_config.get("exploration_bonus", 1.0)
+      # Allow override of max_episode_steps if provided
+      max_episode_steps = extra_config.get("max_episode_steps") or env_config.get("max_episode_steps")
+
       env = SecurityEnvironment(
         width=env_config.get("env_width", 8),
         height=env_config.get("env_height", 8),
         num_robots=env_config.get("num_robots", 1),
+        revisit_window=revisit_window,
+        revisit_penalty=revisit_penalty,
+        exploration_bonus=exploration_bonus,
+        max_episode_steps=max_episode_steps,
       )
     elif env_type == "enhanced":
       from rl.environments.enhanced_env import EnhancedSecurityEnvironment

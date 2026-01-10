@@ -169,31 +169,34 @@ class SecurityEnvironment(gym.Env):
   ) -> tuple[np.ndarray, dict]:
     # Note: seed parameter is accepted for compatibility but not used
     # as we use Python's random module which doesn't support per-instance seeding
-
-    self.threat_levels = self._build_grid(0.0)
-    self.last_patrolled = self._build_grid(0)  # Used for Threat Logic
-    self.visit_history_map = self._build_grid(
-      -1000.0
-    )  # Track last visit time (Observation Ch2 & revisit penalty)
-    self.obstacles = self._generate_obstacles()
-    self.suspicious_objects: dict[tuple[int, int], int] = {}
-    self.visited_cells: set[tuple[int, int]] = set()
-    self.last_patrol_info: list[str] = []
-
-    # 充電ステーションをランダムな位置に配置
-    self._place_charging_station()
-
-    # ロボットを充電ステーション周辺に分散配置
-    # ロボットを各充電ステーションに配置
-    self.robot_positions = list(self.charging_stations)
+    super().reset(seed=seed)
+    # Initialize basic state variables
+    self.time_step = 0
     self.robot_directions = [0] * self.num_robots
 
-    # Initialize visited cells and history with starting positions
+    # Grid initialization
+    self.obstacles = self._generate_obstacles()
+    self.threat_levels = self._build_grid(0.0)
+    self.visit_history_map = self._build_grid(0.0)
+    self.last_patrolled = self._build_grid(-999.0)  # Never patrolled
+    self.visited_cells: set[tuple[int, int]] = set()
+    self.suspicious_objects: dict[tuple[int, int], int] = {}
+    self.last_patrol_info: list[str] = []
+
+    # Place stations and robots
+    self._place_charging_station()
+    self.robot_positions = list(self.charging_stations)
+
+    # Initialize visit history and visited set based on start positions
     for pos in self.robot_positions:
       self.visited_cells.add(pos)
       self.visit_history_map[pos[1]][pos[0]] = 0.0  # Mark start as visited at t=0
 
-    self.time_step = 0
+    # Initialize patrolled cells (vision coverage)
+    self.patrolled_cells: set[tuple[int, int]] = set()
+    # Add initial coverage
+    for i in range(self.num_robots):
+      self._patrol_area(i)
 
     # バッテリーを100%に初期化
     self.battery_levels = [self.initial_battery] * self.num_robots
@@ -618,6 +621,12 @@ class SecurityEnvironment(gym.Env):
 
         self.threat_levels[y][x] = 0.0
         self.last_patrolled[y][x] = self.time_step
+        
+        # Update visit history with vision (User Request)
+        self.visit_history_map[y][x] = self.time_step
+        
+        # Add to patrolled cells (cumulative vision coverage)
+        self.patrolled_cells.add((x, y))
 
     # Log summary for this patrol action
     if total_reward > 0:
@@ -761,13 +770,24 @@ class SecurityEnvironment(gym.Env):
     avg_threat = total_threat / total_cells if total_cells > 0 else 0.0
     max_threat = max(max(row) for row in self.threat_levels) if self.threat_levels else 0.0
 
+    # Calculate coverage ratio (Cumulative Patrolled Cells / Passable Cells)
+    # Exclude obstacles from passable cells calculation
+    obstacle_count = sum(sum(1 for x in row if x) for row in self.obstacles)
+    total_passable = total_cells - obstacle_count
+    
+    # Ensure denominator is not zero
+    if total_passable <= 0:
+        coverage = 0.0
+    else:
+        coverage = len(self.patrolled_cells) / total_passable
+
     return {
       "battery_percentage": avg_battery,  # Legacy compatibility
       "battery_levels": self.battery_levels,
       "is_charging": any(self.is_charging_list),  # Legacy
       "is_charging_list": self.is_charging_list,
       "robot_positions": self.robot_positions,
-      "coverage_ratio": len(self.visited_cells) / (self.width * self.height),
+      "coverage_ratio": coverage,
       "exploration_score": float(len(self.visited_cells)),
       "exploration_reward": 0.0,
       "average_threat_level": avg_threat,
