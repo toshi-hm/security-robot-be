@@ -25,16 +25,18 @@ DIRECTION_WEST = 3  # left (dx=-1)
 class BaseTemplateAgent(ABC):
   """Abstract base class for template-based patrol agents."""
 
-  def __init__(self, width: int, height: int) -> None:
+  def __init__(self, width: int, height: int, start_from_bottom: bool = False) -> None:
     """
     Initialize the template agent.
 
     Args:
         width: Grid width
         height: Grid height
+        start_from_bottom: If True, generate path starting from bottom of grid.
     """
     self.width = width
     self.height = height
+    self.start_from_bottom = start_from_bottom
     self.target_path: list[tuple[int, int]] = []
     self.current_path_index = 0
     self.generate_patrol_path()
@@ -60,16 +62,33 @@ class BaseTemplateAgent(ABC):
     Returns:
         Action to take (0=forward, 1=left, 2=right, 3=patrol)
     """
-    if self.current_path_index >= len(self.target_path):
-      # Cycle back to the beginning
-      self.current_path_index = 0
-
-    target_x, target_y = self.target_path[self.current_path_index]
-
-    # If already at target, patrol and move to next target
-    if robot_x == target_x and robot_y == target_y:
-      self.current_path_index += 1
-      return ACTION_PATROL
+    # Find a valid, reachable target
+    while True:
+      if self.current_path_index >= len(self.target_path):
+        self.current_path_index = 0
+      
+      target_x, target_y = self.target_path[self.current_path_index]
+      
+      # 1. Skip if target itself is an obstacle
+      if (target_x, target_y) in obstacles:
+        self.current_path_index += 1
+        continue
+        
+      # 2. If already at target, patrol and move to next
+      if robot_x == target_x and robot_y == target_y:
+        self.current_path_index += 1
+        return ACTION_PATROL
+        
+      # 3. Check reachability via BFS
+      # If we cannot find a path to this target, skip it to avoid getting stuck
+      next_step = self._bfs_next_step(robot_x, robot_y, target_x, target_y, obstacles)
+      if next_step is None:
+        # Target is unreachable (blocked off), skip it
+        self.current_path_index += 1
+        continue
+        
+      # Valid target found
+      break
 
     # Calculate direction to target
     action = self._navigate_to_target(
@@ -100,36 +119,29 @@ class BaseTemplateAgent(ABC):
     Returns:
         Action to take
     """
-    # Calculate direction vectors
-    dx = target_x - robot_x
-    dy = target_y - robot_y
-
-    # Determine desired direction
-    desired_direction = self._get_desired_direction(dx, dy)
-
-    # If facing the wrong direction, turn
-    if robot_direction != desired_direction:
-      return self._get_turn_action(robot_direction, desired_direction)
-
-    # Check if forward position is valid
-    front_x, front_y = self._get_front_position(robot_x, robot_y, robot_direction)
-    if self._is_valid_position(front_x, front_y) and (front_x, front_y) not in obstacles:
-      return ACTION_MOVE_FORWARD
-
-    # If blocked, use BFS to find alternative path
+    # Always use BFS to find the next step on the optimal path
+    # This avoids getting stuck in local minima or oscillating near obstacles
     next_pos = self._bfs_next_step(robot_x, robot_y, target_x, target_y, obstacles)
+    
     if next_pos:
       next_x, next_y = next_pos
-      # Calculate direction to next step
-      step_dx = next_x - robot_x
-      step_dy = next_y - robot_y
-      desired_dir = self._get_desired_direction(step_dx, step_dy)
-      if robot_direction != desired_dir:
-        return self._get_turn_action(robot_direction, desired_dir)
+      
+      # Calculate direction to the *immediate next step* (not the final target)
+      dx = next_x - robot_x
+      dy = next_y - robot_y
+      
+      desired_direction = self._get_desired_direction(dx, dy)
+      
+      # Turn if needed
+      if robot_direction != desired_direction:
+        return self._get_turn_action(robot_direction, desired_direction)
+        
+      # Move forward
       return ACTION_MOVE_FORWARD
-
-    # If no path found, turn right as fallback
+      
+    # If no path found (should be handled by get_action, but as fallback)
     return ACTION_TURN_RIGHT
+
 
   def _bfs_next_step(
     self,
@@ -282,8 +294,15 @@ class HorizontalScanAgent(BaseTemplateAgent):
     """Generate horizontal zigzag scan pattern."""
     self.target_path = []
 
-    for y in range(self.height):
-      if y % 2 == 0:
+    # Determine row order
+    rows = range(self.height)
+    if self.start_from_bottom:
+      rows = range(self.height - 1, -1, -1)
+
+    for i, y in enumerate(rows):
+      # Direction alternates based on row INDEX in the sequence, not Y coordinate
+      # to ensure continuous zigzag (Right->Left->Right...)
+      if i % 2 == 0:
         # Left to right
         for x in range(self.width):
           self.target_path.append((x, y))
@@ -297,20 +316,27 @@ class SpiralAgent(BaseTemplateAgent):
   """
   Spiral patrol pattern (clockwise from outside to inside).
 
-  Starts from top-left corner and spirals inward clockwise.
-
-  Pattern:
-  → → → → ↓
-  ↑       ↓
-  ↑   ←   ↓
-  ↑ ← ← ← ←
+  Starts from specified corner and spirals inward.
   """
 
+  def __init__(self, width: int, height: int, start_corner: str = "TL", **kwargs) -> None:
+    """
+    Initialize spiral agent.
+    
+    Args:
+        width: Grid width
+        height: Grid height
+        start_corner: "TL", "TR", "BL", "BR" (Top-Left, Top-Right, etc.)
+    """
+    self.start_corner = start_corner
+    super().__init__(width, height, **kwargs)
+
   def generate_patrol_path(self) -> None:
-    """Generate clockwise spiral pattern from outside to inside."""
+    """Generate spiral pattern starting from specified corner."""
     self.target_path = []
 
-    # Track boundaries
+    # 1. Generate Standard Spiral (TL Start, Clockwise)
+    standard_path = []
     top = 0
     bottom = self.height - 1
     left = 0
@@ -319,25 +345,42 @@ class SpiralAgent(BaseTemplateAgent):
     while top <= bottom and left <= right:
       # Move right along top edge
       for x in range(left, right + 1):
-        self.target_path.append((x, top))
+        standard_path.append((x, top))
       top += 1
 
       # Move down along right edge
       for y in range(top, bottom + 1):
-        self.target_path.append((right, y))
+        standard_path.append((right, y))
       right -= 1
 
       # Move left along bottom edge
       if top <= bottom:
         for x in range(right, left - 1, -1):
-          self.target_path.append((x, bottom))
+          standard_path.append((x, bottom))
         bottom -= 1
 
       # Move up along left edge
       if left <= right:
         for y in range(bottom, top - 1, -1):
-          self.target_path.append((left, y))
+          standard_path.append((left, y))
         left += 1
+        
+    # 2. Transform Path based on start_corner
+    # TL: No change
+    # TR: Mirror X (0 -> W-1)
+    # BL: Mirror Y (0 -> H-1)
+    # BR: Mirror X and Y
+    
+    for x, y in standard_path:
+        new_x, new_y = x, y
+        
+        if "R" in self.start_corner: # Right (TR, BR) -> Mirror X
+            new_x = self.width - 1 - x
+            
+        if "B" in self.start_corner: # Bottom (BL, BR) -> Mirror Y
+            new_y = self.height - 1 - y
+            
+        self.target_path.append((new_x, new_y))
 
 
 class VerticalScanAgent(BaseTemplateAgent):
