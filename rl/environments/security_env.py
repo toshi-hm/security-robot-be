@@ -164,9 +164,13 @@ class SecurityEnvironment(gym.Env):
     # Note: seed parameter is accepted for compatibility but not used
     # as we use Python's random module which doesn't support per-instance seeding
 
-    self.threat_levels = self._build_grid(0.0)
-    self.last_patrolled = self._build_grid(0)
+    # Grid initialization
     self.obstacles = self._generate_obstacles()
+    # User Request: Initialize threat levels to 1.0 (Max) as unpatrolled areas are dangerous
+    self.threat_levels = self._build_grid(1.0)
+    self.visit_history_map = self._build_grid(0.0)
+    self.last_patrolled = self._build_grid(-999.0)  # Never patrolled
+    self.visited_cells: set[tuple[int, int]] = set()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
     self.last_patrol_info: list[str] = []
