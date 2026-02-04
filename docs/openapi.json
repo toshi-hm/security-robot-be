@@ -2710,7 +2710,7 @@
           "total_battery_deaths"
         ],
         "title": "TemplateAgentComparisonSummary",
-        "description": "比較における単一エージェントの性能サマリー"
+        "description": "比較におけるシングルエージェントの性能サマリー"
       },
       "TemplateAgentEnvironmentInfo": {
         "properties": {

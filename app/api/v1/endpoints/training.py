@@ -308,7 +308,7 @@ async def delete_training_session(
 async def get_metrics(
   session_id: int,
   page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-  page_size: int = Query(50, ge=1, le=500, description="Number of metrics per page"),
+  page_size: int = Query(50, ge=1, le=20000, description="Number of metrics per page"),
   db: AsyncSession = Depends(get_db),
 ) -> TrainingMetricsListResponse:
   """Return paginated training metrics for the specified session."""

@@ -205,10 +205,43 @@ class DatabaseMetricsCallback(BaseCallback):
 
       # Get loss if available
       loss = None
+      approx_kl = None
+      clip_fraction = None
+      policy_gradient_loss = None
+      value_loss = None
+      entropy_loss = None
+
       if hasattr(self.model, "logger") and self.model.logger:
-        loss_key = "train/loss"
-        if loss_key in self.model.logger.name_to_value:
-          loss = float(self.model.logger.name_to_value[loss_key])
+        logger_values = self.model.logger.name_to_value
+
+        # Get general loss
+        if "train/loss" in logger_values:
+          loss = float(logger_values["train/loss"])
+
+        # Get PPO-specific metrics
+        if "train/approx_kl" in logger_values:
+          approx_kl = float(logger_values["train/approx_kl"])
+        if "train/clip_fraction" in logger_values:
+          clip_fraction = float(logger_values["train/clip_fraction"])
+        if "train/policy_gradient_loss" in logger_values:
+          policy_gradient_loss = float(logger_values["train/policy_gradient_loss"])
+        if "train/value_loss" in logger_values:
+          value_loss = float(logger_values["train/value_loss"])
+        if "train/entropy_loss" in logger_values:
+          entropy_loss = float(logger_values["train/entropy_loss"])
+
+      # Build additional metrics dict for PPO
+      additional_ppo_metrics = {}
+      if approx_kl is not None:
+        additional_ppo_metrics["approx_kl"] = approx_kl
+      if clip_fraction is not None:
+        additional_ppo_metrics["clip_fraction"] = clip_fraction
+      if policy_gradient_loss is not None:
+        additional_ppo_metrics["policy_gradient_loss"] = policy_gradient_loss
+      if value_loss is not None:
+        additional_ppo_metrics["value_loss"] = value_loss
+      if entropy_loss is not None:
+        additional_ppo_metrics["entropy_loss"] = entropy_loss
 
       metric = TrainingMetric(
         job_id=self.session_id,
@@ -219,6 +252,7 @@ class DatabaseMetricsCallback(BaseCallback):
         coverage_ratio=self._last_coverage_ratio,
         exploration_score=self._last_exploration_score,
         threat_level_avg=self._last_threat_level,
+        additional_metrics=additional_ppo_metrics if additional_ppo_metrics else None,
         timestamp=utcnow(),
       )
 

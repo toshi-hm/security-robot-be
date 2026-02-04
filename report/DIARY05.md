@@ -305,7 +305,7 @@
 - `rl/utils/comparison.py`: エージェント評価・比較フレームワークを実装
   - `EvaluationMetrics`: エピソード単位のメトリクス（報酬、カバレッジ、バッテリー管理）
   - `ComparisonResult`: エージェント評価結果の集約
-  - `evaluate_template_agent()`: 単一エージェントの評価実行
+  - `evaluate_template_agent()`: シングルエージェントの評価実行
   - `compare_agents()`: 複数エージェント間の比較
   - `run_benchmark()`: ベンチマーク実行ユーティリティ
   - `generate_comparison_report()`: 人間可読なレポート生成
@@ -322,7 +322,7 @@
 - **Backend APIの追加実装** (継続作業)
   - `app/schemas/template_agents.py`: APIスキーマ定義
     - `TemplateAgentType`: エージェント種別Enum (horizontal_scan, vertical_scan, spiral, random_walk)
-    - `TemplateAgentExecuteRequest`: 単一エージェント実行リクエスト（環境サイズ3-100、エピソード数1-100、最大ステップ数10-10000）
+    - `TemplateAgentExecuteRequest`: シングルエージェント実行リクエスト（環境サイズ3-100、エピソード数1-100、最大ステップ数10-10000）
     - `TemplateAgentExecuteResponse`: 実行結果（集計メトリクス+エピソード別詳細）
     - `TemplateAgentCompareRequest`: 複数エージェント比較リクエスト（最大4種類）
     - `TemplateAgentCompareResponse`: 比較結果（パフォーマンスランキング、最高/最低性能エージェント、性能差）
@@ -333,7 +333,7 @@
     - `_create_agent()`: エージェントタイプに基づくインスタンス生成
   - `app/api/v1/endpoints/template_agents.py`: APIエンドポイント
     - `GET /template-agents/types`: 利用可能エージェント種別一覧（名前、説明付き）
-    - `POST /template-agents/execute`: 単一エージェント実行
+    - `POST /template-agents/execute`: シングルエージェント実行
     - `POST /template-agents/compare`: 複数エージェント比較
   - `app/api/v1/api.py`: メインルーターへの登録
   - `tests/unit/api/test_template_agents_endpoints.py`: 20テストケース
