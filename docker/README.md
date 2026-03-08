@@ -2,6 +2,10 @@
 
 このディレクトリにはローカル開発および検証用の Dockerfile と Compose 設定が格納されています。ここでは `docker/docker-compose.yml` のビルド構成で有効化している `network: host` 設定について補足します。
 
+## GPU 前提の構成
+
+この Compose 構成は GPU 利用を前提にしています。NVIDIA Container Toolkit を導入した上で実行してください。
+
 ## `network: host` をビルド時に使用する理由
 
 - ベースイメージは Debian 系 (python:3.12-slim) であり、`build-essential` 等の APT パッケージをビルドプロセス中にインストールします。

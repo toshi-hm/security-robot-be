@@ -105,7 +105,7 @@ export TRAINING_DEVICE=cuda:1
 
 ## Docker を利用した実行
 
-ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンド / Celery ワーカー / PostgreSQL / Redis をまとめて起動できます。
+ローカルに Docker と Docker Compose を導入済みであれば、以下の手順でバックエンド / Celery ワーカー / PostgreSQL / Redis をまとめて起動できます。GPU 必須構成のため、NVIDIA Container Toolkit の導入が前提です。
 
 > **注意**: Compose のビルド設定では `network: host` を指定しています。DNS 制限のあるネットワーク環境でも APT パッケージの取得が成功するようにするためで、ビルド完了後のランタイム通信には影響しません。ホストネットワーク利用を避けたい場合は、企業プロキシの設定や Docker デーモンの DNS 設定など代替手段を検討してください。
 

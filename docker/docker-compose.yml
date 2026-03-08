@@ -6,6 +6,8 @@ services:
       target: development
       # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-nvidia/cuda:12.6.0-base-ubuntu24.04}
     user: appuser
     ports:
       - '8000:8000'
@@ -34,13 +36,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    gpus: all
+    privileged: true
     shm_size: '8gb'
     security_opt:
       - seccomp:unconfined
@@ -52,6 +49,8 @@ services:
       target: development
       # DNS 制限下でも apt-get が利用できるようビルド時のみホストネットワークを使用
       network: host
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-nvidia/cuda:12.6.0-base-ubuntu24.04}
     command:
       - celery
       - -A
@@ -85,13 +84,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    gpus: all
+    privileged: true
     shm_size: '8gb'
     security_opt:
       - seccomp:unconfined

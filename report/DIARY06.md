@@ -3,6 +3,10 @@
 このファイルは最新のセッションログを記録します。作業前に `report/summary/DIARY05_SUMMARY.md`、`report/PROGRESS.md` を確認してください。
 
 ## 📑 目次
+- [2025-12-19 セッション08](#2025-12-19-セッション08)
+- [2025-12-19 セッション07](#2025-12-19-セッション07)
+- [2025-12-19 セッション06](#2025-12-19-セッション06)
+- [2025-12-19 セッション05](#2025-12-19-セッション05)
 - [2025-11-23 セッション01](#2025-11-23-セッション01)
 - [2025-11-26 セッション02](#2025-11-26-セッション02)
 - [2025-12-05 セッション03](#2025-12-05-セッション03)
@@ -29,6 +33,109 @@
 
 ### 🔗 関連コミット
 -
+
+## 2025-12-19 セッション08
+
+### 🎯 セッション目標
+- バックアップ取り込み時の重複エラーを解消する
+
+### ✅ 実施内容
+1. `trainingmetric` の主キー衝突を回避するため、メトリクス挿入時に `id` を付与しないよう修正
+2. 既存データとの重複を避けるため、`(timestep, episode)` の既存ペアをデフォルトでスキップする挙動へ変更
+
+### 📊 成果物
+- `scripts/import_backup_trainingdata.py`: 重複スキップの既定化と `id` 省略
+
+### 🧠 学んだこと・課題
+1. バックアップ取り込み時は主キーをそのまま使うと衝突しやすく、自然キーでの重複判定が安全
+
+### ⏭️ 次回セッションの予定
+1. 取り込みスクリプトを再実行して結果を確認する
+
+### 🔗 関連コミット
+- なし
+
+---
+
+## 2025-12-19 セッション07
+
+### 🎯 セッション目標
+- バックアップ内の training data を PostgreSQL に登録する手順を整備する
+
+### ✅ 実施内容
+1. `backup/security_robot_backup_20251213_141144.tar.gz` を展開し、`db_export.json` の内容を確認
+2. PostgreSQL 取り込み用に `scripts/import_backup_trainingdata.py` を追加し、ジョブ/メトリクスの投入処理を実装
+3. PROGRESS の次アクションに取り込み実行の項目を追加
+
+### 📊 成果物
+- `scripts/import_backup_trainingdata.py`: `db_export.json` の読み込みと DB 取り込みスクリプト
+- `report/PROGRESS.md`: 取り込み実行のアクション追加
+
+### 🧠 学んだこと・課題
+1. `Settings` は `.env` を自動読み込みしないため、`DATABASE_URL` は引数または環境変数で指定する必要がある
+
+### ⏭️ 次回セッションの予定
+1. PostgreSQL 接続情報を確認し、取り込みスクリプトを実行する
+
+### 🔗 関連コミット
+- なし
+
+---
+
+## 2025-12-19 セッション06
+
+### 🎯 セッション目標
+- GPU 必須構成に戻し、Compose 起動時に必ず GPU を使う状態へ戻す
+
+### ✅ 実施内容
+1. `docker/docker-compose.yml` で CUDA ベースイメージを既定化し、`gpus: all` と `privileged: true` を付与
+2. `docker/Dockerfile` の `BASE_IMAGE` 既定を CUDA に戻す
+3. GPU オーバーライド Compose を削除し、README と docker/README を GPU 前提に更新
+
+### 📊 成果物
+- `docker/docker-compose.yml`: GPU必須の構成に戻し、`gpus: all` を追加
+- `docker/Dockerfile`: CUDA ベースイメージを既定化
+- `README.md`, `docker/README.md`: GPU前提の手順に更新
+- `.env.example`: GPU向けのベースイメージ注釈へ更新
+
+### 🧠 学んだこと・課題
+1. Compose 側で `gpus: all` を明示しないと GPU 利用が有効化されない
+
+### ⏭️ 次回セッションの予定
+1. `docker compose up --build` で GPU が認識されることを確認する
+
+### 🔗 関連コミット
+- なし
+
+---
+
+## 2025-12-19 セッション05
+
+### 🎯 セッション目標
+- Docker Compose 起動エラーの原因を特定し、CPU環境でも起動できるように改善する
+
+### ✅ 実施内容
+1. GPU前提の Compose 設定が CPU 環境で失敗する前提を整理し、CPU/GPU の切り替えを明示化
+2. `docker/Dockerfile` にベースイメージ切替用のビルド引数を追加し、CPU向けを既定化
+3. GPU用の `docker/docker-compose.gpu.yml` を追加し、GPU時のみCUDAベースイメージとデバイス予約を適用
+4. README と docker/README で起動手順を更新
+
+### 📊 成果物
+- `docker/Dockerfile`: `BASE_IMAGE` のビルド引数化と Python 解決の柔軟化
+- `docker/docker-compose.yml`: CPU向け既定の Compose 設定に変更
+- `docker/docker-compose.gpu.yml`: GPU向けオーバーライド追加
+- `README.md`, `docker/README.md`, `.env.example`: 起動手順と補足の更新
+
+### 🧠 学んだこと・課題
+1. GPU前提の Compose 設定は CUDA 非対応環境で起動を阻害するため、オーバーライド分離が安全
+
+### ⏭️ 次回セッションの予定
+1. 実機で `docker compose up` / GPU オーバーライドの双方を確認
+
+### 🔗 関連コミット
+- なし
+
+---
 
 ### 2025-11-23 セッション01
 
@@ -194,4 +301,3 @@
 
 ### 🔗 関連コミット
 - (未コミット)
-

@@ -1,7 +1,8 @@
 ARG APP_UID=1000
 ARG APP_GID=1000
+ARG BASE_IMAGE=nvidia/cuda:12.6.0-base-ubuntu24.04
 
-FROM nvidia/cuda:12.6.0-base-ubuntu24.04 AS base
+FROM ${BASE_IMAGE} AS base
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV PATH="/app/.venv/bin:/root/.local/bin:${PATH}"
@@ -17,13 +18,13 @@ RUN apt-get update \
     git \
   && rm -rf /var/lib/apt/lists/*
 
-# Symlink python3 to python
-RUN ln -s /usr/bin/python3 /usr/bin/python
+# Symlink python3 to python if needed
+RUN if ! command -v python >/dev/null 2>&1; then ln -s "$(command -v python3)" /usr/local/bin/python; fi
 
 # Install dependencies as root before creating user
 # This ensures dependency layer is cached even when APP_UID/APP_GID changes
 COPY pyproject.toml requirements.txt ./
-RUN uv venv .venv --python /usr/bin/python3 && \
+RUN uv venv .venv --python python3 && \
     uv pip install --no-cache -r requirements.txt
 
 # Create user after dependency installation to maximize cache efficiency
