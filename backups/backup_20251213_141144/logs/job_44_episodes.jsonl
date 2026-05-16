@@ -1,0 +1,6 @@
+{"start_positions": [[18, 6], [16, 18], [6, 8]], "final_reward": -8004.415718333332, "coverage": 0.765, "avg_threat": 0.746375, "steps": 1600, "config_drain": 0.1, "config_threat_penalty": 50.0}
+{"start_positions": [[17, 11], [6, 17], [1, 14]], "final_reward": -12353.931379166666, "coverage": 0.595, "avg_threat": 0.784525, "steps": 1600, "config_drain": 0.1, "config_threat_penalty": 50.0}
+{"start_positions": [[17, 8], [5, 12], [8, 12]], "final_reward": -4665.637131388865, "coverage": 0.6575, "avg_threat": 0.7863500000000002, "steps": 1026, "config_drain": 0.1, "config_threat_penalty": 50.0}
+{"start_positions": [[4, 12], [13, 9], [6, 7]], "final_reward": -10531.089998472196, "coverage": 0.69, "avg_threat": 0.835275, "steps": 1600, "config_drain": 0.1, "config_threat_penalty": 50.0}
+{"start_positions": [[8, 14], [4, 13], [18, 11]], "final_reward": -10419.934775972193, "coverage": 0.7075, "avg_threat": 0.9399250000000001, "steps": 1600, "config_drain": 0.1, "config_threat_penalty": 50.0}
+{"start_positions": [[4, 14], [2, 5], [8, 18]], "final_reward": -9679.627746111095, "coverage": 0.7275, "avg_threat": 0.781025, "steps": 1600, "config_drain": 0.1, "config_threat_penalty": 50.0}

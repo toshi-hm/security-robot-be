@@ -76,6 +76,9 @@ class SecurityEnvironment(gym.Env):
     collision_penalty_scale: float = 0.3,
     min_active_robots: int = 0,
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
+    exploration_bonus: float = 1.0,
+    revisit_penalty: float = 0.05,
+    revisit_window: int = 50,
     **map_config: Any,
   ) -> None:
     # Initialize parent Gymnasium Env class
@@ -90,6 +93,9 @@ class SecurityEnvironment(gym.Env):
     self.collision_penalty_scale = collision_penalty_scale
     self.min_active_robots = min_active_robots
     self.reward_normalization_mode = reward_normalization_mode
+    self.exploration_bonus = exploration_bonus
+    self.revisit_penalty = revisit_penalty
+    self.revisit_window = revisit_window
     self.map_config = map_config
     self.logger: object | None = None
 
@@ -166,7 +172,7 @@ class SecurityEnvironment(gym.Env):
 
     self.threat_levels = self._build_grid(0.0)
     self.last_patrolled = self._build_grid(0)  # Used for Threat Logic
-    self.visit_history_map = self._build_grid(-1000.0)  # Used for Observation (Ch 2)
+    self.visit_history_map = self._build_grid(-1000.0)  # Track last visit time (Observation Ch2 & revisit penalty)
     self.obstacles = self._generate_obstacles()
     self.suspicious_objects: dict[tuple[int, int], int] = {}
     self.visited_cells: set[tuple[int, int]] = set()
@@ -203,7 +209,11 @@ class SecurityEnvironment(gym.Env):
                  - 0: Move forward
                  - 1: Turn left
                  - 2: Turn right
-                 - 3: Patrol area
+                 - 3: Stay (wait in place)
+
+    Note:
+        Patrol (security surveillance) is automatically performed after every action
+        for all active robots that are not charging and have battery > 0%.
 
     Returns:
         tuple containing:
@@ -284,10 +294,21 @@ class SecurityEnvironment(gym.Env):
 
       # Update position if changed
       if final_positions[i] != self.robot_positions[i]:
-        self.robot_positions[i] = final_positions[i]
-        self.visited_cells.add(final_positions[i])
-        # Update Visit History Map (Presence)
-        nx, ny = final_positions[i]
+        new_pos = final_positions[i]
+        nx, ny = new_pos
+        
+        # Check if this is a new cell (exploration bonus)
+        if new_pos not in self.visited_cells:
+          total_reward += self.exploration_bonus
+        else:
+          # Check for revisit penalty (recently visited cell)
+          steps_since_visit = self.time_step - self.visit_history_map[ny][nx]
+          if steps_since_visit < self.revisit_window:
+            total_reward -= self.revisit_penalty
+        
+        self.robot_positions[i] = new_pos
+        self.visited_cells.add(new_pos)
+        # Update Visit History Map
         self.visit_history_map[ny][nx] = self.time_step
         # Move reward logic
         total_reward -= self.MOVE_COST
@@ -300,7 +321,7 @@ class SecurityEnvironment(gym.Env):
         # Original code didn't. Let's stick to collision penalty only for robot-robot.
         pass
 
-      # Handle other actions (Turn, Patrol)
+      # Handle other actions (Turn, Stay)
       if self.is_charging_list[i]:
         pass
       elif action == 1:
@@ -310,6 +331,13 @@ class SecurityEnvironment(gym.Env):
         self.robot_directions[i] = (self.robot_directions[i] + 1) % 4
         total_reward -= self.TURN_COST
       elif action == 3:
+        # Stay action: robot waits in place (no movement, no turn cost)
+        pass
+
+    # 4. Automatic patrol for all active robots (not charging, battery > 0)
+    # This is the core security function - robots always patrol when operational
+    for i in range(self.num_robots):
+      if self.battery_levels[i] > 0.0 and not self.is_charging_list[i]:
         total_reward += self._patrol_area(i)
         # Patrol also updates presence (redundant if moved, but safe)
         rx, ry = self.robot_positions[i]
