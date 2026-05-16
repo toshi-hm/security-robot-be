@@ -1,7 +1,8 @@
+from argparse import Namespace
 import asyncio
 import logging
 
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import BaseCallback
 
 from app.core.redis_protocol import RedisPublisher
 from app.core.training.ppo_service import PPOTrainingService
@@ -20,7 +21,7 @@ class NoOpRedis(RedisPublisher):
     pass
 
 
-def main(args=None) -> None:
+def main(args: Namespace | None = None) -> None:
   session_id = 27
   db = SessionLocal()
   try:
@@ -55,7 +56,7 @@ def main(args=None) -> None:
     service = PPOTrainingService()
 
     # We need rudimentary callbacks to avoid errors if logic depends on them
-    callbacks: list[CheckpointCallback] = []
+    callbacks: list[BaseCallback] = []
     if args and args.save_freq > 0:  # Added conditional check for args
       # Add a simple print callback?
       pass  # Placeholder for callback addition

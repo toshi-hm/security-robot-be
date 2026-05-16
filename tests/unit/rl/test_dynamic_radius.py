@@ -1,3 +1,5 @@
+import numpy as np
+
 from rl.environments.security_env import SecurityEnvironment
 
 
@@ -19,7 +21,7 @@ class TestDynamicPatrolRadius:
     env.threat_levels[5][8] = 0.5
 
     # Action 3: Patrol
-    env.step([3])
+    env.step(np.array([3], dtype=np.int32))
 
     # Check if threat at (8, 5) is cleared
     assert env.threat_levels[5][8] == 0.0, (
@@ -45,7 +47,7 @@ class TestDynamicPatrolRadius:
     env.threat_levels[5][8] = 0.9  # Make it distinct
 
     # Action 3: Patrol
-    env.step([3])
+    env.step(np.array([3], dtype=np.int32))
 
     # Check if threat at (8, 5) is still there
     # Note: step() increments threat by 0.01, so 0.9 -> 0.91
