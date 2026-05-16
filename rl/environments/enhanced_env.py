@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import math
-from typing import Any, Literal, Optional
+import random
+from typing import Any, Literal
 
 import numpy as np
 
@@ -14,6 +15,8 @@ from rl.environments.map_generator import MapType
 from .security_env import SecurityEnvironment
 
 logger = logging.getLogger(__name__)
+
+# Optimal start positions are now passed via config or generated dynamically
 
 
 class EnhancedSecurityEnvironment(SecurityEnvironment):
@@ -32,6 +35,8 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     threat_penalty_weight: float = 0.0,
     battery_drain_rate: float = 0.001,
     episode_log_file: str | None = None,
+    strategic_init_mode: bool = False,
+    optimal_start_positions: list[tuple[int, int]] | None = None,
     map_type: MapType = "random",
     reward_normalization_mode: Literal["mean", "sum", "sqrt_mean"] = "mean",
     **map_config: Any,
@@ -41,6 +46,11 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     self.diversity_weight = diversity_weight
     self.threat_penalty_weight = threat_penalty_weight
     self.reward_normalization_mode = reward_normalization_mode
+
+    # Must set this before super().__init__ because it calls reset()
+    self.strategic_init_mode = strategic_init_mode
+    self.optimal_start_positions = optimal_start_positions or []
+    self.episode_start_positions: list[Any] = []
 
     super().__init__(
       width=width,
@@ -54,10 +64,9 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
     )
     self._init_tracking_structures()
 
-    # Override battery drain rate
+    # Override battery drain rate (must be AFTER super init or it gets reset to 0.001)
     self.battery_drain_rate = battery_drain_rate
     self.episode_log_file = episode_log_file
-    self.episode_start_positions: list[Any] = []
     self.episode_cumulative_reward = 0.0
 
     # DEBUG PRINT
@@ -93,6 +102,37 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
       self._log_episode_result(self.episode_cumulative_reward, info)
 
     observation, info = super().reset(seed=seed, options=options)
+
+    # Strategic Initialization Logic
+    if self.strategic_init_mode:
+      if self.optimal_start_positions:
+        available_optimals = list(self.optimal_start_positions)
+      else:
+        # Fallback: Dynamic generation based on map dimensions
+        available_optimals = self._generate_fallback_start_positions()
+
+      random.shuffle(available_optimals)
+
+      new_positions: list[tuple[int, int]] = []
+      for pos in available_optimals:
+        if len(new_positions) >= self.num_robots:
+          break
+        x, y = pos
+        if self._is_valid_position(x, y) and (x, y) not in new_positions:
+          new_positions.append((x, y))
+
+      # Fill remaining with existing random positions if needed
+      if len(new_positions) < self.num_robots:
+        for pos in self.robot_positions:
+          if len(new_positions) >= self.num_robots:
+            break
+          if pos not in new_positions:
+            new_positions.append(pos)
+
+      self.robot_positions = new_positions
+      # Reset visited cells to match new start positions
+      self.visited_cells = set(self.robot_positions)
+
     # Capture starting positions for analysis
     self.episode_start_positions = list(self.robot_positions)
 
@@ -204,6 +244,23 @@ class EnhancedSecurityEnvironment(SecurityEnvironment):
 
     except Exception as e:
       logger.error(f"Failed to log episode result: {e}")
+
+  def _generate_fallback_start_positions(self) -> list[tuple[int, int]]:
+    """Generate spread-out positions based on map dimensions (Corners, Center, Mid-Edges)."""
+    w, h = self.width, self.height
+    candidates = [
+      (1, 1),
+      (w - 2, 1),
+      (1, h - 2),
+      (w - 2, h - 2),  # Corners (padded)
+      (w // 2, h // 2),  # Center
+      (w // 2, 1),
+      (w // 2, h - 2),
+      (1, h // 2),
+      (w - 2, h // 2),  # Mid-edges
+    ]
+    # Filter valid positions
+    return [p for p in candidates if self._is_valid_position(p[0], p[1])]
 
   # ------------------------------------------------------------------
   # Tracking helpers

@@ -473,6 +473,10 @@ class TrainingSessionCreate(BaseModel):
     learning_rate: float = Field(0.0003, gt=0.0, le=0.1, description="学習率")
     batch_size: int = Field(64, gt=0, le=1024, description="バッチサイズ")
     num_workers: int = Field(1, ge=1, le=16, description="ワーカー数(A3C用)")
+    
+    # Parallel & Advanced
+    num_envs: int = Field(1, ge=1, le=32, description="並列環境数")
+    policy_type: Literal["MlpPolicy", "CnnPolicy"] = Field("MlpPolicy", description="ポリシーネットワークタイプ")
 
     config: Optional[Dict[str, Any]] = Field(None, description="追加設定")
 
@@ -585,9 +589,13 @@ Content-Type: application/json
   "diversity_weight": 2.0,
   "learning_rate": 0.0003,
   "batch_size": 64,
+  "num_envs": 4,
   "config": {
     "description": "探索重視の実験",
-    "notes": "カバー率80%以上を目標"
+    "notes": "カバー率80%以上を目標",
+    "battery_drain_rate": 0.001,
+    "threat_penalty_weight": 0.0,
+    "strategic_init_mode": false
   }
 }
 ```

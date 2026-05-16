@@ -197,21 +197,22 @@ required_battery = (distance_to_station * 0.001) * 1.5  # 1.5倍の安全マー�
 
 ## 4. 強化学習との統合
 
-### 4.1 観測空間の拡張
+### 4.1 観測空間の拡張 (Multi-Agent対応)
 
 **要件ID: OBS-001**
 
-現在の観測空間 `(width, height, 3)` を `(width, height, 5)` に拡張：
+現在の観測空間 `(width, height, 4 + 2 * num_robots)` に拡張：
 
 ```python
 # チャンネル0: 脅威レベルマップ (0.0-1.0)
 # チャンネル1: 障害物マップ (0.0 or 1.0)
-# チャンネル2: ロボット位置・向きエンコーディング (0.0-1.0)
-# チャンネル3: 充電ステーション位置マップ (0.0 or 1.0)  ← 新規
-# チャンネル4: バッテリー残量（全セルで同一値） (0.0-1.0)  ← 新規
+# チャンネル2: 訪問履歴マップ (0.0-1.0)  ← Cycle 11 追加: 1.0=直近訪問, 0.0=未訪問/古い
+# チャンネル3: 充電ステーション位置マップ (0.0 or 1.0)
+# チャンネル4 + 2*i: ロボットiの位置・向き (0.0-1.0)
+# チャンネル5 + 2*i: ロボットiのバッテリー残量 (0.0-1.0)
 
-observation[station_x][station_y][3] = 1.0  # 充電ステーション位置
-observation[:, :, 4] = battery_percentage / 100.0  # 正規化されたバッテリー残量
+# Implementation Detail:
+# observation_space = spaces.Box(low=0, high=1, shape=(width, height, 4 + 2 * num_robots))
 ```
 
 ### 4.2 行動空間
@@ -243,7 +244,7 @@ R_base = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration 
 R_total = R_base + R_battery_penalty + R_charging_efficiency
 ```
 
-#### 4.3.2 バッテリーペナルティ
+#### 4.3.2 バッテリーペナルティ (累積的)
 
 ```python
 # バッテリー切れペナルティ
@@ -251,19 +252,17 @@ if battery_percentage <= 0.0:
     R_battery_penalty = -100.0  # 特大ペナルティ
     terminated = True
 
-# バッテリー低下警告（段階的ペナルティ）
-elif battery_percentage < 20.0:
-    # 20%未満で小ペナルティを付与（充電を促す）
-    R_battery_penalty = -0.5 * (20.0 - battery_percentage) / 20.0
-    # 例: 10%の場合、-0.25ポイント
+# バッテリー低下警告（累積的ペナルティ）
+# 低下すればするほど、複数のペナルティ条件にヒットする
+if battery_percentage < 20.0:
+    # 20%未満で小ペナルティ
+    R_battery_penalty -= 0.5 * (20.0 - battery_percentage) / 20.0
 
-elif battery_percentage < 10.0:
-    # 10%未満で中ペナルティ（緊急充電を促す）
-    R_battery_penalty = -1.0 * (10.0 - battery_percentage) / 10.0
-    # 例: 5%の場合、-0.5ポイント
+if battery_percentage < 10.0:
+    # 10%未満でさらに中ペナルティを加算
+    R_battery_penalty -= 1.0 * (10.0 - battery_percentage) / 10.0
 
-else:
-    R_battery_penalty = 0.0
+# 最終的なバッテリーペナルティは全ロボットの合計
 ```
 
 #### 4.3.3 充電効率報酬

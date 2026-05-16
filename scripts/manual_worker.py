@@ -40,9 +40,11 @@ async def process_job(job_id: int) -> None:
   try:
     # Fetch Job using Raw SQL to avoid Enum mapping issues
     result = db.execute(
-      text("SELECT id, name, algorithm, config, total_timesteps, env_width, env_height, "
-           "num_robots, coverage_weight, exploration_weight, diversity_weight "
-           "FROM trainingjob WHERE id = :id"),
+      text(
+        "SELECT id, name, algorithm, config, total_timesteps, env_width, env_height, "
+        "num_robots, coverage_weight, exploration_weight, diversity_weight "
+        "FROM trainingjob WHERE id = :id"
+      ),
       {"id": job_id},
     )
     row = result.mappings().one_or_none()

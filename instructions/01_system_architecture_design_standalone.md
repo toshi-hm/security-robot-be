@@ -224,7 +224,12 @@ app/
   "env_height": 20,
   "coverage_weight": 1.5,
   "exploration_weight": 3.0,
-  "diversity_weight": 2.0
+  "diversity_weight": 2.0,
+  "config": {
+    "battery_drain_rate": 0.05,
+    "threat_penalty_weight": 50.0,
+    "strategic_init_mode": true
+  }
 }
 
 # レスポンス(202 Accepted):
@@ -435,17 +440,20 @@ volumes:
 
 - **空間表現**: W×Hの2次元グリッド(デフォルト8×8、最大50×50)
 - **セル状態**: 各セルは脅威レベル(0.0-1.0)、障害物フラグ、訪問カウントを保持
-- **ロボット状態**: (x, y)座標、向き(0=北, 1=東, 2=南, 3=西)、バッテリー残量(0.0-100.0%)
-- **充電ステーション**: マップ内のランダムな位置(エピソードごとに変更、障害物を避けて配置)、ロボットの初期位置
+-   **空間表現**: W×Hの2次元グリッド(デフォルト8×8、最大50×50)
+-   **セル状態**: 各セルは脅威レベル(0.0-1.0)、障害物フラグ、訪問カウントを保持
+-   **ロボット状態**: (x, y)座標、向き(0=北, 1=東, 2=南, 3=西)、バッテリー残量(0.0-100.0%)
+-   **充電ステーション**: マップ内のランダムな位置(エピソードごとに変更、障害物を避けて配置)、ロボットの初期位置
 
 **観測空間(Observation Space):**
 
-3次元テンソル: (W, H, 5)
-- チャンネル0: 脅威レベルマップ(0.0-1.0の連続値)
-- チャンネル1: 障害物マップ(0=通行可, 1=障害物)
-- チャンネル2: ロボット位置・向きエンコーディング
-- チャンネル3: 充電ステーション位置マップ(0.0 or 1.0)
-- チャンネル4: バッテリー残量(0.0-1.0、正規化済み)
+3次元テンソル- **観測空間**: `(W, H, 4 + 2 * num_robots)`
+    - Ch 0: 脅威レベル (0.0-1.0)
+    - Ch 1: 障害物位置 (0 or 1)
+    - **Ch 2: 訪問履歴マップ (Visit History) (0.0-1.0)** - *New in Cycle 11*
+    - Ch 3: 充電ステーション位置 (0 or 1)
+    - Ch 4 + 2i: ロボット i の位置 (0 or 1)
+    - Ch 5 + 2i: ロボット i のバッテリー (0.0-1.0)
 
 ```python
 # 例: 8x8環境の観測
@@ -477,16 +485,20 @@ R = R_threat + R_suspicious - C_movement + R_battery_penalty + R_charging_effici
 
 拡張環境の報酬:
 ```
-R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity - C_movement + R_battery_penalty + R_charging_efficiency
+R = R_threat + R_suspicious + w_cov × R_coverage + w_exp × R_exploration + w_div × R_diversity + R_threat_penalty - C_movement + R_battery_penalty + R_charging_efficiency
 ```
 
 詳細計算式:
 ```python
-# 脅威除去報酬
+# 脅威除去報酬 (Action 3: Patrol実行時)
 R_threat = Σ(threat_level_before - threat_level_after) × 10
-# 巡回アクション実行時、巡回範囲内(radius=2)の全セルの脅威レベルを0.2低減
+# 巡回アクション実行時、巡回範囲内(radius=2)の全セルの脅威レベルを0.2低減し、その低減量に応じて報酬を得る。
 # 例: 範囲内5セルの脅威が[0.5, 0.6, 0.4, 0.3, 0.2]なら、
 #     R_threat = (0.5+0.6+0.4+0.3+0.2 - 0.3-0.4-0.2-0.1-0.0) × 10 = 10.0
+
+# 脅威維持ペナルティ (Enhanced Environmentのみ)
+# マップ全体の平均脅威レベルに応じて毎ステップペナルティを与えることで、常に脅威を低く保つインセンティブを与える。
+R_threat_penalty = -1.0 × average_threat_level × threat_penalty_weight
 
 # 不審物除去報酬(時間ボーナス)
 R_suspicious = 2.0 + (20.0 - 2.0) × (1 - detection_time / max_time)
@@ -526,19 +538,28 @@ R_diversity = ((unique_positions_last_N_steps / N) × diversity_weight) / num_ro
   - `collision_penalty_scale`: ロボット数増加に伴う衝突ペナルティの増加率を調整可能（デフォルト0.3）。
   - `min_active_robots`: エピソード終了判定となる稼働ロボット数の閾値を設定可能（デフォルト0 = 全滅まで継続）。
 
+**戦略的初期配置 (Strategic Initialization):**
+過去の学習(Cycle 09/10)により特定された「高パフォーマンスな開始位置」周辺にロボットを優先的に配置するモードです。
+- `strategic_init_mode=True` の場合、ランダム配置ではなく、事前に定義された最適位置候補(OPTIMAL_START_POSITIONS)から開始位置を選択します。
+- これにより、充電ステーションへのアクセスや脅威分散が効率化され、学習初期のパフォーマンスが向上します。
+
 # 移動コスト
 C_movement = 0.1 × is_forward + 0.05 × is_rotation
 # 前進: -0.1, 回転: -0.05, 巡回: 0
 
 # バッテリーペナルティ(新規)
+# バッテリーペナルティ (累積的)
+R_battery_penalty = 0.0
+
+# 1. 枯渇ペナルティ (全ロボット枯渇時)
 if battery_percentage <= 0.0:
-    R_battery_penalty = -100.0  # バッテリー切れ時の特大ペナルティ
-elif battery_percentage < 20.0:
-    R_battery_penalty = -0.5 × (20.0 - battery_percentage) / 20.0
-elif battery_percentage < 10.0:
+    R_battery_penalty = -100.0
+
+# 2. 低残量ペナルティ (20%未満で発生、10%未満でさらに加算)
+if battery_percentage < 20.0:
+    R_battery_penalty -= 0.5 × (20.0 - battery_percentage) / 20.0
+if battery_percentage < 10.0:
     R_battery_penalty -= 1.0 × (10.0 - battery_percentage) / 10.0
-else:
-    R_battery_penalty = 0.0
 
 # 充電ステーションからの距離ペナルティ(バッテリー低下時)
 if battery_percentage < 30.0:

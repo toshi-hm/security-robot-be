@@ -25,8 +25,8 @@ class TestMultiAgentSecurityEnv:
     obs, _ = env.reset()  # reset returns obs, info
 
     # Shape should be (width, height, 3 + 2 * num_robots)
-    # For 2 robots: 3 + 2*2 = 7 channels
-    assert obs.shape == (10, 10, 7)
+    # For 2 robots: 4 global + 2*2 = 8 channels
+    assert obs.shape == (10, 10, 8)
 
     # Check channels
     # Channel 0: Threat (Global)
@@ -53,13 +53,8 @@ class TestMultiAgentSecurityEnv:
     obs, info = env.reset()
 
     # Check observation shape
-    # 3 global + 2 per robot * 3 robots = 9 channels
-    assert obs.shape == (10, 10, 9)
-
-    # Check if all robots are in the observation (Channel 2 for each robot)
-    # Robot i is in channel 5*i + 2
-    assert len(env.robot_positions) == 3
-    assert len(env.robot_directions) == 3
+    # 3 robots -> 4 global + 6 robot = 10 channels
+    assert obs.shape == (env.height, env.width, 10)
 
     # Verify positions are unique (scattered)
     unique_positions = set(env.robot_positions)

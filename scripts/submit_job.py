@@ -26,6 +26,7 @@ async def submit_job(args: argparse.Namespace) -> str | None:
       "environment_type": "enhanced",
       "battery_drain_rate": args.drain,
       "threat_penalty_weight": args.threat,
+      "strategic_init_mode": args.strategic,
       "episode_log_file": None,  # Placeholder, filled by worker
     },
   }
@@ -38,7 +39,7 @@ async def submit_job(args: argparse.Namespace) -> str | None:
       if response.status_code in (200, 202):
         print(f"Success! Job ID: {response.json().get('id')}")
         print(response.json())
-        return str(response.json().get('id'))
+        return str(response.json().get("id"))
       else:
         print(f"Failed: {response.status_code}")
         print(response.text)
@@ -56,8 +57,9 @@ if __name__ == "__main__":
   parser.add_argument("--exp", type=float, default=0.3)
   parser.add_argument("--div", type=float, default=0.2)
   parser.add_argument("--threat", type=float, default=0.0)
-  parser.add_argument("--drain", type=float, default=0.001)
-  parser.add_argument("--seed", type=int, default=42)
+  parser.add_argument("--drain", type=float, default=0.001, help="Battery drain rate")
+  parser.add_argument("--strategic", action="store_true", help="Enable strategic initialization")
+  parser.add_argument("--seed", type=int, default=42, help="Map seed")
 
   args = parser.parse_args()
 

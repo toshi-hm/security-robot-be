@@ -82,11 +82,11 @@ def test_observation_space_includes_battery(battery_env):
   """観測空間が5チャンネルであることを確認"""
   obs, _info = battery_env.reset()
 
-  # 観測空間は(10, 10, 5)
-  assert battery_env.observation_space.shape == (10, 10, 5)
+  # 観測空間は(10, 10, 6) [Single Robot: 4 shared + 2 specific]
+  assert battery_env.observation_space.shape == (10, 10, 6)
   assert len(obs) == 10
   assert len(obs[0]) == 10
-  assert len(obs[0][0]) == 5
+  assert len(obs[0][0]) == 6
 
 
 def test_charging_station_in_observation(battery_env):
@@ -95,11 +95,11 @@ def test_charging_station_in_observation(battery_env):
 
   station_x, station_y = battery_env.charging_stations[0]
 
-  # チャンネル2に充電ステーションが記録されている
-  assert obs[station_y][station_x][2] == 1.0
+  # チャンネル3に充電ステーションが記録されている (Shifted from 2)
+  assert obs[station_y][station_x][3] == 1.0
 
-  # チャンネル4にバッテリー残量（正規化済み）が記録されている
-  assert obs[station_y][station_x][4] == 1.0  # 100% = 1.0
+  # チャンネル5にバッテリー残量（正規化済み）が記録されている (Shifted from 4)
+  assert obs[station_y][station_x][5] == 1.0  # 100% = 1.0
 
 
 def test_battery_in_info_dict(battery_env):
@@ -274,7 +274,65 @@ def test_render_includes_battery_info(battery_env, capsys):
 
   # バッテリー残量が表示されているが、充電中表示はない
   assert "Battery:" in captured.out
+  # バッテリー残量が表示されているが、充電中表示はない
+  assert "Battery:" in captured.out
   assert "[CHARGING]" not in captured.out
+
+
+def test_visit_history_channel(battery_env):
+  """訪問履歴チャンネル(Ch 2)の動作確認"""
+  obs, info = battery_env.reset()
+
+  # Force safe position
+  battery_env.robot_positions[0] = (5, 5)
+  # Clear obstacles around
+  for dx in range(-1, 2):
+    for dy in range(-1, 2):
+      battery_env.obstacles[5 + dy][5 + dx] = False
+
+  # Manually update history for new forced position
+  # Reset everything to -1000
+  battery_env.visit_history_map = battery_env._build_grid(-1000.0)
+  # Mark current pos
+  battery_env.visit_history_map[5][5] = 0.0
+
+  obs = battery_env._get_observation()
+
+  # 初期状態: ロボットの初期位置は訪問済み (1.0)
+  # それ以外は未訪問 (0.0)
+  rx, ry = 5, 5
+  assert obs[ry, rx, 2] == 1.0
+
+  # Check a different spot is 0.0
+  if ry + 2 < battery_env.height:
+    assert obs[ry + 2, rx, 2] == 0.0
+
+  # Step 1: Stay or move. Let's patrol (stay) to mark current spot
+  obs, _, _, _, _ = battery_env.step([3])
+
+  # Now (rx, ry) should be marked as visited at time_step=1
+  # _get_observation uses current time_step (1).
+  # last_patrolled was updated to 1.
+  # diff = 0 -> val = 1.0
+  assert obs[ry, rx, 2] == 1.0
+
+  # Other places 0.0
+  # Other places 0.0 (Vision range is 2, so +1 and +2 are visited)
+  if ry + 3 < battery_env.height:
+    assert obs[ry + 3, rx, 2] == 0.0
+
+  # Step 2: Move away (Action 0 = North = y-1)
+  # From (5,5) to (5,4)
+  obs, _, _, _, _ = battery_env.step([0])
+
+  # Previous spot (5,5) should decay
+  # diff = 2 - 1 = 1
+  # val = 1.0 - 1/500 = 0.998
+  assert abs(obs[ry, rx, 2] - (1.0 - 1.0 / 500.0)) < 1e-6
+
+  # New spot (5,4) should be 1.0 (Recently visited)
+  new_ry = 4
+  assert obs[new_ry, rx, 2] == 1.0
 
 
 # ============================================================
